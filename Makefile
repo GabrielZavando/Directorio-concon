@@ -66,7 +66,7 @@ build: ## Build the project (stack-specific)
 
 audit: ## Security audit (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm audit --audit-level=high ;; \
+	  node)   npm --prefix backend audit --audit-level=high ;; \
 	  php)    composer audit ;; \
 	  python) pip-audit ;; \
 	  go)     go list -m -u ;; \
