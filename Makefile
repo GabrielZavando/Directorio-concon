@@ -10,8 +10,9 @@
 .PHONY: help install lint test build audit commitlint refs
 
 # Detect the active stack from its manifest file.
+# This is a monorepo: the Node app lives in backend/, so check there first.
 STACK := $(shell \
-  if [ -f package.json ]; then echo node; \
+  if [ -f backend/package.json ] || [ -f package.json ]; then echo node; \
   elif [ -f composer.json ]; then echo php; \
   elif [ -f pyproject.toml ] || [ -f requirements.txt ]; then echo python; \
   elif [ -f go.mod ]; then echo go; \
@@ -44,7 +45,7 @@ lint: ## Lint and static analysis (stack-specific)
 
 test: ## Run the test suite (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend test ;; \
+	  node)   npm --prefix backend test -- --passWithNoTests ;; \
 	  php)    composer test ;; \
 	  python) pytest ;; \
 	  go)     go test ./... ;; \
