@@ -1,0 +1,36 @@
+# docker-compose.prod.yml — Despliegue en VPS (Directorio Concón API)
+# Uso: docker compose -f docker-compose.prod.yml up -d
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: directorio-concon-api:production
+    container_name: directorio-concon-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Redis opcional (cache). Comentar si no se usa.
+  redis:
+    image: redis:7-alpine
+    container_name: directorio-concon-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

@@ -1,0 +1,215 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && hashFiles('backend/Dockerfile') != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        # If tag, use tag; if not, use short SHA
+        if: startsWith(github.ref, 'refs/tags/')
+
+      - name: Extract version from commit
+        id: version-commit
+        run: echo "VERSION=0.0.0-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+        if: startsWith(github.ref, 'refs/tags/') == false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION || steps.version-commit.outputs.VERSION }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+            API_URL=${{ vars.STAGING_API_URL }}
+
+      - name: Deploy to staging server
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          SSH_HOST: ${{ secrets.STAGING_HOST }}
+          SSH_USER: ${{ secrets.STAGING_USER }}
+        run: |
+          echo "$SSH_KEY" | base64 -d > deploy_key
+          chmod 600 deploy_key
+          ssh -o StrictHostKeyChecking=no -i deploy_key $SSH_USER@$SSH_HOST << 'EOF'
+            cd /opt/directorio-concon
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:staging
+            docker-compose up -d
+            docker image prune -f
+          EOF
+
+      - name: Staging smoke tests
+        run: |
+          sleep 30
+          curl -f https://staging.${{ vars.DOMAIN }}/api/v1/health || exit 1
+          npm --prefix backend run test:smoke -- --env=staging || true
+
+      - name: Notify success
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"✅ Deployed to staging: ${{ env.IMAGE_NAME }}:staging"}'
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"❌ Staging deploy failed: ${{ env.IMAGE_NAME }}"}'
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    needs: deploy-staging
+    if: startsWith(github.ref, 'refs/tags/v') && hashFiles('backend/Dockerfile') != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+            API_URL=${{ vars.PRODUCTION_API_URL }}
+
+      - name: Deploy to production server
+        env:
+          SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PRODUCTION_HOST }}
+          SSH_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          echo "$SSH_KEY" | base64 -d > deploy_key
+          chmod 600 deploy_key
+          ssh -o StrictHostKeyChecking=no -i deploy_key $SSH_USER@$SSH_HOST << 'EOF'
+            cd /opt/directorio-concon
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:production
+            docker-compose up -d
+            docker image prune -f
+          EOF
+
+      - name: Production smoke tests
+        run: |
+          sleep 30
+          curl -f https://${{ vars.DOMAIN }}/api/v1/health || exit 1
+          npm --prefix backend run test:smoke -- --env=production || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/**/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify success
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"✅ Deployed to production: ${{ env.IMAGE_NAME }}@${{ steps.version.outputs.VERSION }}"}'
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"❌ Production deploy failed: ${{ env.IMAGE_NAME }}@${{ steps.version.outputs.VERSION }}"}'
+
+  rollback:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    environment: production
+    if: failure() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && hashFiles('backend/Dockerfile') != ''
+    needs: deploy-production
+
+    steps:
+      - name: Get previous version
+        id: prev_version
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^)
+          echo "VERSION=${PREV_TAG#v}" >> $GITHUB_OUTPUT
+
+      - name: Rollback to previous version
+        env:
+          SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          SSH_HOST: ${{ secrets.PRODUCTION_HOST }}
+          SSH_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          echo "$SSH_KEY" | base64 -d > deploy_key
+          chmod 600 deploy_key
+          ssh -o StrictHostKeyChecking=no -i deploy_key $SSH_USER@$SSH_HOST << 'EOF'
+            cd /opt/directorio-concon
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.prev_version.outputs.VERSION }}
+            docker-compose up -d
+          EOF
+          curl -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+            -H 'Content-Type: application/json' \
+            -d '{"text":"⚠️ Rolled back to ${{ steps.prev_version.outputs.VERSION }}"}'

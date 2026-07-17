@@ -1,0 +1,94 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": true,
+  "instructions": [
+    "docs/base-standards.md",
+    "docs/backend-standards.md",
+    "docs/frontend-standards.md",
+    "docs/documentation-standards.md",
+    "AGENTS.md"
+  ],
+  "permission": {
+    "edit": "allow",
+    "bash": {
+      "git *": "allow",
+      "npm *": "allow",
+      "npx *": "allow",
+      "openspec *": "allow",
+      "rm -rf *": "ask",
+      "*": "ask"
+    },
+    "webfetch": "allow"
+  },
+  "agent": {
+    "plan": {
+      "mode": "primary",
+      "prompt": "You are the planning agent for Spec-Driven Development.\n\nAlways load:\n- docs/base-standards.md\n- docs/backend-standards.md (for backend tasks)\n- docs/frontend-standards.md (for frontend tasks)\n- docs/documentation-standards.md\n- docs/api-spec.yml\n- docs/data-model.md\n\nUse OpenSpec CLI for planning:\n- openspec new change <ticket-id> to generate specs\n- Read existing OpenSpec artifacts from .openspec/\n\nYou are in read-only mode: design, analyze, and plan. No file edits or bash commands.",
+      "permission": {
+        "edit": "deny",
+        "bash": {
+          "openspec *": "allow"
+        }
+      }
+    },
+    "build": {
+      "mode": "primary",
+      "prompt": "{file:ai-specs/agents/build-agent.md}",
+      "permission": {
+        "edit": "allow",
+        "bash": "allow"
+      }
+    },
+    "reviewer": {
+      "description": "Adversarial code review — security, types, performance, test coverage, OpenSpec alignment",
+      "mode": "subagent",
+      "prompt": "{file:ai-specs/skills/code-auditing/SKILL.md}",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    }
+  },
+  "command": {
+    "enrich-us": {
+      "template": "{file:ai-specs/skills/enrich-us/SKILL.md}\n\nFollow the process above for the provided ticket or user story.",
+      "description": "Enrich a vague user story before planning",
+      "agent": "plan"
+    },
+    "plan-change": {
+      "template": "Run 'openspec new change' for the given ticket ID (must be lowercase kebab-case).\n\n1. Verify the ticket ID is provided\n2. Normalize the ticket ID to lowercase kebab-case if needed (e.g. 'TICKET-123' -> 'ticket-123')\n3. Run: openspec new change {input}\n4. Review generated artifacts in .openspec/changes/<ticket-id>/\n5. Display the tasks.md for confirmation",
+      "description": "Generate OpenSpec specs and tasks from a ticket",
+      "agent": "plan"
+    },
+    "apply": {
+      "template": "The active OpenSpec change is in .openspec/. Read the current tasks.md and implement the first pending task following TDD.\n\n{file:ai-specs/agents/build-agent.md}",
+      "description": "Implement tasks from OpenSpec artifacts (TDD)",
+      "agent": "build"
+    },
+    "verify": {
+      "template": "1. Read the OpenSpec scenarios from .openspec/<change>/scenarios.md\n2. Read the current implementation\n3. Verify each scenario is covered\n4. Run the test suite\n5. Report: what passes, what fails, what's missing",
+      "description": "Validate implementation against OpenSpec scenarios",
+      "agent": "build"
+    },
+    "adversarial-review": {
+      "template": "{file:ai-specs/skills/code-auditing/SKILL.md}\n\nRun the 7-phase audit on the current codebase changes.",
+      "description": "Systematic 7-phase code quality audit",
+      "agent": "reviewer"
+    },
+    "archive": {
+      "template": "Run 'openspec archive' for the active change.\n\n1. Ensure all tasks in tasks.md are completed\n2. Run: openspec archive\n3. Confirm the change is archived",
+      "description": "Archive OpenSpec artifacts for the completed change",
+      "agent": "build"
+    },
+    "commit": {
+      "template": "{file:ai-specs/skills/commit/SKILL.md}\n\nFollow the commit process for the current changes.",
+      "description": "Create conventional commits and pull request",
+      "agent": "build"
+    },
+    "deploy": {
+      "template": "{file:ai-specs/skills/deploy/SKILL.md}\n\nFollow the deploy process defined in docs/deploy-standards.md for the current release.",
+      "description": "Release: version bump, build, deploy, smoke tests, rollback",
+      "agent": "build"
+    }
+  }
+}

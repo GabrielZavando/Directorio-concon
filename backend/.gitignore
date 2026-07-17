@@ -1,0 +1,24 @@
+# Build
+dist/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
+# Env (secrets) — never commit
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

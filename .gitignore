@@ -1,0 +1,27 @@
+# OpenSpec artifacts (generados automáticamente)
+openspec/
+
+# Node
+node_modules/
+.npm
+
+# Entornos
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+*.swp
+*.swo
+.vscode/
+
+# Logs
+*.log
+
+# Build
+dist/

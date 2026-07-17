@@ -1,0 +1,77 @@
+{
+  "extends": ["@commitlint/config-conventional"],
+  "rules": {
+    "type-enum": [
+      2,
+      "always",
+      [
+        "feat",
+        "fix",
+        "docs",
+        "style",
+        "refactor",
+        "perf",
+        "test",
+        "build",
+        "ci",
+        "chore",
+        "revert"
+      ]
+    ],
+    "type-case": [2, "always", "lower-case"],
+    "type-empty": [2, "never"],
+    "subject-empty": [2, "never"],
+    "subject-full-stop": [2, "never", "."],
+    "header-max-length": [2, "always", 100],
+    "body-leading-blank": [2, "always"],
+    "footer-leading-blank": [1, "always"]
+  },
+  "prompt": {
+    "messages": {
+      "type": "Select the type of change that you're committing:",
+      "scope": "Denote the SCOPE of this change (optional):",
+      "customScope": "Denote the SCOPE of this change:",
+      "subject": "Write a SHORT, IMPERATIVE tense description of the change:\n",
+      "body": "Provide a LONGER description of the change (optional). Use \"|\" to break new line:\n",
+      "breaking": "List any BREAKING CHANGES (optional). Use \"|\" to break new line:\n",
+      "footerPrefixesSelect": "Select the ISSUES type of changeList by this change (optional):",
+      "customFooterPrefix": "Input ISSUES prefix:",
+      "footer": "List any ISSUES by this change. E.g.: #31, #34:\n",
+      "generatingBy": "Generating by commitlint..."
+    },
+    "types": {
+      "feat": "A new feature",
+      "fix": "A bug fix",
+      "docs": "Documentation only changes",
+      "style": "Changes that do not affect the meaning of the code",
+      "refactor": "A code change that neither fixes a bug nor adds a feature",
+      "perf": "A code change that improves performance",
+      "test": "Adding missing tests or correcting existing tests",
+      "build": "Changes that affect the build system or external dependencies",
+      "ci": "Changes to our CI configuration files and scripts",
+      "chore": "Other changes that don't modify src or test files",
+      "revert": "Reverts a previous commit"
+    },
+    "scopeOverrides": {
+      "feat": {
+        "new": "New feature",
+        "update": "Update existing feature"
+      }
+    },
+    "allowEmptyScopes": true,
+    "customScopes": true,
+    "emptyScopes": true,
+    "customFooterPrefixes": true,
+    "emptyFooterPrefixes": true,
+    "customIssues": true,
+    "emptyIssues": true,
+    "breaklineChar": "|",
+    "footerChar": "|",
+    "disableScopeLowerCase": false,
+    "disableSubjectLowerCase": false,
+    "maxHeaderLength": 100,
+    "maxSubjectLength": 100,
+    "maxBodyLength": 100,
+    "minBodyLength": 10
+  }
+}
