@@ -10,11 +10,28 @@ export const ValidationConfig = registerAs("validation", () => ({
       .default("development"),
     PORT: Joi.number().port().default(3000),
 
-    // Firebase
-    FIREBASE_PROJECT_ID: Joi.string().required(),
-    FIREBASE_PRIVATE_KEY: Joi.string().required(),
-    FIREBASE_CLIENT_EMAIL: Joi.string().email().required(),
-    FIREBASE_STORAGE_BUCKET: Joi.string().required(),
+    // Firebase (opcional: solo requerido cuando FIREBASE_ENABLED=true)
+    FIREBASE_ENABLED: Joi.boolean().default(false),
+    FIREBASE_PROJECT_ID: Joi.string().when("FIREBASE_ENABLED", {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+    FIREBASE_PRIVATE_KEY: Joi.string().when("FIREBASE_ENABLED", {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+    FIREBASE_CLIENT_EMAIL: Joi.string().email().when("FIREBASE_ENABLED", {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+    FIREBASE_STORAGE_BUCKET: Joi.string().when("FIREBASE_ENABLED", {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
 
     // CORS
     CORS_ORIGINS: Joi.string().default("http://localhost:4200"),

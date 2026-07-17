@@ -1,12 +1,16 @@
 import { registerAs } from "@nestjs/config";
-import * as admin from "firebase-admin";
 
 export const FirebaseConfig = registerAs("firebase", () => {
-  // Configuración de Firebase Admin SDK
-  const firebaseConfig = {
-    projectId: process.env.FIREBASE_PROJECT_ID || "directorio-concon",
+  // Firebase is optional. It is only enabled when FIREBASE_ENABLED=true and real
+  // credentials are provided. This keeps the bootstrap resilient: the server can
+  // start and serve non-Firebase endpoints (e.g. /health) even without a Firebase
+  // project configured (common in local dev).
+  const enabled = process.env.FIREBASE_ENABLED === "true";
 
-    // Service Account Key (puede ser JSON string o archivo)
+  const firebaseConfig = {
+    enabled,
+
+    // Service Account Key (can be a JSON string or built from individual fields)
     serviceAccountKey: process.env.FIREBASE_SERVICE_ACCOUNT_KEY
       ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
       : {
@@ -23,38 +27,20 @@ export const FirebaseConfig = registerAs("firebase", () => {
           client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.FIREBASE_CLIENT_EMAIL}`,
         },
 
-    // Configuración de Storage
+    // Storage
     storageBucket:
       process.env.FIREBASE_STORAGE_BUCKET || "directorio-concon.appspot.com",
 
-    // Configuración de Firestore
+    // Firestore
     databaseURL: process.env.FIREBASE_DATABASE_URL,
-  };
 
-  // Inicializar Firebase Admin si no está ya inicializado
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert(firebaseConfig.serviceAccountKey),
-      storageBucket: firebaseConfig.storageBucket,
-      databaseURL: firebaseConfig.databaseURL,
-    });
-  }
-
-  return {
-    ...firebaseConfig,
-
-    // Instancias de servicios
-    firestore: admin.firestore(),
-    auth: admin.auth(),
-    storage: admin.storage(),
-
-    // Configuraciones específicas de Firestore
+    // Firestore settings (consumed by FirebaseService after the app is initialized)
     firestoreSettings: {
       ignoreUndefinedProperties: true, // Ignorar propiedades undefined
       timestampsInSnapshots: true, // Usar timestamps nativos
     },
 
-    // Configuraciones de Storage
+    // Storage settings
     storageSettings: {
       maxFileSize: 10 * 1024 * 1024, // 10MB
       allowedMimeTypes: [
@@ -68,11 +54,17 @@ export const FirebaseConfig = registerAs("firebase", () => {
       ],
     },
 
-    // Configuraciones de Authentication
+    // Authentication settings
     authSettings: {
       verifyIdTokens: true, // Verificar tokens de ID
       checkRevoked: true, // Verificar si el token fue revocado
       clockTolerance: 60, // Tolerancia de tiempo en segundos
     },
   };
+
+  // NOTE: the Firebase Admin app is NOT initialized here. FirebaseService does it
+  // lazily on module init, only when `enabled` is true. This avoids calling
+  // admin.firestore()/auth()/storage() (which require an initialized app) at config
+  // load time and prevents the bootstrap from crashing when Firebase is disabled.
+  return firebaseConfig;
 });

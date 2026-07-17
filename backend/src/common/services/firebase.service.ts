@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as admin from "firebase-admin";
 
@@ -8,17 +13,22 @@ export class FirebaseService implements OnModuleInit {
   private firestore: admin.firestore.Firestore;
   private auth: admin.auth.Auth;
   private storage: admin.storage.Storage;
+  private enabled = false;
 
   constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit() {
-    await this.initializeFirebase();
-  }
+    const firebaseConfig = this.configService.get("firebase");
+    this.enabled = !!firebaseConfig?.enabled;
 
-  private async initializeFirebase() {
+    if (!this.enabled) {
+      this.logger.warn(
+        "⚠️ Firebase deshabilitado (FIREBASE_ENABLED != 'true'). El backend corre sin Firebase; los endpoints que lo requieren devolverán 503.",
+      );
+      return;
+    }
+
     try {
-      const firebaseConfig = this.configService.get("firebase");
-
       if (!admin.apps.length) {
         admin.initializeApp({
           credential: admin.credential.cert(firebaseConfig.serviceAccountKey),
@@ -46,16 +56,36 @@ export class FirebaseService implements OnModuleInit {
     }
   }
 
+  /** Indica si Firebase está habilitado e inicializado. */
+  isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  /**
+   * Lanza 503 si Firebase no está habilitado, para evitar errores crípticos
+   * tipo "Cannot read properties of undefined" en endpoints que lo requieren.
+   */
+  private assertEnabled(): void {
+    if (!this.enabled) {
+      throw new ServiceUnavailableException(
+        "Firebase is not enabled. Set FIREBASE_ENABLED=true and provide credentials.",
+      );
+    }
+  }
+
   // Getters para acceder a los servicios
   getFirestore(): admin.firestore.Firestore {
+    this.assertEnabled();
     return this.firestore;
   }
 
   getAuth(): admin.auth.Auth {
+    this.assertEnabled();
     return this.auth;
   }
 
   getStorage(): admin.storage.Storage {
+    this.assertEnabled();
     return this.storage;
   }
 

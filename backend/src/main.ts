@@ -119,7 +119,14 @@ async function bootstrap() {
 
   logger.log(`🚀 Servidor iniciado en: http://localhost:${port}/api/v1`);
   logger.log(`🌍 Entorno: ${nodeEnv}`);
-  logger.log(`🔥 Firebase configurado correctamente`);
+  const firebaseEnabled = configService.get<boolean>("firebase.enabled");
+  if (firebaseEnabled) {
+    logger.log(`🔥 Firebase configurado correctamente`);
+  } else {
+    logger.log(
+      `⚠️ Firebase deshabilitado (FIREBASE_ENABLED != 'true'). Endpoints que lo requieren devolverán 503.`,
+    );
+  }
 }
 
 bootstrap().catch((error) => {

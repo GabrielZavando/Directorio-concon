@@ -52,13 +52,14 @@ export class AppService {
    * @returns Estado de salud de la aplicación y servicios conectados
    */
   getHealthStatus() {
+    const firebaseEnabled = this.configService.get<boolean>("firebase.enabled");
     return {
       status: "ok",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       services: {
-        firebase: "connected",
+        firebase: firebaseEnabled ? "connected" : "disabled",
         redis: "connected", // TODO: Implementar verificación real
         api: "running",
       },
