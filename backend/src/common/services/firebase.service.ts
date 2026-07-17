@@ -1,6 +1,6 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as admin from 'firebase-admin';
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as admin from "firebase-admin";
 
 @Injectable()
 export class FirebaseService implements OnModuleInit {
@@ -17,18 +17,18 @@ export class FirebaseService implements OnModuleInit {
 
   private async initializeFirebase() {
     try {
-      const firebaseConfig = this.configService.get('firebase');
-      
+      const firebaseConfig = this.configService.get("firebase");
+
       if (!admin.apps.length) {
         admin.initializeApp({
           credential: admin.credential.cert(firebaseConfig.serviceAccountKey),
           storageBucket: firebaseConfig.storageBucket,
           databaseURL: firebaseConfig.databaseURL,
         });
-        
-        this.logger.log('🔥 Firebase Admin SDK inicializado correctamente');
+
+        this.logger.log("🔥 Firebase Admin SDK inicializado correctamente");
       } else {
-        this.logger.log('🔥 Firebase Admin SDK ya estaba inicializado');
+        this.logger.log("🔥 Firebase Admin SDK ya estaba inicializado");
       }
 
       // Inicializar servicios
@@ -39,9 +39,9 @@ export class FirebaseService implements OnModuleInit {
       // Configurar Firestore
       this.firestore.settings(firebaseConfig.firestoreSettings);
 
-      this.logger.log('✅ Servicios de Firebase configurados');
+      this.logger.log("✅ Servicios de Firebase configurados");
     } catch (error) {
-      this.logger.error('❌ Error al inicializar Firebase:', error);
+      this.logger.error("❌ Error al inicializar Firebase:", error);
       throw error;
     }
   }
@@ -60,7 +60,7 @@ export class FirebaseService implements OnModuleInit {
   }
 
   // Métodos de utilidad para Firestore
-  
+
   /**
    * Convierte un timestamp de Firestore a Date
    */
@@ -92,7 +92,10 @@ export class FirebaseService implements OnModuleInit {
   /**
    * Crea una referencia a un documento
    */
-  createDocRef(collection: string, docId?: string): admin.firestore.DocumentReference {
+  createDocRef(
+    collection: string,
+    docId?: string,
+  ): admin.firestore.DocumentReference {
     if (docId) {
       return this.firestore.collection(collection).doc(docId);
     }
@@ -110,7 +113,7 @@ export class FirebaseService implements OnModuleInit {
    * Ejecuta una transacción
    */
   async runTransaction<T>(
-    updateFunction: (transaction: admin.firestore.Transaction) => Promise<T>
+    updateFunction: (transaction: admin.firestore.Transaction) => Promise<T>,
   ): Promise<T> {
     return this.firestore.runTransaction(updateFunction);
   }
@@ -133,7 +136,10 @@ export class FirebaseService implements OnModuleInit {
   /**
    * Obtiene un documento por ID
    */
-  async getDocument(collection: string, docId: string): Promise<admin.firestore.DocumentSnapshot> {
+  async getDocument(
+    collection: string,
+    docId: string,
+  ): Promise<admin.firestore.DocumentSnapshot> {
     return this.firestore.collection(collection).doc(docId).get();
   }
 
@@ -149,15 +155,15 @@ export class FirebaseService implements OnModuleInit {
     }>,
     orderBy?: {
       field: string;
-      direction: 'asc' | 'desc';
+      direction: "asc" | "desc";
     },
-    limit?: number
+    limit?: number,
   ): Promise<admin.firestore.QuerySnapshot> {
     let query: admin.firestore.Query = this.firestore.collection(collection);
 
     // Aplicar filtros
     if (filters) {
-      filters.forEach(filter => {
+      filters.forEach((filter) => {
         query = query.where(filter.field, filter.operator, filter.value);
       });
     }
@@ -178,8 +184,12 @@ export class FirebaseService implements OnModuleInit {
   /**
    * Crea un nuevo documento
    */
-  async createDocument(collection: string, data: any, docId?: string): Promise<admin.firestore.DocumentReference> {
-    const docRef = docId 
+  async createDocument(
+    collection: string,
+    data: any,
+    docId?: string,
+  ): Promise<admin.firestore.DocumentReference> {
+    const docRef = docId
       ? this.firestore.collection(collection).doc(docId)
       : this.firestore.collection(collection).doc();
 
@@ -195,7 +205,11 @@ export class FirebaseService implements OnModuleInit {
   /**
    * Actualiza un documento existente
    */
-  async updateDocument(collection: string, docId: string, data: any): Promise<void> {
+  async updateDocument(
+    collection: string,
+    docId: string,
+    data: any,
+  ): Promise<void> {
     const docRef = this.firestore.collection(collection).doc(docId);
     await docRef.update({
       ...data,
@@ -214,7 +228,10 @@ export class FirebaseService implements OnModuleInit {
   /**
    * Verifica un token de Firebase Auth
    */
-  async verifyIdToken(idToken: string, checkRevoked = true): Promise<admin.auth.DecodedIdToken> {
+  async verifyIdToken(
+    idToken: string,
+    checkRevoked = true,
+  ): Promise<admin.auth.DecodedIdToken> {
     return this.auth.verifyIdToken(idToken, checkRevoked);
   }
 
@@ -238,7 +255,7 @@ export class FirebaseService implements OnModuleInit {
   async uploadFile(
     filePath: string,
     buffer: Buffer,
-    metadata?: any
+    metadata?: any,
   ): Promise<string> {
     const bucket = this.storage.bucket();
     const file = bucket.file(filePath);

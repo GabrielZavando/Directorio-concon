@@ -4,9 +4,9 @@ import {
   Injectable,
   Logger,
   NestInterceptor,
-} from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+} from "@nestjs/common";
+import { Observable } from "rxjs";
+import { tap } from "rxjs/operators";
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -15,7 +15,7 @@ export class LoggingInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
     const { method, url, ip, headers } = request;
-    const userAgent = headers['user-agent'] || '';
+    const userAgent = headers["user-agent"] || "";
     const now = Date.now();
 
     // Log de inicio de request
@@ -30,11 +30,11 @@ export class LoggingInterceptor implements NestInterceptor {
 
           // Log de respuesta exitosa
           this.logger.log(
-            `✅ ${method} ${url} - ${statusCode} - ${duration}ms - ${ip}`
+            `✅ ${method} ${url} - ${statusCode} - ${duration}ms - ${ip}`,
           );
 
           // Log adicional para operaciones importantes
-          if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+          if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
             this.logger.log(`📝 Operación ${method} completada en ${url}`);
           }
         },

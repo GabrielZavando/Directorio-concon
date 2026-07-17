@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class AppService {
@@ -10,18 +10,19 @@ export class AppService {
    * @returns Información de la API con versión, entorno y endpoints disponibles
    */
   getApiInfo() {
-    const nodeEnv = this.configService.get<string>('app.nodeEnv');
-    const port = this.configService.get<number>('app.port');
-    const backendUrl = this.configService.get<string>('app.backendUrl');
+    const nodeEnv = this.configService.get<string>("app.nodeEnv");
+    const port = this.configService.get<number>("app.port");
+    const backendUrl = this.configService.get<string>("app.backendUrl");
 
     return {
-      message: 'API del Directorio de Empresas de Concón',
-      description: 'Sistema completo de gestión de empresas locales con funcionalidades premium e IA integrada',
-      version: '1.0.0',
+      message: "API del Directorio de Empresas de Concón",
+      description:
+        "Sistema completo de gestión de empresas locales con funcionalidades premium e IA integrada",
+      version: "1.0.0",
       environment: nodeEnv,
       timestamp: new Date().toISOString(),
       endpoints: {
-        docs: nodeEnv === 'development' ? `${backendUrl}/api/docs` : null,
+        docs: nodeEnv === "development" ? `${backendUrl}/api/docs` : null,
         health: `${backendUrl}/api/v1/health`,
         empresas: `${backendUrl}/api/v1/empresas`,
         categorias: `${backendUrl}/api/v1/categorias`,
@@ -30,18 +31,18 @@ export class AppService {
         planes: `${backendUrl}/api/v1/planes`,
       },
       features: {
-        authentication: 'Firebase Auth',
-        database: 'Firestore',
-        storage: 'Firebase Storage', 
-        ai: 'OpenAI GPT-4 + Qdrant',
-        payments: 'Webpay + PayPal',
-        cache: 'Redis',
-        realtime: 'WebSockets',
+        authentication: "Firebase Auth",
+        database: "Firestore",
+        storage: "Firebase Storage",
+        ai: "OpenAI GPT-4 + Qdrant",
+        payments: "Webpay + PayPal",
+        cache: "Redis",
+        realtime: "WebSockets",
       },
       contact: {
-        developer: 'Agencia Digital',
-        email: 'desarrollo@agencia-digital.cl',
-        website: 'https://agencia-digital.cl',
+        developer: "Agencia Digital",
+        email: "desarrollo@agencia-digital.cl",
+        website: "https://agencia-digital.cl",
       },
     };
   }
@@ -52,14 +53,14 @@ export class AppService {
    */
   getHealthStatus() {
     return {
-      status: 'ok',
+      status: "ok",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
       services: {
-        firebase: 'connected',
-        redis: 'connected', // TODO: Implementar verificación real
-        api: 'running',
+        firebase: "connected",
+        redis: "connected", // TODO: Implementar verificación real
+        api: "running",
       },
     };
   }

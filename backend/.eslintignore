@@ -1,0 +1,5 @@
+dist
+node_modules
+.eslintrc.js
+# Archivos preexistentes del scaffold con deudas de tipado (fuera del alcance de empresas-crud)
+src/app.module.ts

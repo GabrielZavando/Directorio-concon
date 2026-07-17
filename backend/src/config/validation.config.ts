@@ -1,40 +1,40 @@
-import { registerAs } from '@nestjs/config';
-import * as Joi from 'joi';
+import { registerAs } from "@nestjs/config";
+import * as Joi from "joi";
 
-export const ValidationConfig = registerAs('validation', () => ({
+export const ValidationConfig = registerAs("validation", () => ({
   // Esquema de validación para variables de entorno
   envSchema: Joi.object({
     // Configuración del servidor
     NODE_ENV: Joi.string()
-      .valid('development', 'production', 'test', 'staging')
-      .default('development'),
+      .valid("development", "production", "test", "staging")
+      .default("development"),
     PORT: Joi.number().port().default(3000),
-    
+
     // Firebase
     FIREBASE_PROJECT_ID: Joi.string().required(),
     FIREBASE_PRIVATE_KEY: Joi.string().required(),
     FIREBASE_CLIENT_EMAIL: Joi.string().email().required(),
     FIREBASE_STORAGE_BUCKET: Joi.string().required(),
-    
+
     // CORS
-    CORS_ORIGINS: Joi.string().default('http://localhost:4200'),
-    
+    CORS_ORIGINS: Joi.string().default("http://localhost:4200"),
+
     // Rate limiting
     RATE_LIMIT_TTL: Joi.number().default(60000),
     RATE_LIMIT_MAX: Joi.number().default(100),
-    
+
     // Cache
-    REDIS_URL: Joi.string().default('redis://localhost:6379'),
+    REDIS_URL: Joi.string().default("redis://localhost:6379"),
     REDIS_TTL: Joi.number().default(300),
-    
+
     // Archivos
     MAX_FILE_SIZE: Joi.number().default(5242880), // 5MB
-    
+
     // URLs
-    FRONTEND_URL: Joi.string().uri().default('http://localhost:4200'),
-    BACKEND_URL: Joi.string().uri().default('http://localhost:3000'),
+    FRONTEND_URL: Joi.string().uri().default("http://localhost:4200"),
+    BACKEND_URL: Joi.string().uri().default("http://localhost:3000"),
   }),
-  
+
   // Configuraciones de validación para DTOs
   dtoValidation: {
     // Empresa
@@ -68,7 +68,7 @@ export const ValidationConfig = registerAs('validation', () => ({
         },
       },
     },
-    
+
     // Categoría
     categoria: {
       nombre: {
@@ -86,7 +86,7 @@ export const ValidationConfig = registerAs('validation', () => ({
         pattern: /^#[0-9A-F]{6}$/i, // Color hexadecimal
       },
     },
-    
+
     // Barrio
     barrio: {
       nombre: {
@@ -97,10 +97,10 @@ export const ValidationConfig = registerAs('validation', () => ({
         pattern: /^[A-Z0-9_]+$/,
       },
       tipo: {
-        enum: ['urbano', 'rural'],
+        enum: ["urbano", "rural"],
       },
     },
-    
+
     // Usuario
     usuario: {
       nombre: {
@@ -115,10 +115,10 @@ export const ValidationConfig = registerAs('validation', () => ({
         pattern: /^(\+56)?[2-9]\d{7,8}$/,
       },
       rol: {
-        enum: ['admin', 'empresa', 'usuario'],
+        enum: ["admin", "empresa", "usuario"],
       },
     },
-    
+
     // Plan
     plan: {
       nombre: {
@@ -134,21 +134,21 @@ export const ValidationConfig = registerAs('validation', () => ({
         max: 365, // 1 año máximo
       },
     },
-    
+
     // Suscripción
     suscripcion: {
       status: {
-        enum: ['activa', 'cancelada', 'expirada', 'suspendida'],
+        enum: ["activa", "cancelada", "expirada", "suspendida"],
       },
       metodoPago: {
-        enum: ['transferencia', 'webpay', 'paypal'],
+        enum: ["transferencia", "webpay", "paypal"],
       },
       monto: {
         min: 0,
         max: 999999,
       },
     },
-    
+
     // Paginación
     pagination: {
       page: {
@@ -162,7 +162,7 @@ export const ValidationConfig = registerAs('validation', () => ({
         default: 20,
       },
     },
-    
+
     // Búsqueda
     search: {
       query: {

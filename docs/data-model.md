@@ -81,6 +81,11 @@
 | createdAt | Timestamp | Creación |
 | revisadoAt | Timestamp? | Revisión |
 
+> **Nota (módulo empresas):** al crear una empresa (`POST /api/v1/empresas`) se
+> genera automáticamente un documento `solicitudes` con `tipo: 'registro'` y
+> `status: 'pendiente'`, y la empresa queda en `status: 'pendiente'` hasta su
+> aprobación por un admin.
+
 ## Reglas de negocio del dominio
 
 - Una empresa pertenece a una categoría y un barrio (`categoriaId`, `barrioId` obligatorios).

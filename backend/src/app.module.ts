@@ -1,15 +1,15 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
-import { CacheModule } from '@nestjs/cache-manager';
+import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
+import { ThrottlerModule } from "@nestjs/throttler";
+import { CacheModule } from "@nestjs/cache-manager";
 
 // Configuración
-import { AppConfig } from '@/config/app.config';
-import { FirebaseConfig } from '@/config/firebase.config';
-import { ValidationConfig } from '@/config/validation.config';
+import { AppConfig } from "@/config/app.config";
+import { FirebaseConfig } from "@/config/firebase.config";
+import { ValidationConfig } from "@/config/validation.config";
 
 // Módulos principales
-// import { EmpresasModule } from '@/modules/empresas/empresas.module';
+import { EmpresasModule } from "@/modules/empresas/empresas.module";
 // import { CategoriasModule } from '@/modules/categorias/categorias.module';
 // import { BarriosModule } from '@/modules/barrios/barrios.module';
 // import { UsuariosModule } from '@/modules/usuarios/usuarios.module';
@@ -37,11 +37,11 @@ import { ValidationConfig } from '@/config/validation.config';
 // import { AnalyticsModule } from '@/modules/analytics/analytics.module';
 
 // Controladores globales
-import { AppController } from './app.controller';
-import { HealthController } from '@/common/controllers/health.controller';
+import { AppController } from "./app.controller";
+import { HealthController } from "@/common/controllers/health.controller";
 
 // Servicios globales
-import { AppService } from './app.service';
+import { AppService } from "./app.service";
 
 @Module({
   imports: [
@@ -49,23 +49,23 @@ import { AppService } from './app.service';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [AppConfig, FirebaseConfig, ValidationConfig],
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: [".env.local", ".env"],
     }),
 
     // Rate limiting
     ThrottlerModule.forRoot([
       {
-        name: 'short',
+        name: "short",
         ttl: 1000, // 1 segundo
         limit: 3, // 3 requests por segundo
       },
       {
-        name: 'medium',
+        name: "medium",
         ttl: 10000, // 10 segundos
         limit: 20, // 20 requests por 10 segundos
       },
       {
-        name: 'long',
+        name: "long",
         ttl: 60000, // 1 minuto
         limit: 100, // 100 requests por minuto
       },
@@ -78,7 +78,7 @@ import { AppService } from './app.service';
     }),
 
     // Módulos principales (TODO: Descomentar cuando estén implementados)
-    // EmpresasModule,
+    EmpresasModule,
     // CategoriasModule,
     // BarriosModule,
     // UsuariosModule,
