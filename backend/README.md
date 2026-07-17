@@ -80,6 +80,23 @@ FIREBASE_CLIENT_ID=123456789...
 FIREBASE_STORAGE_BUCKET=directorio-concon.appspot.com
 ```
 
+### Modo sin Firebase (desarrollo local)
+
+El backend puede arrancar **sin** un proyecto Firebase configurado. Esto se controla
+con la variable `FIREBASE_ENABLED`:
+
+- **`FIREBASE_ENABLED=false`** (valor por defecto): el backend inicia y sirve
+  `/api/v1/health` y la estructura de la API, pero **no** inicializa Firebase. Los
+  endpoints que requieren Firestore (ej. `GET /api/v1/empresas`) devuelven
+  `503` con el mensaje `Firebase is not enabled. Set FIREBASE_ENABLED=true and provide credentials.`
+  Ideal para desarrollo local sin Firebase.
+- **`FIREBASE_ENABLED=true`**: se requieren las variables `FIREBASE_*` reales (service
+  account JSON). Si la clave no es válida, el arranque falla con un error claro
+  (fail-fast).
+
+Para habilitar Firebase con credenciales reales, establece `FIREBASE_ENABLED=true` y
+completa la Opción A o B anterior con los valores del archivo JSON descargado.
+
 ### 3. Configurar Redis (Opcional)
 
 **Docker**:
@@ -215,8 +232,9 @@ Ver `.env.example` para la configuración completa. Variables principales:
 |----------|-------------|---------|
 | `NODE_ENV` | Entorno de ejecución | `development` |
 | `PORT` | Puerto del servidor | `3000` |
-| `FIREBASE_PROJECT_ID` | ID del proyecto Firebase | `directorio-concon` |
-| `FIREBASE_PRIVATE_KEY` | Clave privada de la cuenta de servicio | `-----BEGIN PRIVATE KEY-----...` |
+| `FIREBASE_ENABLED` | Inicializa Firebase al arrancar (`true`/`false`). Default `false` | `false` |
+| `FIREBASE_PROJECT_ID` | ID del proyecto Firebase (requerido si `FIREBASE_ENABLED=true`) | `directorio-concon` |
+| `FIREBASE_PRIVATE_KEY` | Clave privada de la cuenta de servicio (requerido si `FIREBASE_ENABLED=true`) | `-----BEGIN PRIVATE KEY-----...` |
 | `CORS_ORIGINS` | URLs permitidas para CORS | `http://localhost:4200` |
 | `REDIS_URL` | URL de Redis | `redis://localhost:6379` |
 
