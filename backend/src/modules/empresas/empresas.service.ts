@@ -10,6 +10,12 @@ import { CreateEmpresaDto } from "./dto/create-empresa.dto";
 import { UpdateEmpresaDto } from "./dto/update-empresa.dto";
 import { Empresa } from "./entities/empresa.entity";
 import type { EmpresaStatus } from "./entities/empresa-status";
+import type {
+  Firestore,
+  CollectionReference,
+  DocumentSnapshot,
+  Query,
+} from "firebase-admin/firestore";
 
 export interface EmpresaFilter {
   categoriaId?: string;
@@ -35,15 +41,15 @@ export class EmpresasService {
 
   constructor(private readonly firebaseService: FirebaseService) {}
 
-  private get firestore(): FirebaseFirestore.Firestore {
+  private get firestore(): Firestore {
     return this.firebaseService.getFirestore();
   }
 
-  private get collection(): FirebaseFirestore.CollectionReference {
+  private get collection(): CollectionReference {
     return this.firestore.collection(this.collectionName);
   }
 
-  private toEmpresa(doc: FirebaseFirestore.DocumentSnapshot): Empresa {
+  private toEmpresa(doc: DocumentSnapshot): Empresa {
     const data = doc.data() as Omit<Empresa, "id">;
     return { id: doc.id, ...data };
   }
@@ -119,7 +125,7 @@ export class EmpresasService {
     page = 1,
     limit = 20,
   ): Promise<PaginatedEmpresas> {
-    let query: FirebaseFirestore.Query = this.collection;
+    let query: Query = this.collection;
 
     if (filters.categoriaId) {
       query = query.where("categoriaId", "==", filters.categoriaId);

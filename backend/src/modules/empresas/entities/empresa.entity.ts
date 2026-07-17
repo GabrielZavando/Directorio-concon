@@ -1,4 +1,5 @@
 import type { EmpresaStatus } from "./empresa-status";
+import type { Timestamp } from "firebase-admin/firestore";
 
 export interface Empresa {
   id: string;
@@ -21,6 +22,6 @@ export interface Empresa {
   verificado: boolean;
   status: EmpresaStatus;
   usuarioId?: string;
-  createdAt: FirebaseFirestore.Timestamp;
-  updatedAt: FirebaseFirestore.Timestamp;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }

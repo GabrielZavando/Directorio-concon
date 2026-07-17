@@ -4,6 +4,25 @@ import { EmpresasController } from "./empresas.controller";
 import { EmpresasService } from "./empresas.service";
 import { CreateEmpresaDto } from "./dto/create-empresa.dto";
 
+// firebase-admin is an external service; mock its submodules so the real SDK
+// (which pulls ESM-only deps like jose) is never loaded by Jest.
+jest.mock("firebase-admin/app", () => ({
+  initializeApp: jest.fn(),
+  cert: jest.fn(),
+  getApps: jest.fn(() => []),
+}));
+jest.mock("firebase-admin/firestore", () => ({
+  getFirestore: jest.fn(),
+  Timestamp: { fromDate: jest.fn(), now: jest.fn() },
+  FieldValue: { serverTimestamp: jest.fn() },
+}));
+jest.mock("firebase-admin/auth", () => ({
+  getAuth: jest.fn(),
+}));
+jest.mock("firebase-admin/storage", () => ({
+  getStorage: jest.fn(),
+}));
+
 describe("EmpresasController", () => {
   let controller: EmpresasController;
   let service: {
