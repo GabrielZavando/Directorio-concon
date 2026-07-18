@@ -1,5 +1,15 @@
-# OpenSpec artifacts (generados automáticamente)
-openspec/
+# OpenSpec artifacts
+# Se versiona un registro de:
+#   - specs principales sincronizadas (openspec/specs/)
+#   - cambios ya archivados (openspec/changes/archive/)
+# Los cambios activos en desarrollo (openspec/changes/<nombre>/) siguen ignorados.
+openspec/*
+!openspec/specs/
+!openspec/specs/**
+!openspec/changes/
+openspec/changes/*
+!openspec/changes/archive/
+!openspec/changes/archive/**
 
 # Node
 node_modules/
@@ -9,6 +19,10 @@ node_modules/
 .env
 .env.local
 .env.*.local
+
+# Firebase service account (secret — NUNCA commitear)
+firebase-admin.json
+firebase-*.json
 
 # OS
 .DS_Store

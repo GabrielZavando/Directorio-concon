@@ -1,5 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { EmpresasController } from "./empresas.controller";
 import { EmpresasService } from "./empresas.service";
 import { CreateEmpresaDto } from "./dto/create-empresa.dto";
@@ -164,6 +168,19 @@ describe("EmpresasController", () => {
       await expect(controller.remove("x")).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe("GET /empresas when Firebase is disabled", () => {
+    it("propagates ServiceUnavailableException (503) when Firestore is unavailable", async () => {
+      service.findAll.mockRejectedValue(
+        new ServiceUnavailableException(
+          "Firebase is not enabled. Set FIREBASE_ENABLED=true and provide credentials.",
+        ),
+      );
+      await expect(
+        controller.findAll("cat", "bar", "q", undefined, "1", "20"),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
     });
   });
 });
