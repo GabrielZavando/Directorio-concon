@@ -10,28 +10,16 @@ export const ValidationConfig = registerAs("validation", () => ({
       .default("development"),
     PORT: Joi.number().port().default(3000),
 
-    // Firebase (opcional: solo requerido cuando FIREBASE_ENABLED=true)
+    // Firebase (opcional: credenciales desde firebase-admin.json o env vars)
     FIREBASE_ENABLED: Joi.boolean().default(false),
-    FIREBASE_PROJECT_ID: Joi.string().when("FIREBASE_ENABLED", {
-      is: true,
-      then: Joi.required(),
-      otherwise: Joi.optional(),
-    }),
-    FIREBASE_PRIVATE_KEY: Joi.string().when("FIREBASE_ENABLED", {
-      is: true,
-      then: Joi.required(),
-      otherwise: Joi.optional(),
-    }),
-    FIREBASE_CLIENT_EMAIL: Joi.string().email().when("FIREBASE_ENABLED", {
-      is: true,
-      then: Joi.required(),
-      otherwise: Joi.optional(),
-    }),
-    FIREBASE_STORAGE_BUCKET: Joi.string().when("FIREBASE_ENABLED", {
-      is: true,
-      then: Joi.required(),
-      otherwise: Joi.optional(),
-    }),
+    FIREBASE_PROJECT_ID: Joi.string().optional(),
+    FIREBASE_PRIVATE_KEY: Joi.string().optional(),
+    FIREBASE_PRIVATE_KEY_ID: Joi.string().optional(),
+    FIREBASE_CLIENT_EMAIL: Joi.string().email().optional(),
+    FIREBASE_CLIENT_ID: Joi.string().optional(),
+    FIREBASE_STORAGE_BUCKET: Joi.string().optional(),
+    FIREBASE_DATABASE_URL: Joi.string().uri().optional(),
+    FIREBASE_ADMIN_CREDENTIALS_PATH: Joi.string().optional(),
 
     // CORS
     CORS_ORIGINS: Joi.string().default("http://localhost:4200"),
