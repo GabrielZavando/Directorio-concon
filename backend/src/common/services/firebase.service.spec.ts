@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
-import { ServiceUnavailableException } from "@nestjs/common";
+import { Logger, ServiceUnavailableException } from "@nestjs/common";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
@@ -50,10 +50,15 @@ describe("FirebaseService", () => {
 
   describe("when FIREBASE_ENABLED is false", () => {
     beforeEach(async () => {
+      jest.spyOn(Logger.prototype, "warn").mockImplementation(() => undefined);
       await buildModule({
         enabled: false,
         serviceAccountKey: { project_id: "demo" },
       });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
     });
 
     it("should NOT initialize the Firebase app", () => {
@@ -63,6 +68,10 @@ describe("FirebaseService", () => {
 
     it("isEnabled() should return false", () => {
       expect(firebaseService.isEnabled()).toBe(false);
+    });
+
+    it("logs a warning and does NOT crash on a resilient disabled boot", () => {
+      expect(Logger.prototype.warn).toHaveBeenCalled();
     });
 
     it("getFirestore() should throw ServiceUnavailableException (503) when disabled", () => {
@@ -106,6 +115,15 @@ describe("FirebaseService", () => {
 
     it("getFirestore() should return a defined firestore instance", () => {
       expect(firebaseService.getFirestore()).toBeDefined();
+    });
+
+    it("fails fast (throws) when Firebase initialization fails with an invalid credential", async () => {
+      (initializeApp as unknown as jest.Mock).mockImplementation(() => {
+        throw new Error("Invalid PEM formatted message");
+      });
+      await expect(firebaseService.onModuleInit()).rejects.toThrow(
+        /Invalid PEM/,
+      );
     });
   });
 });
