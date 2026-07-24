@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#f2f4f6",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-background": "#191c1e",
+                        "secondary": "#6f5b3f",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary-fixed-variant": "#554429",
+                        "inverse-primary": "#9ccaff",
+                        "on-secondary": "#ffffff",
+                        "tertiary-container": "#35622e",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed": "#bcf0ae",
+                        "background": "#f7f9fb",
+                        "primary": "#004370", // Ocean Blue
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#a8dc9b",
+                        "on-tertiary-fixed": "#002201",
+                        "primary-fixed-dim": "#9ccaff",
+                        "inverse-on-surface": "#eff1f3",
+                        "outline": "#717781",
+                        "primary-fixed": "#d0e4ff",
+                        "tertiary-fixed-dim": "#a1d494",
+                        "on-primary": "#ffffff",
+                        "secondary-container": "#fadeba", // Sunset Orange base
+                        "on-surface-variant": "#414750",
+                        "primary-container": "#005b96",
+                        "on-primary-container": "#abd2ff",
+                        "tertiary": "#1d4a19",
+                        "on-surface": "#191c1e",
+                        "on-primary-fixed": "#001d35",
+                        "surface": "#f7f9fb",
+                        "outline-variant": "#c1c7d1",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-tertiary-fixed-variant": "#23501e",
+                        "surface-bright": "#f7f9fb",
+                        "error": "#ba1a1a",
+                        "secondary-fixed": "#fadeba",
+                        "surface-tint": "#12629d",
+                        "inverse-surface": "#2d3133",
+                        "on-secondary-container": "#756144",
+                        "surface-dim": "#d8dadc",
+                        "surface-variant": "#e0e3e5",
+                        "on-primary-fixed-variant": "#00497a",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#261904",
+                        "accent-orange": "#e67e22" // Custom Sunset Orange accent
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "display": ["Montserrat", "sans-serif"],
+                        "body": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, .font-display { font-family: 'Montserrat', sans-serif; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 bg-surface-container-lowest border-b border-outline-variant px-4 md:px-10 py-3">
+<div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+<div class="flex items-center gap-4">
+<div class="flex items-center space-x-2">
+<div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-on-primary font-bold text-xl">D</div>
+<span class="text-2xl font-bold tracking-tight text-on-surface font-display">Direo</span>
+</div>
+</div>
+<div class="hidden md:flex flex-1 max-w-2xl gap-2 px-4">
+<div class="flex flex-1 items-stretch rounded-xl bg-surface-container border border-outline-variant overflow-hidden">
+<div class="flex items-center justify-center pl-4 text-on-surface-variant">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="w-full bg-transparent border-none focus:ring-0 text-sm py-2 px-3" placeholder="Categoría (ej. Spa, Laboratorio)"/>
+<div class="w-px bg-outline-variant my-2"></div>
+<div class="flex items-center justify-center pl-3 text-on-surface-variant">
+<span class="material-symbols-outlined">location_on</span>
+</div>
+<input class="w-full bg-transparent border-none focus:ring-0 text-sm py-2 px-3" placeholder="Barrio o sector"/>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-xl bg-surface-container text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden border-2 border-primary">
+<img alt="Perfil de usuario" class="w-full h-full object-cover" data-alt="User profile avatar circle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC30g0BFsOIf9pxHPgPO54emTbg5scSHuhzzUJoviplK1XxFwzDms5AcUpQ7K6qIZhbQsSo1eepz83vtsLqqgmwUQGIAnbykHh1Bvse2uG_jzxWKwBBcTqVbHf7p1UBjotlEqJyR8bA7nKxvtEb_vLflchmPwpRKuoYOlAqKERKHgBr21o7hf38jI9oBeTAouOEXnB-CFVVq1kqeZRxxIKkVhHm1JNpytmGDC80qUtd9VndGaAt2abL2DZORkq0K2_niKE6lNb5je7M"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Filters and View Toggle -->
+<div class="bg-surface-container-lowest border-b border-outline-variant sticky top-[65px] z-40">
+<div class="max-w-7xl mx-auto px-4 md:px-10 py-3 flex flex-wrap items-center justify-between gap-4">
+<div class="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+<button class="flex items-center gap-1 px-4 py-1.5 rounded-full bg-accent-orange text-white text-sm font-medium">
+                    Abierto ahora
+                </button>
+<button class="flex items-center gap-1 px-4 py-1.5 rounded-full bg-surface-container border border-outline-variant text-sm font-medium">
+                    Calificación <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="flex items-center gap-1 px-4 py-1.5 rounded-full bg-surface-container border border-outline-variant text-sm font-medium">
+                    Rango de precio <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="flex items-center gap-1 px-4 py-1.5 rounded-full bg-surface-container border border-outline-variant text-sm font-medium">
+                    Más filtros <span class="material-symbols-outlined text-sm">tune</span>
+</button>
+</div>
+<div class="flex bg-surface-container p-1 rounded-xl border border-outline-variant">
+<button class="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-surface-container-lowest shadow-sm text-sm font-semibold text-primary">
+<span class="material-symbols-outlined text-lg">map</span> Mapa
+                </button>
+<button class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-on-surface-variant text-sm font-semibold">
+<span class="material-symbols-outlined text-lg">grid_view</span> Cuadrícula
+                </button>
+</div>
+</div>
+</div>
+<!-- Main Content: Map View Split Screen -->
+<main class="flex flex-col md:flex-row h-[calc(100vh-125px)] overflow-hidden">
+<!-- Left Side: List of Businesses -->
+<aside class="w-full md:w-[450px] overflow-y-auto bg-surface-container-lowest border-r border-outline-variant">
+<div class="p-4 border-b border-surface-container">
+<h3 class="text-lg font-bold font-display">32 resultados encontrados</h3>
+<p class="text-sm text-on-surface-variant">Descubre los mejores lugares locales</p>
+</div>
+<div class="flex flex-col divide-y divide-surface-container">
+<!-- Business Card 1 -->
+<div class="p-4 hover:bg-surface-container-low cursor-pointer transition-colors flex gap-4">
+<div class="w-24 h-24 rounded-lg bg-surface-container-high shrink-0 overflow-hidden">
+<img alt="Interior de Spa" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAZI_bC9LoZkQMVsVbLbdD3r1nsscbLG6WHuA_ASLlA_RS26fbYGRR7_dvQqk0i-1-RkbYIL4cPa1QnCrALJxqOqHFl5Sw6zSd4qRt3Qs6VpPD_I1O5XEQ5GvuGakCI7U2E-SWktmQngjkH7Bj9L7y-Q7qwlnHy_1GOWczu1-JKW0S5OYheO50mvYjtw8tNy_r2NXpFSdy4Av4N10X3ltznRYue6mUZ_jsQnNbYPRYCTbrTTGCfSrEC5Otx7Bm-MwDDTnLN4yONr19"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-on-surface font-display">Lumina Wellness Spa</h4>
+<span class="material-symbols-outlined text-outline">bookmark</span>
+</div>
+<div class="flex items-center gap-1 text-sm text-accent-orange mb-1">
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="font-bold">4.9</span>
+<span class="text-on-surface-variant font-normal">(124 reseñas)</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-2">Av. Borgoño 23450, Concón</p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-primary-fixed text-primary text-[10px] font-bold uppercase tracking-wider">Spa</span>
+<span class="px-2 py-0.5 rounded bg-tertiary-fixed text-tertiary text-[10px] font-bold uppercase tracking-wider">Abierto</span>
+</div>
+</div>
+</div>
+<!-- Business Card 2 -->
+<div class="p-4 hover:bg-surface-container-low cursor-pointer transition-colors flex gap-4">
+<div class="w-24 h-24 rounded-lg bg-surface-container-high shrink-0 overflow-hidden">
+<img alt="Laboratorio de Recuperación" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvE3CyOlwEav52rbH4L8KkFBbWI0XpMRHkrO_T8HR0-b5oDrnSjBgYlF2gT8aRJJ1Zd2JUSA-Cmb8ujofQ0B6ceih1HoWjkhs1dnUoD3cZiUWqnkjvq1YiwlDf_X_B9vSl5Tx4YiZ78xr2ZR4GC7T4T5dDqpffuSZXuGm_7MY2y7QgQ2PhFN6P8bv1MOUQuqR0VhadXpcdjSCcjejdl_FrWHX0syOjCq_kW0IV2LlNC0b7wYixGIgEXp-oGcMhM0x0VUVxy5Gueg6L"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-on-surface font-display">Elite Recovery Lab</h4>
+<span class="material-symbols-outlined text-outline">bookmark</span>
+</div>
+<div class="flex items-center gap-1 text-sm text-accent-orange mb-1">
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="font-bold">4.7</span>
+<span class="text-on-surface-variant font-normal">(89 reseñas)</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-2">Blanca Estela 56, Concón</p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-primary-fixed text-primary text-[10px] font-bold uppercase tracking-wider">Salud</span>
+<span class="px-2 py-0.5 rounded bg-tertiary-fixed text-tertiary text-[10px] font-bold uppercase tracking-wider">Abierto</span>
+</div>
+</div>
+</div>
+<!-- Business Card 3 -->
+<div class="p-4 hover:bg-surface-container-low cursor-pointer transition-colors flex gap-4">
+<div class="w-24 h-24 rounded-lg bg-surface-container-high shrink-0 overflow-hidden">
+<img alt="Ocean Cafe" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA511MR2DNNsQoqVkPV-Dn06pu-9V3SZVBCKbs6ZyG_50QPp2DVBlHVkyZ408G72TliC_9d9AnwqMRPulao0um6NPZYbTpYA7kOz0Tgb8aCu_UVOTUzw7IANKUtemz1vgEjvsl4jO5Sc8ggntmlr-bnVaJwfGZkAABSsZa0dbqY3wWpb2zwqwJqj_8wLrqlJQ2S3b7XlG_bTBMr9Ub0OzLNt1oTBLJP4hNqtew7pKnlPnPsyyipvFTVmHGpA-owiI9bZ9vaMWW7r_FX"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-on-surface font-display">Costa Brava Bistro</h4>
+<span class="material-symbols-outlined text-outline">bookmark</span>
+</div>
+<div class="flex items-center gap-1 text-sm text-accent-orange mb-1">
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="font-bold">4.8</span>
+<span class="text-on-surface-variant font-normal">(210 reseñas)</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-2">Sector Los Lilenes, Concón</p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-primary-fixed text-primary text-[10px] font-bold uppercase tracking-wider">Gastronomía</span>
+<span class="px-2 py-0.5 rounded bg-tertiary-fixed text-tertiary text-[10px] font-bold uppercase tracking-wider">Abierto</span>
+</div>
+</div>
+</div>
+<!-- Business Card 4 -->
+<div class="p-4 hover:bg-surface-container-low cursor-pointer transition-colors flex gap-4">
+<div class="w-24 h-24 rounded-lg bg-surface-container-high shrink-0 overflow-hidden">
+<img alt="Boutique Hotel" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAU9f6LYLAGcDXzWwFbgqutXxkGihKhGODoSH7AkILKX9HrMpIRd21AyqkjteohL3CeN38IEzzRsRxBu6KtbqHElmRmXbyn8ir3NVv8VXEv9vhdHLgpy0_t6DNpxkTB6kLLn3rH0vAlWcGlgIkNMko5hI-tIUWCWU2hHcFPT3TOMs2yQL-cY-RkZPb4dyFnw3qq-3t9zTiBHPXF9ublgijZsEz69Ay_hMCI0Gk7yqp0Pquii0AFKTwvNKcYg2ghAcnO3sQ1xR8iGRJx"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-on-surface font-display">The Concón Suite</h4>
+<span class="material-symbols-outlined text-outline">bookmark</span>
+</div>
+<div class="flex items-center gap-1 text-sm text-accent-orange mb-1">
+<span class="material-symbols-outlined text-sm fill-1">star</span>
+<span class="font-bold">4.6</span>
+<span class="text-on-surface-variant font-normal">(56 reseñas)</span>
+</div>
+<p class="text-xs text-on-surface-variant mb-2">Av. Maroto 120, Concón</p>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 rounded bg-primary-fixed text-primary text-[10px] font-bold uppercase tracking-wider">Hotel</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant text-[10px] font-bold uppercase tracking-wider">Cerrado</span>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Right Side: Map -->
+<section class="flex-1 relative bg-surface-container-high">
+<!-- Map Placeholder Background showing Concón, Chile area -->
+<div class="absolute inset-0 z-0 bg-cover bg-center opacity-80" data-location="Concon, Chile" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCEZ7HRoDGVrdXs5Nbz7VAklIsvBhbA8FJgcmrE3VYH-8WBs7BG3DrLuuca5U7TAVPq24rvFHs0c2RfYGSr8tgIxjfo83kSBfE9S8PdGfoX3Khhdqjge7pMayPrNHos3X-nzgR1niqlnNxwpsNzjq9GQg9MWcFTX_oWj9ZBXaxaktRET_dxlPmlShCD8Cx38c96xSXDzv9VoULpWMmEfLv_ZIQmC62MtiNTR_zHq2fUoSYI825yFafPty5_3mi-bLIfXjPm2u2PuU13')">
+</div>
+<!-- Custom Map UI elements -->
+<div class="absolute inset-0 z-10 pointer-events-none">
+<!-- Pin 1 - Ocean Blue Marker -->
+<div class="absolute top-[25%] left-[35%] pointer-events-auto cursor-pointer">
+<div class="relative group">
+<div class="bg-primary text-on-primary p-2 rounded-full shadow-lg transform hover:scale-110 transition-transform border-2 border-white">
+<span class="material-symbols-outlined text-xl">spa</span>
+</div>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-surface-container-lowest text-on-surface px-3 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 whitespace-nowrap text-xs font-bold transition-opacity">
+                            Lumina Wellness Spa
+                        </div>
+</div>
+</div>
+<!-- Pin 2 - Sunset Orange Marker -->
+<div class="absolute top-[45%] left-[60%] pointer-events-auto cursor-pointer">
+<div class="relative group">
+<div class="bg-accent-orange text-white p-2 rounded-full shadow-lg transform hover:scale-110 transition-transform border-2 border-white">
+<span class="material-symbols-outlined text-xl">fitness_center</span>
+</div>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-surface-container-lowest text-on-surface px-3 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 whitespace-nowrap text-xs font-bold transition-opacity">
+                            Elite Recovery Lab
+                        </div>
+</div>
+</div>
+<!-- Pin 3 - Ocean Blue Marker -->
+<div class="absolute top-[65%] left-[42%] pointer-events-auto cursor-pointer">
+<div class="relative group">
+<div class="bg-primary text-on-primary p-2 rounded-full shadow-lg transform hover:scale-110 transition-transform border-2 border-white">
+<span class="material-symbols-outlined text-xl">restaurant</span>
+</div>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-surface-container-lowest text-on-surface px-3 py-1 rounded shadow-lg opacity-0 group-hover:opacity-100 whitespace-nowrap text-xs font-bold transition-opacity">
+                            Costa Brava Bistro
+                        </div>
+</div>
+</div>
+<!-- Map Controls -->
+<div class="absolute bottom-8 right-8 flex flex-col gap-2 pointer-events-auto">
+<button class="bg-surface-container-lowest text-on-surface p-2 rounded-lg shadow-md hover:bg-surface-container">
+<span class="material-symbols-outlined">add</span>
+</button>
+<button class="bg-surface-container-lowest text-on-surface p-2 rounded-lg shadow-md hover:bg-surface-container">
+<span class="material-symbols-outlined">remove</span>
+</button>
+<button class="bg-surface-container-lowest text-primary p-2 rounded-lg shadow-md hover:bg-surface-container mt-2">
+<span class="material-symbols-outlined">my_location</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation for Mobile -->
+<div class="md:hidden fixed bottom-0 left-0 right-0 bg-surface-container-lowest border-t border-outline-variant px-6 py-2 flex justify-between items-center z-50">
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] font-medium">Explorar</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-outline">
+<span class="material-symbols-outlined">favorite</span>
+<span class="text-[10px] font-medium">Guardados</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-outline">
+<span class="material-symbols-outlined">chat</span>
+<span class="text-[10px] font-medium">Mensajes</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-outline">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-medium">Perfil</span>
+</button>
+</div>
+</body></html>
