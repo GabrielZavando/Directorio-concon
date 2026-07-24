@@ -7,7 +7,7 @@
 # To customize for your stack, adjust the commands inside each target or add a
 # new branch to the STACK detection below.
 
-.PHONY: help install lint test build audit commitlint refs
+.PHONY: help install lint test build audit commitlint refs solid-lint
 
 # Detect the active stack from its manifest file.
 # This is a monorepo: the Node app lives in backend/, so check there first.
@@ -76,6 +76,21 @@ audit: ## Security audit (stack-specific)
 
 commitlint: ## Lint commit messages (stack-independent)
 	npx -p @commitlint/cli -p @commitlint/config-conventional commitlint --from HEAD~1 --to HEAD --verbose
+
+solid-lint: ## SOLID thresholds — ESLint + dependency-cruiser + madge (monorepo)
+	@if [ ! -f backend/package.json ] || [ ! -d backend/src ]; then \
+	  echo "solid-lint: backend/package.json or backend/src not found — skipping"; exit 0; \
+	fi
+	@echo "→ SOLID lint: backend (ESLint thresholds)"
+	cd backend && NODE_PATH=$$(pwd)/node_modules npx eslint -c ../templates/ci/eslintrc.backend.js --resolve-plugins-relative-to . 'src/**/*.ts'
+	@echo "→ SOLID lint: backend (dependency-cruiser)"
+	cd backend && npx dependency-cruiser src --config ../templates/ci/.dependency-cruiser.js
+	@if [ -f frontend/angular.json ]; then \
+	  echo "→ SOLID lint: frontend (ESLint thresholds)"; \
+	  cd frontend && NODE_PATH=$$(pwd)/node_modules npx eslint -c ../templates/ci/eslintrc.frontend.js --resolve-plugins-relative-to . src/**/*.ts; \
+	  echo "→ SOLID lint: frontend (madge circular-deps)"; \
+	  cd frontend && npx madge --circular src --ts-config tsconfig.app.json; \
+	fi
 
 refs: ## Check referential integrity of {file:...} references
 	bash check-refs.sh

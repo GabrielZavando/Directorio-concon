@@ -39,3 +39,7 @@ Thumbs.db
 
 # Build
 dist/
+backend/coverage/
+
+# Source maps (Stitch exports or build artifacts)
+*.map

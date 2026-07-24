@@ -1,0 +1,13 @@
+{
+  "tsConfig": "frontend/tsconfig.app.json",
+  "rootDir": "frontend/src",
+  "extensions": [".ts", ".js"],
+  "circular": true,
+  "exclude": "(^|/)node_modules($|/)|^frontend/src/main\\.ts$|^frontend/src/environments/",
+  "output": "text",
+  "detectiveOptions": {
+    "ts": {
+      "skipTypeImports": false
+    }
+  }
+}
