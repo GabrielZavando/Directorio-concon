@@ -25,7 +25,7 @@ Skills live in `ai-specs/skills/`. When a request matches one of the triggers be
 | Skill | Trigger |
 |---|---|
 | `enrich-us` | Refine a vague ticket into a user story before `/plan-change` |
-| `code-auditing` | Run before archiving a change, or via `/adversarial-review` |
+| `code-auditing` | Run before archiving a change, or via `/adversarial-review` (incluye lente Architect/SOLID-POO) |
 | `commit` | End of the SDD cycle, via `/commit` |
 | `using-git-worktrees` | Parallel feature work during `/plan-change` |
 | `deploy` | Release to staging/production, via `/deploy` |
@@ -43,7 +43,7 @@ The following custom commands are defined in `opencode.json` for the SDD workflo
 | `/plan-change TICKET-ID` | Generate OpenSpec specs and tasks from a ticket |
 | `/apply TICKET-ID` | Implement tasks from OpenSpec artifacts (TDD) |
 | `/verify TICKET-ID` | Validate implementation against OpenSpec scenarios |
-| `/adversarial-review` | Systematic 7-phase code quality audit |
+| `/adversarial-review` | Systematic 8-phase code quality audit (incluye lente Architect/SOLID por stack) |
 | `/archive TICKET-ID` | Archive OpenSpec artifacts for the completed change |
 | `/commit` | Create conventional commits and pull request |
 | `/deploy` | Release: version bump, build, deploy, smoke tests, rollback |

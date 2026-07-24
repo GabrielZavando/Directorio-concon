@@ -18,11 +18,12 @@ ai-specs/
 │   ├── using-git-worktrees/
 │   ├── deploy/            ← NEW
 │   └── onboarding/        ← NEW
-└── examples/
-    ├── scenarios-example.md     ← NEW
-    ├── requirements-example.md   ← NEW
-    ├── ticket-ejemplo.md         ← NEW
-    └── tasks.md                  ← Improved
+├── examples/
+│   ├── scenarios-example.md     ← NEW
+│   ├── requirements-example.md   ← NEW
+│   ├── ticket-ejemplo.md         ← NEW
+│   └── tasks.md                  ← Improved
+└── ../templates/ci/       ← Reference CI configs (ESLint, dependency-cruiser, madge)
 ```
 
 ---
@@ -53,9 +54,9 @@ Frontend specialist. Applies `docs/frontend-standards.md` and ensures accessibil
 
 ### Code Auditing (`skills/code-auditing/SKILL.md`)
 
-Systematic 7-phase code quality audit.
+Systematic 8-phase code quality audit.
 
-**Phases:** Security → Types → Performance → Dead code → Best practices → Tests → OpenSpec alignment
+**Phases:** Security → Types → Performance → Dead code → Best practices → Tests → OpenSpec alignment → SOLID/POO (lente Architect)
 
 **Use case:** `/adversarial-review` before archiving a change.
 
@@ -122,13 +123,16 @@ Task list format for OpenSpec changes.
 
 | File | What to customize |
 |------|------------------|
-| `docs/base-standards.md` | Section 8: stack, architecture, domain |
+| `docs/base-standards.md` | Section 8: stack, architecture, domain, usuarios, flujos, roadmap |
 | `docs/backend-standards.md` | Stack: runtime, framework, ORM, DB |
 | `docs/frontend-standards.md` | Stack: framework, CSS, build tool |
 | `docs/deploy-standards.md` | Deploy flow: environments, versioning, Docker, rollback |
 | `docs/api-spec.yml` | Real API endpoints |
 | `docs/data-model.md` | Domain entities |
-| `opencode.json` | Model selection |
+| `docs/DESIGN.md` | Sistema de diseño visual canónico (originado en Stitch — "Dunas y Océano") |
+| `docs/ci-standards.md` | SOLID/POO mechanical thresholds + instantiation of `templates/ci/` |
+| `templates/ci/` | ESLint + dependency-cruiser configs per project (ver `docs/ci-standards.md`) |
+| `opencode.json` | Model selection (opcional — por defecto agnóstico) |
 
 ---
 

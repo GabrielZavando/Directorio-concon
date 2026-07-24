@@ -40,7 +40,7 @@
       }
     },
     "reviewer": {
-      "description": "Adversarial code review — security, types, performance, test coverage, OpenSpec alignment",
+      "description": "Adversarial code review — security, types, performance, test coverage, OpenSpec alignment, SOLID/POO",
       "mode": "subagent",
       "prompt": "{file:ai-specs/skills/code-auditing/SKILL.md}",
       "permission": {
@@ -71,8 +71,8 @@
       "agent": "build"
     },
     "adversarial-review": {
-      "template": "{file:ai-specs/skills/code-auditing/SKILL.md}\n\nRun the 7-phase audit on the current codebase changes.",
-      "description": "Systematic 7-phase code quality audit",
+      "template": "{file:ai-specs/skills/code-auditing/SKILL.md}\n\nRun the 8-phase audit on the current codebase changes.",
+      "description": "Systematic 8-phase code quality audit",
       "agent": "reviewer"
     },
     "archive": {
