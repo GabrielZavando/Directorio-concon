@@ -11,12 +11,12 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { EmpresasService } from "./empresas.service";
+import { EmpresasService } from "./application/empresas.service";
 import { CreateEmpresaDto } from "./dto/create-empresa.dto";
 import { UpdateEmpresaDto } from "./dto/update-empresa.dto";
-import type { Empresa } from "./entities/empresa.entity";
-import type { EmpresaStatus } from "./entities/empresa-status";
-import { PaginatedEmpresas } from "./empresas.service";
+import type { Empresa } from "./domain/empresa.entity";
+import type { EmpresaStatus } from "./domain/empresa-status";
+import type { PaginatedResult } from "./domain/empresa-repository.interface";
 
 @ApiTags("empresas")
 @Controller("empresas")
@@ -41,7 +41,7 @@ export class EmpresasController {
     @Query("status") status?: EmpresaStatus,
     @Query("page") page?: string,
     @Query("limit") limit?: string,
-  ): Promise<PaginatedEmpresas> {
+  ): Promise<PaginatedResult<Empresa>> {
     return this.empresasService.findAll(
       { categoriaId, barrioId, q, status },
       page ? Number(page) : 1,

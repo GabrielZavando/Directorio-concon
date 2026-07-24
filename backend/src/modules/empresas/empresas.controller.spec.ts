@@ -5,7 +5,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { EmpresasController } from "./empresas.controller";
-import { EmpresasService } from "./empresas.service";
+import { EmpresasService } from "./application/empresas.service";
 import { CreateEmpresaDto } from "./dto/create-empresa.dto";
 
 // firebase-admin is an external service; mock its submodules so the real SDK

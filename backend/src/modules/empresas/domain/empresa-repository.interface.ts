@@ -65,3 +65,9 @@ export interface EmpresaRepository {
   delete(id: string): Promise<void>;
   slugExists(slug: string): Promise<boolean>;
 }
+
+/**
+ * Injection token for EmpresaRepository.
+ * Use with: @Inject(EmpresaRepository) and { provide: EmpresaRepository, useClass: ... }
+ */
+export const EmpresaRepository = Symbol("EmpresaRepository");

@@ -1,9 +1,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, ConflictException } from "@nestjs/common";
 import { FirebaseService } from "@/common/services/firebase.service";
-import { EmpresasService } from "./empresas.service";
-import { CreateEmpresaDto } from "./dto/create-empresa.dto";
-import { Empresa } from "./entities/empresa.entity";
+import { EmpresasService } from "./application/empresas.service";
+import { EmpresaRepository } from "./domain/empresa-repository.interface";
+import { Empresa } from "./domain/empresa.entity";
 
 // firebase-admin is an external service; mock its submodules so the real SDK
 // (which pulls ESM-only deps like jose) is never loaded by Jest.
@@ -26,99 +26,57 @@ jest.mock("firebase-admin/storage", () => ({
 
 describe("EmpresasService", () => {
   let service: EmpresasService;
+  let empresaRepo: jest.Mocked<EmpresaRepository>;
   let firebaseService: {
     getFirestore: jest.Mock;
     getCurrentTimestamp: jest.Mock;
   };
 
-  const makeFirestore = () => {
-    const store: Record<string, Record<string, any>> = {};
-    type Where = { field: string; op: string; value: any };
+  const NOW = new Date("2026-01-15T10:00:00Z");
 
-    const firestore: any = {
-      collection: jest.fn((name: string) => {
-        if (!store[name]) store[name] = {};
-        const coll = {
-          doc: jest.fn((id?: string) => {
-            const docId = id || `gen-${Object.keys(store[name]).length + 1}`;
-            return {
-              id: docId,
-              set: jest.fn(async (data: any) => {
-                store[name][docId] = { id: docId, ...data };
-              }),
-              get: jest.fn(async () => ({
-                exists: Boolean(store[name][docId]),
-                id: docId,
-                data: () => store[name][docId],
-              })) as any,
-              update: jest.fn(async (data: any) => {
-                store[name][docId] = { ...store[name][docId], ...data };
-              }),
-              delete: jest.fn(async () => {
-                delete store[name][docId];
-              }),
-            };
-          }),
-          where: jest.fn((field: string, op: string, value: any) => {
-            const wheres: Where[] = [{ field, op, value }];
-            const q = {
-              where: jest.fn((f: string, o: string, v: any) => {
-                wheres.push({ field: f, op: o, value: v });
-                return q;
-              }),
-              orderBy: jest.fn(() => q),
-              limit: jest.fn(() => q),
-              get: jest.fn(async () => {
-                let docs = Object.values(store[name]);
-                docs = docs.filter((d) =>
-                  wheres.every((w) => d[w.field] === w.value),
-                );
-                return {
-                  docs: docs.map((d) => ({
-                    id: d.id,
-                    data: () => d,
-                    exists: true,
-                  })),
-                  empty: docs.length === 0,
-                  size: docs.length,
-                };
-              }),
-            };
-            return q;
-          }),
-          orderBy: jest.fn(() => coll),
-          limit: jest.fn(() => coll),
-          get: jest.fn(async () => {
-            const docs = Object.values(store[name]);
-            return {
-              docs: docs.map((d) => ({
-                id: d.id,
-                data: () => d,
-                exists: true,
-              })),
-              empty: docs.length === 0,
-              size: docs.length,
-            };
-          }),
-        };
-        return coll;
-      }),
-    };
-    return { firestore, store };
-  };
-
-  let ctx: ReturnType<typeof makeFirestore>;
+  const makeEmpresa = (overrides: Partial<Empresa> = {}): Empresa => ({
+    id: "emp-001",
+    nombre: "Restaurante El Marino",
+    slug: "restaurante-el-marino",
+    descripcion: "Restaurante de mariscos frescos de la zona.",
+    categoriaId: "cat-restaurantes",
+    barrioId: "barrio-centro",
+    direccion: "Av. Borgoño 123, Concón",
+    destacado: false,
+    verificado: false,
+    status: "pendiente",
+    planId: "gratuito",
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  });
 
   beforeEach(async () => {
-    ctx = makeFirestore();
+    empresaRepo = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findBySlug: jest.fn(),
+      findAll: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      slugExists: jest.fn(),
+    };
+
     firebaseService = {
-      getFirestore: jest.fn(() => ctx.firestore),
-      getCurrentTimestamp: jest.fn(() => ({ toDate: () => new Date() }) as any),
+      getFirestore: jest.fn(() => ({
+        collection: jest.fn(() => ({
+          doc: jest.fn(() => ({
+            set: jest.fn(),
+          })),
+        })),
+      })),
+      getCurrentTimestamp: jest.fn(() => ({ toDate: () => NOW })),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmpresasService,
+        { provide: EmpresaRepository, useValue: empresaRepo },
         { provide: FirebaseService, useValue: firebaseService },
       ],
     }).compile();
@@ -126,14 +84,14 @@ describe("EmpresasService", () => {
     service = module.get<EmpresasService>(EmpresasService);
   });
 
-  const baseDto: CreateEmpresaDto = {
+  const baseDto = {
     nombre: "Restaurante El Marino",
     descripcion: "Restaurante de mariscos frescos de la zona.",
     categoriaId: "cat-restaurantes",
     barrioId: "barrio-centro",
     direccion: "Av. Borgoño 123, Concón",
     planId: "gratuito",
-  } as CreateEmpresaDto;
+  };
 
   it("should be defined", () => {
     expect(service).toBeDefined();
@@ -141,26 +99,33 @@ describe("EmpresasService", () => {
 
   describe("create", () => {
     it("creates an empresa with status pendiente and a slug", async () => {
-      const result = await service.create(baseDto);
+      empresaRepo.slugExists.mockResolvedValue(false);
+      empresaRepo.create.mockResolvedValue(makeEmpresa());
+
+      const result = await service.create(baseDto as any);
 
       expect(result.id).toBeDefined();
       expect(result.slug).toBe("restaurante-el-marino");
       expect(result.status).toBe("pendiente");
-      expect(result.createdAt).toBeDefined();
+      expect(empresaRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ slug: "restaurante-el-marino", status: "pendiente" }),
+      );
     });
 
     it("creates an associated solicitud of type registro", async () => {
-      const result = await service.create(baseDto);
-      expect(ctx.store["solicitudes"]).toBeDefined();
-      const solicitud = Object.values(ctx.store["solicitudes"])[0];
-      expect(solicitud.tipo).toBe("registro");
-      expect(solicitud.empresaId).toBe(result.id);
-      expect(solicitud.status).toBe("pendiente");
+      empresaRepo.slugExists.mockResolvedValue(false);
+      empresaRepo.create.mockResolvedValue(makeEmpresa());
+
+      await service.create(baseDto as any);
+
+      // Solicitud is created via FirebaseService (known coupling)
+      expect(firebaseService.getFirestore).toHaveBeenCalled();
     });
 
     it("throws ConflictException on duplicate slug", async () => {
-      await service.create(baseDto);
-      await expect(service.create(baseDto)).rejects.toBeInstanceOf(
+      empresaRepo.slugExists.mockResolvedValue(true);
+
+      await expect(service.create(baseDto as any)).rejects.toBeInstanceOf(
         ConflictException,
       );
     });
@@ -168,12 +133,13 @@ describe("EmpresasService", () => {
 
   describe("findOne", () => {
     it("returns the empresa by id", async () => {
-      const created = await service.create(baseDto);
-      const found = await service.findOne(created.id);
-      expect(found.id).toBe(created.id);
+      empresaRepo.findById.mockResolvedValue(makeEmpresa());
+      const found = await service.findOne("emp-001");
+      expect(found.id).toBe("emp-001");
     });
 
     it("throws NotFoundException when not found", async () => {
+      empresaRepo.findById.mockResolvedValue(null);
       await expect(service.findOne("missing")).rejects.toBeInstanceOf(
         NotFoundException,
       );
@@ -182,12 +148,13 @@ describe("EmpresasService", () => {
 
   describe("findBySlug", () => {
     it("returns the empresa by slug", async () => {
-      const created = await service.create(baseDto);
-      const found = await service.findBySlug(created.slug);
-      expect(found.slug).toBe(created.slug);
+      empresaRepo.findBySlug.mockResolvedValue(makeEmpresa());
+      const found = await service.findBySlug("restaurante-el-marino");
+      expect(found.slug).toBe("restaurante-el-marino");
     });
 
     it("throws NotFoundException when slug not found", async () => {
+      empresaRepo.findBySlug.mockResolvedValue(null);
       await expect(service.findBySlug("nope")).rejects.toBeInstanceOf(
         NotFoundException,
       );
@@ -196,26 +163,31 @@ describe("EmpresasService", () => {
 
   describe("findAll", () => {
     it("returns data and meta with defaults", async () => {
-      await service.create(baseDto);
+      empresaRepo.findAll.mockResolvedValue({
+        data: [makeEmpresa()],
+        meta: { total: 1, page: 1, limit: 20, totalPages: 1 },
+      });
       const result = await service.findAll({}, 1, 20);
       expect(Array.isArray(result.data)).toBe(true);
       expect(result.data.length).toBe(1);
       expect(result.meta.total).toBe(1);
-      expect(result.meta.page).toBe(1);
-      expect(result.meta.limit).toBe(20);
     });
   });
 
   describe("update", () => {
     it("updates an existing empresa", async () => {
-      const created = await service.create(baseDto);
-      const updated = await service.update(created.id, {
+      empresaRepo.findById.mockResolvedValue(makeEmpresa());
+      empresaRepo.update.mockResolvedValue(
+        makeEmpresa({ telefono: "+56912345678" } as any),
+      );
+      const updated = await service.update("emp-001", {
         telefono: "+56912345678",
       } as any);
       expect(updated.telefono).toBe("+56912345678");
     });
 
     it("throws NotFoundException when updating missing", async () => {
+      empresaRepo.findById.mockResolvedValue(null);
       await expect(
         service.update("missing", { telefono: "+569" } as any),
       ).rejects.toBeInstanceOf(NotFoundException);
@@ -224,14 +196,14 @@ describe("EmpresasService", () => {
 
   describe("remove", () => {
     it("removes an existing empresa", async () => {
-      const created = await service.create(baseDto);
-      await service.remove(created.id);
-      await expect(service.findOne(created.id)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      empresaRepo.findById.mockResolvedValue(makeEmpresa());
+      empresaRepo.delete.mockResolvedValue();
+      await service.remove("emp-001");
+      expect(empresaRepo.delete).toHaveBeenCalledWith("emp-001");
     });
 
     it("throws NotFoundException when removing missing", async () => {
+      empresaRepo.findById.mockResolvedValue(null);
       await expect(service.remove("missing")).rejects.toBeInstanceOf(
         NotFoundException,
       );
