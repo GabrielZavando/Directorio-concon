@@ -41,6 +41,7 @@ import { AppController } from "./app.controller";
 import { HealthController } from "@/common/controllers/health.controller";
 
 // Servicios globales
+import { FirebaseModule } from "@/common/modules/firebase.module";
 import { AppService } from "./app.service";
 
 @Module({
@@ -76,6 +77,9 @@ import { AppService } from "./app.service";
       isGlobal: true,
       ttl: 300, // 5 minutos por defecto
     }),
+
+    // Firebase (global — provides FirebaseService everywhere)
+    FirebaseModule,
 
     // Módulos principales (TODO: Descomentar cuando estén implementados)
     EmpresasModule,
