@@ -7,8 +7,8 @@ import {
 } from "@nestjs/common";
 import { FirebaseService } from "@/common/services/firebase.service";
 import slugify from "slugify";
-import { CreateEmpresaDto } from "../dto/create-empresa.dto";
-import { UpdateEmpresaDto } from "../dto/update-empresa.dto";
+import { CreateEmpresaDto } from "../infrastructure/dto/create-empresa.dto";
+import { UpdateEmpresaDto } from "../infrastructure/dto/update-empresa.dto";
 import type { Empresa } from "../domain/empresa.entity";
 import type { EmpresaStatus } from "../domain/empresa-status";
 import {
