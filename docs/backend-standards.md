@@ -41,11 +41,61 @@
 - Errors con contexto: qué ocurrió, dónde, con qué datos
 - Health check endpoint: `/health`
 
+## Principios de Diseño — Backend (NestJS)
+
+SOLID es el rector del backend. Cada módulo de negocio se organiza en **Clean Architecture por feature** con capas obligatorias.
+
+### Estructura de carpetas obligatoria por módulo
+
+```
+backend/src/modules/<feature>/
+├── domain/           ← Entidades, value objects, interfaces de repositorio (puro TS, sin framework)
+│   ├── <feature>.entity.ts
+│   └── <feature>-repository.interface.ts
+├── application/      ← Casos de uso / services (orquestan domain + infrastructure via interfaces)
+│   └── <feature>.service.ts
+└── infrastructure/   ← Implementaciones concretas (Firestore adapter, Firebase Auth, HTTP clients)
+    └── <feature>.firestore.adapter.ts
+```
+
+- **DIP (Dependency Inversion)**: `domain/` y `application/` **nunca** importan de infraestructura concreta (`firebase-admin`, `@nestjs/axios`, `class-validator`, `class-transformer`). Solo importan interfaces definidas en `domain/`.
+- Los controllers viven en `infrastructure/` o directamente en la raíz del módulo (`<feature>.controller.ts`), dependiendo de la complejidad.
+
+### SRP (Single Responsibility)
+
+- Un servicio = una responsabilidad de negocio. Si mezcla data access + business logic + formatting → separar.
+- Un archivo ≤ 300 líneas (ver `templates/ci/eslintrc.backend.js`).
+
+### OCP (Open/Closed)
+
+- Preferir estrategias/polimorfismo sobre switch/if-else crecientes.
+- `sonarjs/no-collapsible-if` y `complexity ≤ 10` como guardrails.
+
+### LSP (Liskov Substitution)
+
+- Interfaces de contratos con `*.contract.spec.ts` que validan que cualquier implementación cumple el contrato.
+
+### ISP (Interface Segregation)
+
+- Interfaces de repositorio ≤ 5 métodos. Si crece, dividir en interfaces más específicas.
+
+### Umbrales objetivos (CI)
+
+| Métrica | Umbral | Config CI |
+|---|---|---|
+| `max-lines` por archivo | 300 | `templates/ci/eslintrc.backend.js` |
+| Cyclomatic complexity | ≤10 | `complexity` rule |
+| Cognitive complexity | ≤10 | `sonarjs/cognitive-complexity` rule |
+| `max-params` por función | ≤3 | `max-params` rule |
+| `max-depth` | ≤4 | `max-depth` rule |
+| Inheritance depth | ≤2 | `madge` (circular-dep) + review manual |
+| DIP (no infra imports en domain/application) | 0 violaciones | `templates/ci/.dependency-cruiser.js` |
+
 ## Stack específico del proyecto
 
 ```
 Runtime: Node.js 22 (>=20.19)
-Framework: NestJS 10 (modular, REST)
+Framework: NestJS 11 (modular, REST)
 Lenguaje: TypeScript 5
 BaaS: Firebase
   - Firestore  : base de datos NoSQL (colecciones: empresas, categorias, barrios, usuarios, solicitudes)
@@ -63,9 +113,10 @@ Commits: Conventional Commits (commitlint)
 ### Estructura de módulos (NestJS)
 
 Cada feature en `src/modules/<nombre>/`:
-- `<nombre>.module.ts`, `<nombre>.controller.ts`, `<nombre>.service.ts`
-- `dto/` (`create-<nombre>.dto.ts`, `update-<nombre>.dto.ts`)
-- `entities/` (`<nombre>.entity.ts`)
+- `<nombre>.module.ts`, `<nombre>.controller.ts`
+- `domain/` (`<nombre>.entity.ts`, `<nombre>-repository.interface.ts`)
+- `application/` (`<nombre>.service.ts`)
+- `infrastructure/` (`<nombre>.firestore.adapter.ts`, `dto/`)
 - Tests: `<nombre>.service.spec.ts`, `<nombre>.controller.spec.ts`
 
 ### Firebase / Firestore
