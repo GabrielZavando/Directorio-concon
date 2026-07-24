@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
-import { EmpresasController } from "./empresas.controller";
-import { EmpresasService } from "./empresas.service";
+import { EmpresasController } from "./infrastructure/empresas.controller";
+import { EmpresasService } from "./application/empresas.service";
 import { FirebaseService } from "@/common/services/firebase.service";
 
 @Module({
