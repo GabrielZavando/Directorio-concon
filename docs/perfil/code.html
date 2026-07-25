@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Perfil del Negocio | Directorio Concón</title>
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Montserrat and Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Montserrat:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "surface-container-low": "#f2f4f6",
+                "on-tertiary": "#ffffff",
+                "error-container": "#ffdad6",
+                "on-background": "#191c1e",
+                "secondary": "#6f5b3f",
+                "surface-container-high": "#e6e8ea",
+                "on-secondary-fixed-variant": "#554429",
+                "inverse-primary": "#9ccaff",
+                "on-secondary": "#ffffff",
+                "tertiary-container": "#35622e",
+                "surface-container": "#eceef0",
+                "tertiary-fixed": "#bcf0ae",
+                "background": "#f7f9fb",
+                "primary": "#004370",
+                "surface-container-lowest": "#ffffff",
+                "on-tertiary-container": "#a8dc9b",
+                "on-tertiary-fixed": "#002201",
+                "primary-fixed-dim": "#9ccaff",
+                "inverse-on-surface": "#eff1f3",
+                "outline": "#717781",
+                "primary-fixed": "#d0e4ff",
+                "tertiary-fixed-dim": "#a1d494",
+                "on-primary": "#ffffff",
+                "secondary-fixed-dim": "#dcc3a0",
+                "on-surface-variant": "#414750",
+                "primary-container": "#005b96",
+                "on-primary-container": "#abd2ff",
+                "tertiary": "#1d4a19",
+                "on-surface": "#191c1e",
+                "on-primary-fixed": "#001d35",
+                "surface": "#f7f9fb",
+                "outline-variant": "#c1c7d1",
+                "on-error": "#ffffff",
+                "surface-container-highest": "#e0e3e5",
+                "on-tertiary-fixed-variant": "#23501e",
+                "surface-bright": "#f7f9fb",
+                "secondary-container": "#fadeba",
+                "error": "#ba1a1a",
+                "secondary-fixed": "#fadeba",
+                "surface-tint": "#12629d",
+                "inverse-surface": "#2d3133",
+                "on-secondary-container": "#756144",
+                "surface-dim": "#d8dadc",
+                "surface-variant": "#e0e3e5",
+                "on-primary-fixed-variant": "#00497a",
+                "on-error-container": "#93000a",
+                "on-secondary-fixed": "#261904"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px",
+                "custom": "0.5rem"
+        },
+        "spacing": {
+                "gutter": "24px",
+                "container-max": "1280px",
+                "base": "8px",
+                "margin-mobile": "16px",
+                "margin-desktop": "40px"
+        },
+        "fontFamily": {
+                "label-md": ["Inter"],
+                "body-md": ["Inter"],
+                "headline-md": ["Montserrat"],
+                "headline-lg-mobile": ["Montserrat"],
+                "body-lg": ["Inter"],
+                "label-sm": ["Inter"],
+                "headline-xl": ["Montserrat"],
+                "headline-lg": ["Montserrat"],
+                "sans": ["Inter", "sans-serif"]
+        }
+      }
+    }
+  }
+</script>
+<style data-purpose="custom-styling">
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f7f9fb;
+    }
+    .font-heading {
+      font-family: 'Montserrat', sans-serif;
+    }
+    .rounded-theme {
+      border-radius: 0.5rem;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="text-on-surface">
+<!-- BEGIN: Navigation -->
+<nav class="bg-surface-container-lowest border-b border-outline-variant sticky top-0 z-50">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex justify-between h-16 items-center">
+<div class="flex items-center gap-8">
+<a class="text-primary font-heading font-bold text-2xl tracking-tight" href="#">DIRECTORIO</a>
+<div class="hidden md:flex items-center space-x-4">
+<a class="text-on-surface-variant hover:text-primary px-3 py-2 text-sm font-medium transition" href="#">Explorar</a>
+<a class="text-on-surface-variant hover:text-primary px-3 py-2 text-sm font-medium transition" href="#">Categorías</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant font-medium text-sm hover:text-primary transition">Iniciar Sesión</button>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-custom text-sm font-semibold hover:bg-primary-container transition">Agregar Negocio</button>
+</div>
+</div>
+</div>
+</nav>
+<!-- END: Navigation -->
+<!-- BEGIN: Hero Section -->
+<div class="relative h-[400px] w-full overflow-hidden">
+<!-- Cover Image: Coastal Scene -->
+<img alt="Portada Concón" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQNTp0JSZhec9jCnJbgsTk3ZUsQmoAJFwHXb2XJLXPVzjk2EnZwoN6jR72TLx0rpXd7Zzt-hIpA7lPDOHScykvaSVdx2NQ2NuSjO3c3l8YXCHARH52WrW4tBZlmmIavnZa-obz0BTXXHNWkmtaR1TOg_dnccJGPulMPFqUAUeONAIvi5apy9EM2oeB32t6k7r9xGf7lRJYsrlYK7DQaruby0nTZOEtRq2TyCR5RBdG4-rj7-EqtovAt8BDprE_wVpj0B_6oLhoLxPd"/>
+<div class="absolute inset-0 bg-primary/20"></div>
+</div>
+<!-- END: Hero Section -->
+<!-- BEGIN: Main Profile Content -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-24 relative z-10 pb-20">
+<!-- BEGIN: Header Card -->
+<div class="bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant p-6 mb-8">
+<div class="flex flex-col md:flex-row items-start md:items-end gap-6">
+<!-- Business Logo -->
+<div class="w-32 h-32 rounded-custom border-4 border-surface-container-lowest bg-surface-container-lowest shadow-md overflow-hidden -mt-16">
+<img alt="Lumina Logo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChW6kpH6TbR0RZsZUtI-F99jzG9PyaZZeB3MQhrq0a3sKVD3cyEVtp7dJV2faiy2gnCHTVpNv6LZaN_4fMN8tqiWR-n-_oQ-0sNY_Uj1edbs1Lh0gArbyf0Wf8etj5IBFmnyuxtt-khgB1QPZSghNgOUzVcVC4jbeRmzllqLeF-u3b2M2C0iBLqb55OO4d9zH00ImKJ7GytGaPZT4QmW9fQP57KuBK6iyKbBQ4KN4xTP5elAEmXTgu8j0d48rSJ9fCOFxjenUOKgeh"/>
+</div>
+<div class="flex-1">
+<div class="flex flex-wrap items-center gap-3">
+<h1 class="text-3xl font-heading font-bold text-on-surface">Lumina Wellness Spa Concón</h1>
+<span class="bg-primary-fixed text-on-primary-fixed text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Verificado</span>
+</div>
+<p class="text-on-surface-variant mt-1">Salud y Bienestar • Spa de Lujo • Masajes Terapéuticos</p>
+<div class="flex items-center mt-2">
+<div class="flex text-secondary">
+<!-- SVG Stars -->
+<svg class="w-5 h-5 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-5 h-5 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-5 h-5 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-5 h-5 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-5 h-5 fill-outline-variant" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+</div>
+<span class="ml-2 font-bold text-on-surface text-lg">4.2</span>
+<span class="ml-1 text-on-surface-variant">(128 Reseñas)</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="bg-surface-container-high p-2.5 rounded-custom hover:bg-surface-dim transition" title="Compartir">
+<svg class="w-5 h-5 text-on-surface-variant" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6a3 3 0 100-2.684m0 2.684l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<button class="bg-surface-container-high p-2.5 rounded-custom hover:bg-surface-dim transition" title="Guardar">
+<svg class="w-5 h-5 text-on-surface-variant" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+</div>
+<!-- END: Header Card -->
+<!-- BEGIN: Column Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- BEGIN: Left Column -->
+<div class="lg:col-span-2 space-y-8">
+<!-- About Section -->
+<section class="bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant p-6">
+<h2 class="text-xl font-heading font-bold mb-4">Sobre el Negocio</h2>
+<p class="text-on-surface-variant leading-relaxed">
+            Bienvenidos a Lumina Wellness Spa, su santuario de relajación y rejuvenecimiento frente al mar en Concón. Establecidos en 2015, ofrecemos una amplia gama de servicios terapéuticos diseñados para sanar la mente y el cuerpo con la brisa del océano como telón de fondo. Nuestros terapeutas certificados se especializan en masajes de tejido profundo, tratamientos faciales orgánicos y bienestar holístico adaptado a sus necesidades únicas.
+          </p>
+<p class="text-on-surface-variant leading-relaxed mt-4">
+            Utilizamos solo aceites esenciales de la más alta calidad y productos ecológicos que respetan nuestro entorno costero. Ya sea que busque una escapada rápida de su rutina o un día completo de mimos, Lumina Wellness Spa se compromete a brindar una experiencia sin igual.
+          </p>
+</section>
+<!-- Photos Gallery -->
+<section class="bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant p-6">
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-xl font-heading font-bold">Fotos</h2>
+<button class="text-primary font-semibold text-sm hover:underline">Ver Todas</button>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+<img alt="Galería 1" class="rounded-custom w-full h-32 object-cover hover:opacity-90 cursor-pointer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCEYKnFjyv-kNfz0YHmP6EkUQNijfUz0w5E3xdHEf4L5lDtxpyucuo_GnYbDyw0TMs-Lh_ETH1CrkAhsJUQK2Sd1tersp0FTN7z9wng6Mh8tlUqMhfScPkr7Pfoq3N9GqcvN91_zqXxCBl1qKUB9fiU8qI0nyitC5i9wUo3yrX6JFvXFkXGmP8803SC7ns-_hyvJFa7pQWFjl3BenkuAPcSxHAwOJTqxkL6gzoCHHKxofYJ9fMhBhFQLV_UI07sJU5wO8Gb94Ji3dPV"/>
+<img alt="Galería 2" class="rounded-custom w-full h-32 object-cover hover:opacity-90 cursor-pointer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAu2D5y1oahW7PThdBuNQYvqsjSL8HtJgPfJ858TMtPZ_1-q5RmZDx0e-aSpSUU3G2Lv0AlkeyxnyE1PHPFX65ij9u6zsLVHhFZHSLII49uH5r9slr1OFdMwMcx2kmIel9u2nMEFpQoL3MKiZpovOH6cj9h1-X9Xu_CPNZX5tiOwHdPjk8Ggkp_-XtrVhZCyAcMuEaceUQ5D7Nv0GulljEq2QObVpwBQdxdytE8RzGlFkIlUHWhckN9QiJlV9i-iTpsoA7ySQGaaVH"/>
+<img alt="Galería 3" class="rounded-custom w-full h-32 object-cover hover:opacity-90 cursor-pointer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBnXA84-PAR8X8LxkUocl8UPfKjAHhUQ6OeifUyDmqa0fnBLc__2Qn1lwcFqhofFHay84QmhNq0WnQYCBO3iwsuU_-fVyL7KW5YjaF4Y_GUfmSL-QhIJuXj8YntE07p99eVPLsvuAj5bmIXC6f-q1LVHeNemgCrCM4HB6pD6xIELad71ZxCLyntkSBeNCULVf2OJPrHNhjIFkYYYvrwQCfCvcffyD2xKUN1FSDjbqa2g9-IvEkMekoYqAxHnaa7vrIAVnXpBlZ5Ff_M"/>
+<img alt="Galería 4" class="rounded-custom w-full h-32 object-cover hover:opacity-90 cursor-pointer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVvktZIhCyo6WZjKP9Bv6BbtgKl2wHIQJEgheiMaNJQLtXnumMjRVD9JMEYMnn3I441MGBZ5TikVajtMOl61w0t2sriziLSGnoufXNJGDXMUtfsGIXG-EPpNFiaT3yS1rzLyA5980fYhLk__qOpKq0faQDylD9c411EpxfMv7j1uEmYdtt9rHf3e-i9k1EQYVUkUiy0GhghLjboROMYj3uyq_r0Q2QcNHARoCiRPYzqEKXBgM7VFxefHEoOJEHM3s2XJrSJ4J0UbMA"/>
+<img alt="Galería 5" class="rounded-custom w-full h-32 object-cover hover:opacity-90 cursor-pointer" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChO9MfL2xdCs7O47YYO7eEnMJQWIhnE5UMyVOJGgCbOGlkz-x3WxvR3GvxtRZe7kK1gqAhtBsG3fSd4vFjfihrx4wAV7lmmpLSdnL7rslGYdLdFeQnaLL4afrTJ0n3U1hAhymlZH6o97Btnd48FQg4NS7yLeabuQdnmH_hg_FFwD72FS5AkxgB-eSg1WTTWWq0JV6cZA2ZlOFpRkeM-3HJh5vznqg2LgSIG2qyzOjAtRTjZ1-xws7bxrmmVsQ3rQJCJ7aY3voYSVqf"/>
+<div class="relative rounded-custom h-32 overflow-hidden group cursor-pointer">
+<img alt="Galería 6" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQ2fiqZQc64AlF9J1qHTYBPbzRHfAjwLgupY9HpKwRr1mT6wejnogJvcZBjT2uaY-7eYQLyPPTgc4Tvmk0m7IiC3wfuJSUYfQ5BYLxU_bM8-AOCLEvpgXB-C-aJ2SRW2X9sU4SI2f3Ope9MagmPLXnATgg0oazcMriyltNqDxmmzXvziEshB5hKL8CAqP2V0Wchit7y2rzJ35j6NbuT4cK74HHEZXLrn6QzGzRt58orPGbcjzqNtBlQ9oHJNYRb2ZQmbIr1ymfrONI"/>
+<div class="absolute inset-0 bg-primary/60 flex items-center justify-center text-on-primary font-bold text-lg">+12</div>
+</div>
+</div>
+</section>
+<!-- Reviews Section -->
+<section class="bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant p-6">
+<div class="flex justify-between items-center mb-6">
+<h2 class="text-xl font-heading font-bold">Reseñas</h2>
+<button class="border border-primary text-primary px-4 py-2 rounded-custom text-sm font-semibold hover:bg-primary-fixed transition">Escribir una Reseña</button>
+</div>
+<!-- Individual Review -->
+<div class="space-y-6">
+<div class="border-b border-outline-variant pb-6">
+<div class="flex gap-4">
+<img alt="Usuario" class="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaPnlW6_qKNP84B5ivUhB1uUkxvlWWMXsxO1skk0UwXl7csnYr7SmCkiTeVyTkvc-H3OGKtiyWzrznTAays00RX7GZQeU1WQsBPHjEcyvsFFVybgJBhwnPbbHRNLfjA8kAAAeTZ8tRB3nkFcvDs5_DOmIycRknDLXmzYstAE3kFrd9siZG6g8b15zMVRv3iP0wg5r66uSOqfWYDQGCN75442I1kQtbT0rzjz4AIp8wcNXQZMDEnAWUcBVPSpAQonrV2l_o74aYS2-l"/>
+<div>
+<h4 class="font-bold text-on-surface">Sarah Jenkins</h4>
+<div class="flex items-center gap-2">
+<div class="flex text-secondary">
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+</div>
+<span class="text-xs text-on-surface-variant">hace 2 semanas</span>
+</div>
+</div>
+</div>
+<p class="text-on-surface-variant mt-3">¡Una experiencia absolutamente maravillosa! El masaje sueco era exactamente lo que necesitaba. El personal es profesional y el ambiente es increíblemente relajante.</p>
+</div>
+<div class="border-b border-outline-variant pb-6">
+<div class="flex gap-4">
+<img alt="Usuario" class="w-12 h-12 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCabAuS8ivOAugPZ_4ZYXNs14CbZekmRw1NS4PrHkzBx2br2-CihSfVu8mewPHmiMxsA1Oa13d0CxhzZkbJiTbrhMLRuKI6dafs0R6t8P5Qq2P6ktbDahBfRennJKNcT0DNqJS3rKw8lor57QXvPOLqlhw8pHQc1q6MbkMsr5EOUPT8KUYpNDPtI52IZvEusIhg93BglvenrauEY1YEcgjZKhytybJ8BsL4HHq-mj3XMDJhTaBq0UA5TFLERMYQizcwId86k6hRtFP3"/>
+<div>
+<h4 class="font-bold text-on-surface">Michael Ross</h4>
+<div class="flex items-center gap-2">
+<div class="flex text-secondary">
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<svg class="w-4 h-4 fill-outline-variant" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+</div>
+<span class="text-xs text-on-surface-variant">hace 1 mes</span>
+</div>
+</div>
+</div>
+<p class="text-on-surface-variant mt-3">Excelentes instalaciones. Me encantó la sauna de infrarrojos. La limpieza es de primer nivel. La única razón de las 4 estrellas es que puede ser difícil encontrar estacionamiento cerca durante las horas punta.</p>
+</div>
+</div>
+<button class="w-full mt-6 py-3 border border-outline-variant rounded-custom text-on-surface-variant font-semibold hover:bg-surface-container transition">Leer Más Reseñas</button>
+</section>
+</div>
+<!-- END: Left Column -->
+<!-- BEGIN: Right Column (Sidebar) -->
+<aside class="space-y-6">
+<!-- Action Card -->
+<div class="bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant p-6">
+<button class="w-full bg-primary text-on-primary py-3 rounded-custom font-bold text-lg hover:bg-primary-container transition shadow-lg shadow-primary/20 mb-3">Reservar Cita</button>
+<button class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface py-3 rounded-custom font-semibold hover:bg-surface-container transition">Enviar Mensaje</button>
+</div>
+<!-- Contact Info -->
+<div class="bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant p-6">
+<h3 class="text-lg font-heading font-bold mb-4">Información de Contacto</h3>
+<div class="space-y-4">
+<!-- Map Placeholder -->
+<div class="w-full h-40 bg-surface-container-high rounded-custom overflow-hidden">
+<img alt="Ubicación Concón" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwCdQLGJBX7ESrDnFG9NWfmcczmJrZht5b0oEyqw9ZBJAGVJBU4NOsHFNKVwwnpUfP8qnFN4EMS1oT6Hsh8qTOiDuqVQZJgmhbo1CWeJR4qSNC10vi4MuBhYRHPekT0pGDF_bSrZszTfdI8IukMcMQhTxkjrh90S1I86nqYhlIefZPBo98R558aDzLmivpxOJ9EyiqDQprB03PLii3Tvzru5GLmhIbku3Png2-Fa-xf2Q24JA2auQQYJTlX1JLfave7fY-M9trgFq5"/>
+</div>
+<div class="flex gap-3">
+<svg class="w-5 h-5 text-outline shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<p class="text-on-surface-variant text-sm">Av. Borgoño 12345, Sector Higuerillas, Concón, Región de Valparaíso</p>
+</div>
+<div class="flex gap-3">
+<svg class="w-5 h-5 text-outline shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<p class="text-on-surface-variant text-sm">+56 32 123 4567</p>
+</div>
+<div class="flex gap-3">
+<svg class="w-5 h-5 text-outline shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<a class="text-primary text-sm font-semibold hover:underline" href="#">www.luminaconcon.cl</a>
+</div>
+</div>
+</div>
+<!-- Business Hours -->
+<div class="bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant p-6">
+<h3 class="text-lg font-heading font-bold mb-4">Horario de Atención</h3>
+<div class="space-y-2 text-sm">
+<div class="flex justify-between">
+<span class="text-on-surface-variant">Lunes - Viernes</span>
+<span class="font-medium">9:00 AM - 8:00 PM</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant">Sábado</span>
+<span class="font-medium">10:00 AM - 6:00 PM</span>
+</div>
+<div class="flex justify-between">
+<span class="text-on-surface-variant">Domingo</span>
+<span class="text-error font-medium">Cerrado</span>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant flex items-center gap-2">
+<span class="w-2.5 h-2.5 bg-tertiary-container rounded-full"></span>
+<span class="text-sm font-bold text-tertiary uppercase">Abierto Ahora</span>
+</div>
+</div>
+</aside>
+<!-- END: Right Column -->
+</div>
+<!-- END: Column Layout -->
+<!-- BEGIN: Similar Businesses Slider -->
+<section class="mt-12">
+<div class="flex justify-between items-center mb-6">
+<h2 class="text-2xl font-heading font-bold">Negocios Similares</h2>
+<div class="flex gap-2">
+<button class="p-2 border border-outline-variant rounded-custom hover:bg-surface-container transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+<button class="p-2 border border-outline-variant rounded-custom hover:bg-surface-container transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</div>
+<div class="flex overflow-x-auto gap-6 pb-4 hide-scrollbar">
+<!-- Card 1 -->
+<div class="min-w-[280px] bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant overflow-hidden hover:shadow-md transition cursor-pointer">
+<img alt="Negocio" class="w-full h-40 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAN0jYwckg8FiFDuybIdEwRrHyYAM6q2b01hrMBsf35rwShuC3P0lb22N5GWerPH5IhfEQp0sBksU8QUfge9xkoBS906a8pWxCrIEt-a_bb-a2jGtPzr371F9Gs6eAVa8_iUX3ZeCNNPRUrzX9AWjay6o2sVXXysAM8oQwW9CwZzUYGMnxGuWU5BS65FhaeNifh4D3W4pnZZIQNzPkg5XJev3KcQ7le-bhPwGALRb3V_ED8s0imGbRiTBu-a6cSujgKij_IjRs2_IAS"/>
+<div class="p-4">
+<h4 class="font-bold text-on-surface truncate">Retiro Jardín Zen</h4>
+<div class="flex items-center text-sm mt-1">
+<span class="text-secondary">★</span>
+<span class="ml-1 font-bold">4.8</span>
+<span class="ml-1 text-on-surface-variant">(84)</span>
+</div>
+<p class="text-on-surface-variant text-xs mt-1">Spa &amp; Yoga • a 1.2 km</p>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="min-w-[280px] bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant overflow-hidden hover:shadow-md transition cursor-pointer">
+<img alt="Negocio" class="w-full h-40 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDuAX5WMncK6Cn-i_ZwZx2B784KlTuSruE_sbrhRQQYkIuZsF81JMvcqFwwAvw-HsqHPy6zcZcttTzUWzPLHHWcFzrp0evv6kc2T0gZtUBTb2quimFC8gYx-AsAsWugelOks9uSdXKsWrIjObDW0CMAN8YlJXuVrOYyXLD6MNVdRB6SVpnbe_xwQFGX0Aphe1saqqzedHRFegNx5hEuPcKW1LvJrRa_gR6vYWFlCPH9hpaCx2BRLiP60IMe8lRxe_-aFwhBRyFK0fXE"/>
+<div class="p-4">
+<h4 class="font-bold text-on-surface truncate">Laboratorio Elite</h4>
+<div class="flex items-center text-sm mt-1">
+<span class="text-secondary">★</span>
+<span class="ml-1 font-bold">4.5</span>
+<span class="ml-1 text-on-surface-variant">(42)</span>
+</div>
+<p class="text-on-surface-variant text-xs mt-1">Masaje Deportivo • a 2.5 km</p>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="min-w-[280px] bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant overflow-hidden hover:shadow-md transition cursor-pointer">
+<img alt="Negocio" class="w-full h-40 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCr4uZHuS-txj_FxbSJDquRDhU2JpiqXUsOw-pJUXf50As7-OA0u0wj20DZL2NZDvtyJ0b0EY0ZM7m8V00eKbjVDs-3gcT09obm0wfWW1Il8II0PCnGmGxFeUuIp6qo4lGHqwiolYL3hyaK1o4HNE6ZqOmHwhgqJEaZrYgUHjlIFg-CDK5OI2WFVJ6GZ8TIIdFV4JNp-Zr0ZK7VlvHWsr-ryRW0pinms5NZEtbsh99gc_kq-YoL0cvMwHR7547aASYjv_cht2Pa2wYC"/>
+<div class="p-4">
+<h4 class="font-bold text-on-surface truncate">Spa Brisa Marina</h4>
+<div class="flex items-center text-sm mt-1">
+<span class="text-secondary">★</span>
+<span class="ml-1 font-bold">4.6</span>
+<span class="ml-1 text-on-surface-variant">(156)</span>
+</div>
+<p class="text-on-surface-variant text-xs mt-1">Hidroterapia • a 0.8 km</p>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="min-w-[280px] bg-surface-container-lowest rounded-custom shadow-sm border border-outline-variant overflow-hidden hover:shadow-md transition cursor-pointer">
+<img alt="Negocio" class="w-full h-40 object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKoJ77y-3J4QAQ6wDxMtxy3AQSejwDG7DRfa2YB3Bxe6CSwuJfOtxap5ZWKsZUrLuMyZxcVIAfw9bVIqnAGc9K4DpiMSnMb3rnJU4qOpZK7X7oEBbpWivP9YkTZSHgZrh0YV50Eskg0lGb37IWWyh3I4GKWwxT1tpNkycx02yq8O6k0ZjU_aSuX6g4FzFFO14iwGOB_j4fWYc4hCP2NsWsf7drJm1YpyHONkBEpGh8ATD7amKDAa6D56zoT_V61wWekFXWpQuq5QZF"/>
+<div class="p-4">
+<h4 class="font-bold text-on-surface truncate">El Salón del Mimo</h4>
+<div class="flex items-center text-sm mt-1">
+<span class="text-secondary">★</span>
+<span class="ml-1 font-bold">4.3</span>
+<span class="ml-1 text-on-surface-variant">(92)</span>
+</div>
+<p class="text-on-surface-variant text-xs mt-1">Belleza &amp; Spa • a 3.1 km</p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: Similar Businesses Slider -->
+</main>
+<!-- END: Main Profile Content -->
+<!-- BEGIN: Footer -->
+<footer class="bg-surface-container-lowest border-t border-outline-variant pt-16 pb-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+<div>
+<h5 class="font-heading font-bold mb-4">Nosotros</h5>
+<ul class="space-y-2 text-on-surface-variant text-sm">
+<li><a class="hover:text-primary transition" href="#">Quiénes Somos</a></li>
+<li><a class="hover:text-primary transition" href="#">Carreras</a></li>
+<li><a class="hover:text-primary transition" href="#">Prensa</a></li>
+</ul>
+</div>
+<div>
+<h5 class="font-heading font-bold mb-4">Directorio</h5>
+<ul class="space-y-2 text-on-surface-variant text-sm">
+<li><a class="hover:text-primary transition" href="#">Mejores Categorías</a></li>
+<li><a class="hover:text-primary transition" href="#">Suma tu Negocio</a></li>
+<li><a class="hover:text-primary transition" href="#">Confianza y Seguridad</a></li>
+</ul>
+</div>
+<div>
+<h5 class="font-heading font-bold mb-4">Soporte</h5>
+<ul class="space-y-2 text-on-surface-variant text-sm">
+<li><a class="hover:text-primary transition" href="#">Centro de Ayuda</a></li>
+<li><a class="hover:text-primary transition" href="#">Contactar Soporte</a></li>
+<li><a class="hover:text-primary transition" href="#">Política de Privacidad</a></li>
+</ul>
+</div>
+<div>
+<h5 class="font-heading font-bold mb-4">Síguenos</h5>
+<div class="flex gap-4">
+<a class="text-outline hover:text-primary transition" href="#">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"></path></svg>
+</a>
+<a class="text-outline hover:text-primary transition" href="#">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.84 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"></path></svg>
+</a>
+</div>
+</div>
+</div>
+<div class="border-t border-outline-variant pt-8 text-center">
+<p class="text-on-surface-variant text-sm">© 2023 Directorio Concón Inc. Todos los derechos reservados.</p>
+</div>
+</div>
+</footer>
+<!-- END: Footer -->
+</body></html>

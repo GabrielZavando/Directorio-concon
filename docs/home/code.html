@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Direo - Directorio de Negocios Locales</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Montserrat & Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Montserrat:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#004370', // Ocean Blue
+            'primary-container': '#005b96', // Secondary Ocean Blue
+            secondary: '#fadeba', // Sand Beige
+            tertiary: '#1d4a19', // Pine Green
+            'tertiary-container': '#35622e',
+            background: '#f7f9fb',
+            surface: '#f7f9fb',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            headline: ['Montserrat', 'sans-serif'],
+          },
+          borderRadius: {
+            'custom': '0.25rem',
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-utilities">
+    .bg-hero-overlay {
+      background: linear-gradient(rgba(0, 67, 112, 0.4), rgba(0, 67, 112, 0.6)), url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+      background-size: cover;
+      background-position: center;
+    }
+    .category-card:hover {
+      transform: translateY(-5px);
+      transition: all 0.3s ease;
+    }
+  </style>
+</head>
+<body class="font-sans text-gray-800 bg-background">
+<!-- BEGIN: MainHeader -->
+<header class="sticky top-0 z-50 bg-white shadow-sm" data-purpose="site-navigation">
+<nav class="container mx-auto px-4 py-4 flex items-center justify-between">
+<!-- Logo -->
+<div class="flex items-center space-x-2">
+<div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold text-xl">D</div>
+<span class="text-2xl font-headline font-bold tracking-tight text-primary">Direo</span>
+</div>
+<!-- Navigation Links -->
+<div class="hidden md:flex items-center space-x-8">
+<a class="text-gray-600 hover:text-primary font-medium" href="#">Inicio</a>
+<a class="text-gray-600 hover:text-primary font-medium" href="#">Explorar</a>
+<a class="text-gray-600 hover:text-primary font-medium" href="#">Nosotros</a>
+<a class="text-gray-600 hover:text-primary font-medium" href="#">Ingresar</a>
+<a class="bg-primary hover:bg-primary-container text-white px-6 py-2.5 rounded-custom font-semibold transition-colors" href="#">
+          Registrar Negocio
+        </a>
+</div>
+<!-- Mobile Menu Toggle -->
+<div class="md:hidden">
+<button class="text-gray-600 focus:outline-none">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 6h16M4 12h16m-7 6h7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</nav>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: HeroSection -->
+<section class="bg-hero-overlay py-32 md:py-48 px-4" data-purpose="hero-search">
+<div class="container mx-auto text-center">
+<h1 class="text-4xl md:text-6xl font-headline font-bold text-white mb-6">Encuentra los Mejores Lugares</h1>
+<p class="text-lg md:text-xl text-white/90 mb-12 max-w-2xl mx-auto">Desde dunas doradas hasta la brisa del océano: descubre restaurantes, hoteles y experiencias locales únicas.</p>
+<!-- Search Bar Container -->
+<div class="max-w-5xl mx-auto bg-white/20 backdrop-blur-md p-4 rounded-xl">
+<form class="grid grid-cols-1 md:grid-cols-4 gap-3">
+<div class="relative">
+<input class="w-full px-4 py-4 rounded-custom border-none focus:ring-2 focus:ring-primary text-gray-800" placeholder="¿Qué estás buscando?" type="text"/>
+</div>
+<div>
+<select class="w-full px-4 py-4 rounded-custom border-none focus:ring-2 focus:ring-primary text-gray-500">
+<option>Seleccionar categoría</option>
+<option>Restaurantes</option>
+<option>Compras</option>
+<option>Hoteles</option>
+</select>
+</div>
+<div>
+<select class="w-full px-4 py-4 rounded-custom border-none focus:ring-2 focus:ring-primary text-gray-500">
+<option>Seleccionar ubicación</option>
+<option>Barcelona</option>
+<option>Madrid</option>
+<option>Valencia</option>
+</select>
+</div>
+<button class="bg-secondary text-primary font-bold py-4 rounded-custom hover:bg-opacity-90 transition-all" type="submit">
+            Buscar Ahora
+          </button>
+</form>
+</div>
+<!-- Quick Links Icons -->
+<div class="mt-12 flex flex-wrap justify-center gap-8">
+<div class="flex flex-col items-center text-white cursor-pointer group">
+<div class="p-3 rounded-full bg-white/20 group-hover:bg-secondary group-hover:text-primary transition-colors mb-2">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM5 10a5 5 0 1110 0 5 5 0 01-10 0z"></path></svg>
+</div>
+<span class="text-sm font-medium">Restaurantes</span>
+</div>
+<div class="flex flex-col items-center text-white cursor-pointer group">
+<div class="p-3 rounded-full bg-white/20 group-hover:bg-secondary group-hover:text-primary transition-colors mb-2">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM5 10a5 5 0 1110 0 5 5 0 01-10 0z"></path></svg>
+</div>
+<span class="text-sm font-medium">Hoteles</span>
+</div>
+<div class="flex flex-col items-center text-white cursor-pointer group">
+<div class="p-3 rounded-full bg-white/20 group-hover:bg-secondary group-hover:text-primary transition-colors mb-2">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM5 10a5 5 0 1110 0 5 5 0 01-10 0z"></path></svg>
+</div>
+<span class="text-sm font-medium">Compras</span>
+</div>
+</div>
+</div>
+</section>
+<!-- END: HeroSection -->
+<!-- BEGIN: HowItWorks -->
+<section class="py-20 bg-white" data-purpose="process-steps">
+<div class="container mx-auto px-4">
+<div class="text-center mb-16">
+<h2 class="text-3xl font-headline font-bold text-primary mb-4">Cómo Funciona</h2>
+<p class="text-gray-500">Descubre lo sencillo que es explorar tu ciudad con Direo</p>
+</div>
+<div class="grid md:grid-cols-3 gap-12">
+<!-- Step 1 -->
+<div class="text-center p-8 border border-gray-100 rounded-custom hover:shadow-lg transition-shadow">
+<div class="w-16 h-16 bg-blue-50 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+<svg class="w-8 h-8" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<h3 class="text-xl font-bold text-primary mb-3">Busca Negocios</h3>
+<p class="text-gray-600">Ingresa palabras clave, elige una categoría y tu ubicación preferida para encontrar lo que necesitas.</p>
+</div>
+<!-- Step 2 -->
+<div class="text-center p-8 border border-gray-100 rounded-custom hover:shadow-lg transition-shadow">
+<div class="w-16 h-16 bg-blue-50 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+<svg class="w-8 h-8" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<h3 class="text-xl font-bold text-primary mb-3">Encuentra lo que Deseas</h3>
+<p class="text-gray-600">Explora listados de alta calidad, lee reseñas genuinas y mira fotos compartidas por otros usuarios.</p>
+</div>
+<!-- Step 3 -->
+<div class="text-center p-8 border border-gray-100 rounded-custom hover:shadow-lg transition-shadow">
+<div class="w-16 h-16 bg-blue-50 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+<svg class="w-8 h-8" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<h3 class="text-xl font-bold text-primary mb-3">Visita y Disfruta</h3>
+<p class="text-gray-600">Dirígete al destino, disfruta del excelente servicio y comparte tu propia experiencia con la comunidad.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: HowItWorks -->
+<!-- BEGIN: ExploreCategories -->
+<section class="py-20 bg-secondary/20" data-purpose="category-navigation">
+<div class="container mx-auto px-4">
+<div class="text-center mb-16">
+<h2 class="text-3xl font-headline font-bold text-primary mb-4">¿Qué tipo de actividad quieres probar?</h2>
+<p class="text-gray-500">Descubre las mejores cosas para hacer por categoría</p>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+<!-- Category Item -->
+<a class="category-card bg-white p-6 rounded-custom shadow-sm flex flex-col items-center text-center border border-secondary/30" href="#">
+<div class="w-12 h-12 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-4">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path></svg>
+</div>
+<h4 class="font-bold text-gray-800">Restaurantes</h4>
+<span class="text-sm text-gray-400">45 Listados</span>
+</a>
+<a class="category-card bg-white p-6 rounded-custom shadow-sm flex flex-col items-center text-center border border-secondary/30" href="#">
+<div class="w-12 h-12 bg-blue-100 text-primary rounded-full flex items-center justify-center mb-4">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path></svg>
+</div>
+<h4 class="font-bold text-gray-800">Compras</h4>
+<span class="text-sm text-gray-400">27 Listados</span>
+</a>
+<a class="category-card bg-white p-6 rounded-custom shadow-sm flex flex-col items-center text-center border border-secondary/30" href="#">
+<div class="w-12 h-12 bg-green-100 text-tertiary rounded-full flex items-center justify-center mb-4">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path></svg>
+</div>
+<h4 class="font-bold text-gray-800">Hoteles</h4>
+<span class="text-sm text-gray-400">22 Listados</span>
+</a>
+<a class="category-card bg-white p-6 rounded-custom shadow-sm flex flex-col items-center text-center border border-secondary/30" href="#">
+<div class="w-12 h-12 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mb-4">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path></svg>
+</div>
+<h4 class="font-bold text-gray-800">Belleza</h4>
+<span class="text-sm text-gray-400">18 Listados</span>
+</a>
+<a class="category-card bg-white p-6 rounded-custom shadow-sm flex flex-col items-center text-center border border-secondary/30" href="#">
+<div class="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-4">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path></svg>
+</div>
+<h4 class="font-bold text-gray-800">Servicios</h4>
+<span class="text-sm text-gray-400">35 Listados</span>
+</a>
+<a class="category-card bg-white p-6 rounded-custom shadow-sm flex flex-col items-center text-center border border-secondary/30" href="#">
+<div class="w-12 h-12 bg-blue-50 text-primary-container rounded-full flex items-center justify-center mb-4">
+<svg class="w-6 h-6" fill="currentColor" viewbox="0 0 20 20"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path></svg>
+</div>
+<h4 class="font-bold text-gray-800">Vida Nocturna</h4>
+<span class="text-sm text-gray-400">12 Listados</span>
+</a>
+</div>
+</div>
+</section>
+<!-- END: ExploreCategories -->
+<!-- BEGIN: FeaturedListings -->
+<section class="py-20 bg-white" data-purpose="featured-content">
+<div class="container mx-auto px-4">
+<div class="flex justify-between items-end mb-12">
+<div>
+<h2 class="text-3xl font-headline font-bold text-primary mb-2">Listados Destacados</h2>
+<p class="text-gray-500">Explora los mejores negocios seleccionados por nuestro equipo</p>
+</div>
+<a class="text-primary font-bold hover:underline" href="#">Ver Todos los Listados →</a>
+</div>
+<div class="grid md:grid-cols-3 gap-8">
+<!-- Listing Card 1 -->
+<div class="group border border-gray-100 rounded-custom overflow-hidden hover:shadow-xl transition-shadow">
+<div class="relative h-64 overflow-hidden">
+<img alt="Restaurante" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHc9S6DUH_3AHQ_6vL36syQQIEJUXKjAPtv_Rlrv8EdxAmdyhTzLUuzojMhDioyPxT-PU2a6lsAs8sO3N03BjJT3D3ad29gSIlKdfezLe0qcCcljVsaE9pZrahhw2gV_Cazqd5OXO5Fq4hmSGIre6UdXHdaUdfGzf9xwwrXCAjJ3P2DPdN8CQvHsUp3ZGLmvhma9eXEbljaqRJkmWS7bxoXSw8KIUyNUMuugAaBgEjF64Lj6COap_t0CxpXZ4CQJjXZBiMxYWFyOPq"/>
+<span class="absolute top-4 left-4 bg-tertiary text-white text-xs font-bold px-3 py-1 rounded-full uppercase">Abierto</span>
+<button class="absolute top-4 right-4 bg-white/50 backdrop-blur p-2 rounded-full hover:bg-white text-red-500">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 20 20"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"></path></svg>
+</button>
+</div>
+<div class="p-6">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Restaurante</span>
+<div class="flex items-center text-secondary">
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<span class="text-gray-700 text-sm font-bold ml-1">4.9</span>
+</div>
+</div>
+<h3 class="text-xl font-bold text-gray-900 mb-2">The Golden Grill</h3>
+<div class="flex items-start text-gray-500 text-sm mb-4">
+<svg class="w-4 h-4 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span>123 Culinary St, Centro, Barcelona</span>
+</div>
+</div>
+</div>
+<!-- Listing Card 2 -->
+<div class="group border border-gray-100 rounded-custom overflow-hidden hover:shadow-xl transition-shadow">
+<div class="relative h-64 overflow-hidden">
+<img alt="Tienda" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC87xnPEDJZ37G-y_mazavj11PKPm9SROvQzTJgyUShND5L4B-xYz7sMqWMQPaWLjxDwzDKz8pc1k0Yy05qVSxx4uhGtsiibkQyaLKUZnoLXjRE2wXxSLwePMotPXT0H1g0HRwr5gZiO92x67m1VIQI3m2DLEwyMKjDjwIqWYWQ-Wc7bgameZOWlOeG-EJwx4uR3tyMrhogISid-SELk54Vfh9FhmhE7LTRXwJ0Y72WD-erW9s6u8nD_bd1ba9gSjp96ozWG6EGvOgR"/>
+<span class="absolute top-4 left-4 bg-gray-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase">Cerrado</span>
+<button class="absolute top-4 right-4 bg-white/50 backdrop-blur p-2 rounded-full hover:bg-white text-gray-400">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 20 20"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"></path></svg>
+</button>
+</div>
+<div class="p-6">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Compras</span>
+<div class="flex items-center text-secondary">
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<span class="text-gray-700 text-sm font-bold ml-1">4.7</span>
+</div>
+</div>
+<h3 class="text-xl font-bold text-gray-900 mb-2">Vintage Vogue</h3>
+<div class="flex items-start text-gray-500 text-sm mb-4">
+<svg class="w-4 h-4 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span>45 Fashion Blvd, Poblenou, Barcelona</span>
+</div>
+</div>
+</div>
+<!-- Listing Card 3 -->
+<div class="group border border-gray-100 rounded-custom overflow-hidden hover:shadow-xl transition-shadow">
+<div class="relative h-64 overflow-hidden">
+<img alt="Hotel" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6w8Ezj2YUkEISo1zA1ozgkRNA2IZ--ZJYibqi89fH94mkLfkdsdO62a33TUswxFtovQ35DD71vp59QcfKVj09GBAsK9WYXnYaFp92bThTtB5tj6B1WABgsA55CuZOXydVxez1XrEmXNCm3EZA_7_GoJZazAONMUx-jczsj4yRJipcaxjEh700_dkXPjZT_YpZ6DwxeWonsdzJgiGtXL1VTwgjpoFgLjxaCl-KQqhquFKYlF8FwtlaMkmRjpiSTyiFjF4CKuudnoxd"/>
+<span class="absolute top-4 left-4 bg-tertiary text-white text-xs font-bold px-3 py-1 rounded-full uppercase">Abierto</span>
+<button class="absolute top-4 right-4 bg-white/50 backdrop-blur p-2 rounded-full hover:bg-white text-gray-400">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 20 20"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"></path></svg>
+</button>
+</div>
+<div class="p-6">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Hotel</span>
+<div class="flex items-center text-secondary">
+<svg class="w-4 h-4 fill-current" viewbox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+<span class="text-gray-700 text-sm font-bold ml-1">4.8</span>
+</div>
+</div>
+<h3 class="text-xl font-bold text-gray-900 mb-2">Azure Grand Hotel</h3>
+<div class="flex items-start text-gray-500 text-sm mb-4">
+<svg class="w-4 h-4 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span>789 Skyline Ave, Costa del Sol, Valencia</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: FeaturedListings -->
+<!-- BEGIN: NewsletterSection -->
+<section class="py-16 bg-primary" data-purpose="newsletter-signup">
+<div class="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between text-white">
+<div class="mb-8 md:mb-0 md:max-w-xl">
+<h2 class="text-3xl font-headline font-bold mb-2">Suscríbete al Boletín</h2>
+<p class="opacity-80">Sé el primero en enterarte de nuevos listados, eventos especiales y ofertas locales.</p>
+</div>
+<div class="w-full md:w-auto flex flex-col sm:flex-row gap-3">
+<input class="px-6 py-4 rounded-custom text-gray-800 focus:ring-2 focus:ring-secondary border-none w-full sm:w-80" placeholder="Ingresa tu correo electrónico" type="email"/>
+<button class="bg-secondary text-primary font-bold px-8 py-4 rounded-custom hover:bg-opacity-90 transition-colors">
+          Suscribirme
+        </button>
+</div>
+</div>
+</section>
+<!-- END: NewsletterSection -->
+<!-- BEGIN: MainFooter -->
+<footer class="bg-primary-container text-white/70 py-20" data-purpose="site-footer">
+<div class="container mx-auto px-4">
+<div class="grid md:grid-cols-4 gap-12 mb-16">
+<!-- Brand Info -->
+<div>
+<div class="flex items-center space-x-2 text-white mb-6">
+<div class="w-8 h-8 bg-secondary text-primary rounded-full flex items-center justify-center font-bold">D</div>
+<span class="text-xl font-headline font-bold">Direo</span>
+</div>
+<p class="leading-relaxed mb-6">
+            Direo es el directorio líder para negocios locales. Conectamos a los clientes con las mejores experiencias costeras en su vecindario.
+          </p>
+<div class="flex space-x-4">
+<a class="hover:text-secondary transition-colors" href="#"><svg class="w-5 h-5" fill="currentColor" viewbox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path></svg></a>
+<a class="hover:text-secondary transition-colors" href="#"><svg class="w-5 h-5" fill="currentColor" viewbox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"></path></svg></a>
+</div>
+</div>
+<!-- Quick Links -->
+<div>
+<h4 class="text-white font-headline font-bold mb-6">Empresa</h4>
+<ul class="space-y-4">
+<li><a class="hover:text-secondary transition-colors" href="#">Sobre Nosotros</a></li>
+<li><a class="hover:text-secondary transition-colors" href="#">Contacto</a></li>
+<li><a class="hover:text-secondary transition-colors" href="#">Listados</a></li>
+<li><a class="hover:text-secondary transition-colors" href="#">Precios</a></li>
+<li><a class="hover:text-secondary transition-colors" href="#">Privacidad</a></li>
+</ul>
+</div>
+<!-- Helpful Links -->
+<div>
+<h4 class="text-white font-headline font-bold mb-6">Enlaces Útiles</h4>
+<ul class="space-y-4">
+<li><a class="hover:text-secondary transition-colors" href="#">Únete a Direo</a></li>
+<li><a class="hover:text-secondary transition-colors" href="#">Iniciar Sesión</a></li>
+<li><a class="hover:text-secondary transition-colors" href="#">Cómo Funciona</a></li>
+<li><a class="hover:text-secondary transition-colors" href="#">Ventajas</a></li>
+<li><a class="hover:text-secondary transition-colors" href="#">App Móvil</a></li>
+</ul>
+</div>
+<!-- Connect -->
+<div>
+<h4 class="text-white font-headline font-bold mb-6">Soporte</h4>
+<ul class="space-y-4">
+<li><a class="hover:text-secondary transition-colors flex items-center" href="#"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> support@direo.com</a></li>
+<li><a class="hover:text-secondary transition-colors flex items-center" href="#"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg> +34 900 123 456</a></li>
+</ul>
+<div class="mt-8">
+<h5 class="text-white text-sm font-bold mb-4">App Móvil</h5>
+<div class="flex space-x-2">
+<a class="bg-primary p-2 rounded hover:bg-opacity-80 transition-colors border border-white/20" href="#">
+<img alt="App Store" class="h-6" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAA65X_D3mmDkHsEQM-qZAMR_5iA3zj0pGzzNwhgoCSi2TueJGIKmD5nhvx3lMXEMsW4Vi-5uWE5N_SzRIFz3zg4mho8Uxt3J6RMVGotj-J0WGTCQCk8dbFvJ7JRmOaNK4sX6yXW06EAbGTnRc6ssOoYnxH2yWYbaOP3Il2mVwD9NuEjr8JP0ZpA8rg7-ONyg5pGNZ9yaXGOID2xpXnIj5VOw-SjvuF7PPmafd_sTFDcQsyMY-fkCXXK3DxWDNhgXloGmD2eg3NDw1H"/>
+</a>
+<a class="bg-primary p-2 rounded hover:bg-opacity-80 transition-colors border border-white/20" href="#">
+<img alt="Google Play" class="h-6" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAt3SWPSPQ2gK0SARw9kdY9lHWXsUrECNypU0v-JbBhKY_R55dv5vHOwMcqu1tBwMIb7nQrvj_GuxuDeu2FgTW9kraPFweeAgeawvcWLkiLbjKdHV4Mk489E4-rntTIBwKhrQJH01sODJPE4XwJZ1T_G6dOJHrJUwgN-jOsuID8j-ZXvmfZonehNjbAFDHQzTBMuT0-JIr8y_jD0fLPzYe3QWa0SPltxzRuF3KXmhSE25keNbonaPJofqSljcD666KC6lpqYIeQdwr"/>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Copyright -->
+<div class="pt-8 border-t border-white/10 text-center text-sm">
+<p>© 2024 Directorio de Negocios Direo. Hecho con ❤️ por Aazztech</p>
+</div>
+</div>
+</footer>
+<!-- END: MainFooter -->
+</body></html>

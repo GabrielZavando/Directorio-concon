@@ -5,8 +5,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { EmpresasController } from "./empresas.controller";
-import { EmpresasService } from "./empresas.service";
-import { CreateEmpresaDto } from "./dto/create-empresa.dto";
+import { EmpresasService } from "../application/empresas.service";
 
 // firebase-admin is an external service; mock its submodules so the real SDK
 // (which pulls ESM-only deps like jose) is never loaded by Jest.
@@ -45,14 +44,14 @@ describe("EmpresasController", () => {
     status: "pendiente",
   } as any;
 
-  const baseDto: CreateEmpresaDto = {
+  const baseDto = {
     nombre: "Restaurante El Marino",
     descripcion: "Restaurante de mariscos frescos.",
     categoriaId: "cat-restaurantes",
     barrioId: "barrio-centro",
     direccion: "Av. Borgoño 123",
     planId: "gratuito",
-  } as CreateEmpresaDto;
+  };
 
   beforeEach(async () => {
     service = {
@@ -79,14 +78,14 @@ describe("EmpresasController", () => {
   describe("POST /empresas", () => {
     it("returns 201 with the created empresa", async () => {
       service.create.mockResolvedValue(empresa);
-      const result = await controller.create(baseDto);
+      const result = await controller.create(baseDto as any);
       expect(result).toEqual(empresa);
       expect(service.create).toHaveBeenCalledWith(baseDto);
     });
 
     it("propagates ConflictException (409) on duplicate slug", async () => {
       service.create.mockRejectedValue(new ConflictException("Slug duplicado"));
-      await expect(controller.create(baseDto)).rejects.toBeInstanceOf(
+      await expect(controller.create(baseDto as any)).rejects.toBeInstanceOf(
         ConflictException,
       );
     });
@@ -98,14 +97,11 @@ describe("EmpresasController", () => {
         data: [empresa],
         meta: { total: 1, page: 1, limit: 20 },
       });
-      const result = await controller.findAll(
-        "cat",
-        "bar",
-        "q",
-        undefined,
-        "1",
-        "20",
-      );
+      const result = await controller.findAll({
+        categoriaId: "cat",
+        barrioId: "bar",
+        q: "q",
+      });
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
     });
@@ -179,7 +175,7 @@ describe("EmpresasController", () => {
         ),
       );
       await expect(
-        controller.findAll("cat", "bar", "q", undefined, "1", "20"),
+        controller.findAll({ categoriaId: "cat", barrioId: "bar", q: "q" }),
       ).rejects.toBeInstanceOf(ServiceUnavailableException);
     });
   });

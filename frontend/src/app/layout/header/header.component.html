@@ -1,0 +1,19 @@
+<header class="bg-surface-container-lowest border-b border-outline-variant sticky top-0 z-50">
+  <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between h-16 items-center">
+    <div class="flex items-center gap-8">
+      <a class="text-primary font-headline font-bold text-2xl tracking-tight" href="#">
+        Directorio Concón
+      </a>
+      <div class="hidden md:flex items-center space-x-4">
+        @for (link of navLinks; track link.label) {
+          <a
+            class="text-on-surface-variant hover:text-primary px-3 py-2 text-sm font-medium transition"
+            [href]="link.href"
+          >
+            {{ link.label }}
+          </a>
+        }
+      </div>
+    </div>
+  </nav>
+</header>

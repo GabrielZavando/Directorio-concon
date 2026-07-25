@@ -11,12 +11,12 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { EmpresasService } from "./empresas.service";
+import { EmpresasService } from "../application/empresas.service";
 import { CreateEmpresaDto } from "./dto/create-empresa.dto";
 import { UpdateEmpresaDto } from "./dto/update-empresa.dto";
-import type { Empresa } from "./entities/empresa.entity";
-import type { EmpresaStatus } from "./entities/empresa-status";
-import { PaginatedEmpresas } from "./empresas.service";
+import { QueryEmpresaDto } from "./dto/query-empresa.dto";
+import type { Empresa } from "../domain/empresa.entity";
+import type { PaginatedResult } from "../domain/empresa-repository.interface";
 
 @ApiTags("empresas")
 @Controller("empresas")
@@ -34,18 +34,16 @@ export class EmpresasController {
 
   @Get()
   @ApiOperation({ summary: "Listar empresas (filtros + paginación)" })
-  findAll(
-    @Query("categoriaId") categoriaId?: string,
-    @Query("barrioId") barrioId?: string,
-    @Query("q") q?: string,
-    @Query("status") status?: EmpresaStatus,
-    @Query("page") page?: string,
-    @Query("limit") limit?: string,
-  ): Promise<PaginatedEmpresas> {
+  findAll(@Query() query: QueryEmpresaDto): Promise<PaginatedResult<Empresa>> {
     return this.empresasService.findAll(
-      { categoriaId, barrioId, q, status },
-      page ? Number(page) : 1,
-      limit ? Number(limit) : 20,
+      {
+        categoriaId: query.categoriaId,
+        barrioId: query.barrioId,
+        q: query.q,
+        status: query.status,
+      },
+      query.page ?? 1,
+      query.limit ?? 20,
     );
   }
 

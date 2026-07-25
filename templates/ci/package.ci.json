@@ -1,0 +1,21 @@
+{
+  "name": "directorio-concon-ci-deps",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Snapshot of devDependencies required by templates/ci/ (SOLID enforcement). See docs/ci-standards.md.",
+  "devDependencies": {
+    "@angular-eslint/builder": "^19.0.0",
+    "@angular-eslint/eslint-plugin": "^19.0.0",
+    "@angular-eslint/eslint-plugin-template": "^19.0.0",
+    "@angular-eslint/schematics": "^19.0.0",
+    "@angular-eslint/template-parser": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "dependency-cruiser": "^16.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-astro": "^0.34.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-sonarjs": "^1.0.0",
+    "madge": "^8.0.0"
+  }
+}

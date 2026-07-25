@@ -1,6 +1,12 @@
 import type { EmpresaStatus } from "./empresa-status";
-import type { Timestamp } from "firebase-admin/firestore";
 
+/**
+ * Core domain entity for a business listing.
+ *
+ * Pure TypeScript — no framework imports.
+ * Timestamps use plain Date (the infrastructure adapter converts
+ * Firebase Timestamp ↔ Date).
+ */
 export interface Empresa {
   id: string;
   nombre: string;
@@ -22,6 +28,6 @@ export interface Empresa {
   verificado: boolean;
   status: EmpresaStatus;
   usuarioId?: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date;
+  updatedAt: Date;
 }
