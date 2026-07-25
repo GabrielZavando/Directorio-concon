@@ -2,9 +2,7 @@
 
 ## Purpose
 The Angular frontend SHALL have a configured Tailwind CSS pipeline consuming the canonical "Dunas y Océano" design tokens from `docs/DESIGN.md`, and SHALL render shared Header and Footer dumb components that form the visual foundation for all public-facing screens.
-
 ## Requirements
-
 ### Requirement: Tailwind CSS design-system configuration
 
 The frontend build pipeline SHALL consume Tailwind CSS v3 with all design tokens from `docs/DESIGN.md` wired into the Tailwind config, enabling every component to use M3 token utility classes.
@@ -28,12 +26,13 @@ The frontend build pipeline SHALL consume Tailwind CSS v3 with all design tokens
 
 ### Requirement: Canonical site Header
 
-The frontend SHALL render a sticky header component using M3 design tokens, displaying the brand name and the five navigation links as defined by the user.
+The frontend SHALL render a sticky header component using M3 design tokens, displaying the brand logo image and the five navigation links as defined by the user.
 
-#### Scenario: Header renders brand text and all 5 nav links
+#### Scenario: Header renders brand logo and all 5 nav links
 
 - **WHEN** the `HeaderComponent` renders in the DOM
-- **THEN** the text "Directorio Con Con" is visible (or the confirmed spelling)
+- **THEN** an `<img>` element with `alt="Directorio Concón"` is visible
+- **AND** the `<img>` element has `src` containing `/assets/logo-transparente.webp`
 - **AND** the text "Inicio" is visible as a nav link
 - **AND** the text "Directorio" is visible as a nav link
 - **AND** the text "Eventos" is visible as a nav link
@@ -49,12 +48,14 @@ The frontend SHALL render a sticky header component using M3 design tokens, disp
 
 ### Requirement: Canonical site Footer
 
-The footer SHALL render four link columns, social icons via lucide-angular, and a dynamic copyright year, all using M3 design tokens.
+The footer SHALL render a brand logo image, four link columns, social icons via lucide-angular, and a dynamic copyright year, all using M3 design tokens.
 
-#### Scenario: Footer renders 4 column titles and copyright
+#### Scenario: Footer renders brand logo and 4 column titles
 
 - **WHEN** the `FooterComponent` renders in the DOM
-- **THEN** the text "Nosotros" is visible as a column title
+- **THEN** an `<img>` element with `alt="Directorio Concón"` is present
+- **AND** the `<img>` element has `src` containing `/assets/logo-transparente.webp`
+- **AND** the text "Nosotros" is visible as a column title
 - **AND** the text "Directorio" is visible as a column title
 - **AND** the text "Soporte" is visible as a column title
 - **AND** the text "Síguenos" is visible as a column title
@@ -74,7 +75,7 @@ The footer SHALL render four link columns, social icons via lucide-angular, and 
 
 ### Requirement: App layout integration
 
-The AppComponent SHALL compose Header, main content, and Footer into a vertical page layout.
+The AppComponent SHALL compose Header, a routed `<main>` content area hosting `<router-outlet>`, and Footer into a vertical page layout, using M3 design tokens. The previously hardcoded placeholder paragraph inside `<main>` SHALL be removed in favor of routing.
 
 #### Scenario: AppComponent renders both header and footer
 
@@ -82,3 +83,17 @@ The AppComponent SHALL compose Header, main content, and Footer into a vertical 
 - **THEN** an `<app-header>` element is present
 - **AND** an `<app-footer>` element is present
 - **AND** a `<main>` element is present between header and footer
+
+#### Scenario: AppComponent main hosts a router-outlet
+
+- **WHEN** the `AppComponent` template is rendered in a router test harness
+- **THEN** the `<main>` element contains a `<router-outlet>`
+- **AND** the previously present placeholder paragraph with text "Contenido pendiente" is NO LONGER in the DOM
+- **AND** a routed child component (the home page) renders inside the `<router-outlet>` for the default route
+
+#### Scenario: AppComponent main uses M3 background token
+
+- **WHEN** the `AppComponent` template source is read
+- **THEN** the `<main>` element has a Tailwind class `bg-background` (M3 token defined in `tailwind.config.js`)
+- **AND** it has a Tailwind class `min-h-screen` for minimum height
+
