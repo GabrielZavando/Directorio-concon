@@ -91,9 +91,7 @@ export class EmpresasService {
    */
   private async createSolicitud(empresaId: string): Promise<void> {
     const firestore = this.firebaseService.getFirestore();
-    const solicitudRef = firestore
-      .collection(this.solicitudesCollection)
-      .doc();
+    const solicitudRef = firestore.collection(this.solicitudesCollection).doc();
     await solicitudRef.set({
       empresaId,
       usuarioId: "",

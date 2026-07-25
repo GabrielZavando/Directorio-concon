@@ -108,7 +108,10 @@ describe("EmpresasService", () => {
       expect(result.slug).toBe("restaurante-el-marino");
       expect(result.status).toBe("pendiente");
       expect(empresaRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ slug: "restaurante-el-marino", status: "pendiente" }),
+        expect.objectContaining({
+          slug: "restaurante-el-marino",
+          status: "pendiente",
+        }),
       );
     });
 

@@ -1,4 +1,7 @@
-import { EmpresaRepository, CreateEmpresaData } from "./empresa-repository.interface";
+import {
+  EmpresaRepository,
+  CreateEmpresaData,
+} from "./empresa-repository.interface";
 import { Empresa } from "./empresa.entity";
 
 /**
@@ -31,7 +34,9 @@ function makeEmpresa(overrides: Partial<Empresa> = {}): Empresa {
   };
 }
 
-function makeCreateData(overrides: Partial<CreateEmpresaData> = {}): CreateEmpresaData {
+function makeCreateData(
+  overrides: Partial<CreateEmpresaData> = {},
+): CreateEmpresaData {
   const empresa = makeEmpresa(overrides);
   const { id, ...rest } = empresa;
   return rest;
@@ -61,9 +66,15 @@ class InMemoryEmpresaRepository implements EmpresaRepository {
     return null;
   }
 
-  async findAll(): Promise<{ data: Empresa[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+  async findAll(): Promise<{
+    data: Empresa[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
     const data = Array.from(this.store.values());
-    return { data, meta: { total: data.length, page: 1, limit: 10, totalPages: 1 } };
+    return {
+      data,
+      meta: { total: data.length, page: 1, limit: 10, totalPages: 1 },
+    };
   }
 
   async update(id: string, data: Partial<CreateEmpresaData>): Promise<Empresa> {

@@ -60,7 +60,11 @@ export interface EmpresaRepository {
   create(data: CreateEmpresaData): Promise<Empresa>;
   findById(id: string): Promise<Empresa | null>;
   findBySlug(slug: string): Promise<Empresa | null>;
-  findAll(filter: EmpresaFilter, page: number, limit: number): Promise<PaginatedResult<Empresa>>;
+  findAll(
+    filter: EmpresaFilter,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedResult<Empresa>>;
   update(id: string, data: Partial<CreateEmpresaData>): Promise<Empresa>;
   delete(id: string): Promise<void>;
   slugExists(slug: string): Promise<boolean>;

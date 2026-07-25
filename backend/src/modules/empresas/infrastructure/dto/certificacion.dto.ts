@@ -12,11 +12,17 @@ export class CertificacionDto {
   @MaxLength(100)
   emisor: string;
 
-  @ApiProperty({ description: "Obtention date (ISO format)", example: "2023-06-15T00:00:00.000Z" })
+  @ApiProperty({
+    description: "Obtention date (ISO format)",
+    example: "2023-06-15T00:00:00.000Z",
+  })
   @IsString()
   fechaObtencion: string;
 
-  @ApiPropertyOptional({ description: "Certificate URL", example: "https://certificados.com/123456.pdf" })
+  @ApiPropertyOptional({
+    description: "Certificate URL",
+    example: "https://certificados.com/123456.pdf",
+  })
   @IsOptional()
   @IsUrl()
   url?: string;

@@ -1,4 +1,11 @@
-import { IsString, IsUrl, IsOptional, IsNumber, IsUUID, MaxLength } from "class-validator";
+import {
+  IsString,
+  IsUrl,
+  IsOptional,
+  IsNumber,
+  IsUUID,
+  MaxLength,
+} from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class ImagenGaleriaDto {
@@ -6,11 +13,18 @@ export class ImagenGaleriaDto {
   @IsUUID("4")
   id: string;
 
-  @ApiProperty({ description: "Image URL", example: "https://storage.googleapis.com/directorio-concon/empresas/logo.jpg" })
+  @ApiProperty({
+    description: "Image URL",
+    example:
+      "https://storage.googleapis.com/directorio-concon/empresas/logo.jpg",
+  })
   @IsUrl()
   url: string;
 
-  @ApiPropertyOptional({ description: "Image description", example: "Interior del restaurante" })
+  @ApiPropertyOptional({
+    description: "Image description",
+    example: "Interior del restaurante",
+  })
   @IsOptional()
   @IsString()
   @MaxLength(200)

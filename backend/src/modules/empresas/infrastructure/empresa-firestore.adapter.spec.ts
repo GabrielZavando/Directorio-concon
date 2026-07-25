@@ -99,7 +99,10 @@ describe("EmpresaFirestoreAdapter", () => {
   };
 
   let ctx: ReturnType<typeof makeFirestore>;
-  let firebaseService: { getFirestore: jest.Mock; getCurrentTimestamp: jest.Mock };
+  let firebaseService: {
+    getFirestore: jest.Mock;
+    getCurrentTimestamp: jest.Mock;
+  };
 
   beforeEach(async () => {
     ctx = makeFirestore();
