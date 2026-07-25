@@ -13,11 +13,25 @@ describe('HeaderComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
-  it('should render brand text', () => {
+  it('should render brand logo with descriptive alt and responsive sizing', () => {
     const fixture = TestBed.createComponent(HeaderComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Directorio Concón');
+    const logo = compiled.querySelector('img[alt="Directorio Concón"]');
+    expect(logo).not.toBeNull();
+    expect(logo?.getAttribute('src')).toBe('/assets/logo-transparente.webp');
+    expect(logo?.classList.contains('h-10')).toBeTrue();
+    expect(logo?.classList.contains('w-auto')).toBeTrue();
+  });
+
+  it('should wrap logo in accessible link with aria-label', () => {
+    const fixture = TestBed.createComponent(HeaderComponent);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const link = compiled.querySelector('a[aria-label*="Directorio Concón"]');
+    expect(link).not.toBeNull();
+    const img = link?.querySelector('img');
+    expect(img).not.toBeNull();
   });
 
   it('should render all 5 nav links', () => {
