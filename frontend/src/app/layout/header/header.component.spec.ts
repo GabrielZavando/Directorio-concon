@@ -31,4 +31,13 @@ describe('HeaderComponent', () => {
     expect(text).toContain('Contacto');
     expect(text).toContain('Registrate');
   });
+
+  it('should use M3 tokens on root <header> element', () => {
+    const fixture = TestBed.createComponent(HeaderComponent);
+    fixture.detectChanges();
+    const header = fixture.nativeElement.querySelector('header');
+    expect(header.classList.contains('bg-surface-container-lowest')).toBeTrue();
+    expect(header.classList.contains('border-outline-variant')).toBeTrue();
+    expect(header.classList.contains('sticky')).toBeTrue();
+  });
 });

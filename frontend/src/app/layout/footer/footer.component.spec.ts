@@ -38,4 +38,12 @@ describe('FooterComponent', () => {
     const currentYear = new Date().getFullYear().toString();
     expect(compiled.textContent).toContain(currentYear);
   });
+
+  it('should use M3 tokens on root <footer> element', () => {
+    const fixture = TestBed.createComponent(FooterComponent);
+    fixture.detectChanges();
+    const footer = fixture.nativeElement.querySelector('footer');
+    expect(footer.classList.contains('bg-surface-container-lowest')).toBeTrue();
+    expect(footer.classList.contains('border-outline-variant')).toBeTrue();
+  });
 });
