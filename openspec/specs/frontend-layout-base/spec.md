@@ -26,7 +26,7 @@ The frontend build pipeline SHALL consume Tailwind CSS v3 with all design tokens
 
 ### Requirement: Canonical site Header
 
-The frontend SHALL render a sticky header component using M3 design tokens, displaying the brand logo image and the five navigation links as defined by the user.
+The frontend SHALL render a sticky header component using M3 design tokens, displaying the brand logo image, navigation links, and a styled CTA button.
 
 #### Scenario: Header renders brand logo and all 5 nav links
 
@@ -37,7 +37,7 @@ The frontend SHALL render a sticky header component using M3 design tokens, disp
 - **AND** the text "Directorio" is visible as a nav link
 - **AND** the text "Eventos" is visible as a nav link
 - **AND** the text "Contacto" is visible as a nav link
-- **AND** the text "Registrate" is visible as a nav link
+- **AND** the text "Registrate" is visible as a CTA button
 
 #### Scenario: Header uses M3 surface-container-lowest and outline-variant tokens
 
@@ -45,6 +45,98 @@ The frontend SHALL render a sticky header component using M3 design tokens, disp
 - **THEN** the root `<header>` element has a CSS class matching `bg-surface-container-lowest`
 - **AND** the root `<header>` element has a CSS class matching `border-outline-variant`
 - **AND** the root `<header>` element has a CSS class matching `sticky`
+
+#### Scenario: Desktop nav links are right-aligned
+
+- **WHEN** the viewport is ≥768px wide (md breakpoint)
+- **THEN** the logo is on the left side
+- **AND** the nav links + CTA button are on the right side
+- **AND** the layout uses `flex justify-between items-center`
+
+#### Scenario: CTA button has primary styling
+
+- **WHEN** the viewport is ≥768px wide
+- **THEN** the "Registrate" CTA element has classes `bg-primary text-white px-6 py-2.5 rounded-custom font-semibold transition-colors`
+- **AND** the CTA has hover state `hover:bg-primary-container`
+- **AND** the CTA is visually distinct from the plain text nav links
+
+#### Scenario: Desktop nav links are plain text
+
+- **WHEN** the viewport is ≥768px wide
+- **THEN** each nav link (Inicio, Directorio, Eventos, Contacto) has classes `text-on-surface-variant hover:text-primary px-3 py-2 text-sm font-medium transition`
+- **AND** no nav link has a background color or button styling
+
+#### Scenario: Hamburger button is hidden on desktop
+
+- **WHEN** the viewport is ≥768px wide
+- **THEN** the hamburger toggle button is not visible (hidden via `md:hidden`)
+
+### Requirement: Mobile menu
+
+The header SHALL provide a responsive mobile menu that slides in from the right on viewports below the md breakpoint (768px), with animated hamburger icon crossfade, keyboard dismissal, and accessible ARIA attributes.
+
+#### Scenario: Mobile menu is hidden by default
+
+- **WHEN** the viewport is <768px wide
+- **THEN** the nav links block is hidden (not rendered inline)
+- **AND** a hamburger toggle button is visible
+- **AND** the hamburger button has `aria-expanded="false"`
+- **AND** the hamburger button has an accessible `aria-label` (e.g., "Toggle menu")
+
+#### Scenario: Hamburger button shows Menu icon when menu is closed
+
+- **WHEN** the viewport is <768px wide and the mobile menu is closed
+- **THEN** the lucide `Menu` icon is displayed in the hamburger button
+- **AND** the `X` icon is not visible
+
+#### Scenario: Toggle opens the mobile menu
+
+- **WHEN** the viewport is <768px wide and the user clicks the hamburger button
+- **THEN** `aria-expanded` changes to `"true"`
+- **AND** the menu panel becomes visible
+- **AND** the panel slides in from the right side
+- **AND** the panel has width 85% of the viewport
+- **AND** the panel has height `calc(100vh - 4rem)` (below the header)
+- **AND** the panel is positioned `fixed top:4rem right-0`
+- **AND** the panel has `z-index` above the header
+
+#### Scenario: Panel slide-in animation
+
+- **WHEN** the user clicks the hamburger button to open
+- **THEN** the panel animates from `translateX(100%)` to `translateX(0)`
+- **AND** the animation duration is 300ms
+- **AND** the animation easing is `ease-out`
+
+#### Scenario: Hamburger icon crossfades to X
+
+- **WHEN** the user clicks the hamburger button to open
+- **THEN** the `Menu` icon fades out and the `X` icon fades in
+- **AND** the crossfade duration is 300ms (same as panel animation)
+
+#### Scenario: Toggle closes the mobile menu
+
+- **WHEN** the viewport is <768px wide and the menu is open and the user clicks the hamburger button (showing X icon)
+- **THEN** `aria-expanded` changes to `"false"`
+- **AND** the panel animates from `translateX(0)` to `translateX(100%)`
+- **AND** the animation duration is 300ms
+- **AND** the `X` icon crossfades back to the `Menu` icon
+
+#### Scenario: Close menu by pressing Escape
+
+- **WHEN** the mobile menu is open and the user presses the Escape key
+- **THEN** the menu closes (same animation as toggle close)
+
+#### Scenario: Close menu by clicking a link
+
+- **WHEN** the mobile menu is open and the user clicks any navigation link inside the panel
+- **THEN** the menu closes (same animation as toggle close)
+
+#### Scenario: Mobile menu accessibility attributes
+
+- **WHEN** the mobile menu is open
+- **THEN** the panel has `role="dialog"`
+- **AND** the panel has `aria-modal="true"`
+- **AND** the hamburger button has `aria-controls` pointing to the panel ID
 
 ### Requirement: Canonical site Footer
 
