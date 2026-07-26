@@ -1,24 +1,75 @@
 <header class="bg-surface-container-lowest border-b border-outline-variant sticky top-0 z-50">
   <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between h-16 items-center">
-    <div class="flex items-center gap-8">
-      <a class="flex items-center" href="#" aria-label="Directorio Concón - Inicio">
-        <img
-          src="/assets/logo-transparente.webp"
-          alt="Directorio Concón"
-          height="40"
-          class="h-10 w-auto"
-        />
+    <a class="flex items-center" href="#" aria-label="Directorio Concón - Inicio">
+      <img
+        src="/assets/logo-transparente.webp"
+        alt="Directorio Concón"
+        height="40"
+        class="h-10 w-auto"
+      />
+    </a>
+
+    <!-- Desktop navigation -->
+    <div class="hidden md:flex items-center space-x-4">
+      @for (link of navLinks; track link.label) {
+        <a
+          class="text-on-surface-variant hover:text-primary px-3 py-2 text-sm font-medium transition"
+          [href]="link.href"
+        >
+          {{ link.label }}
+        </a>
+      }
+      <a
+        class="bg-primary hover:bg-primary-container text-white px-6 py-2.5 rounded-custom font-semibold transition-colors"
+        [href]="ctaLink.href"
+      >
+        {{ ctaLink.label }}
       </a>
-      <div class="hidden md:flex items-center space-x-4">
-        @for (link of navLinks; track link.label) {
-          <a
-            class="text-on-surface-variant hover:text-primary px-3 py-2 text-sm font-medium transition"
-            [href]="link.href"
-          >
-            {{ link.label }}
-          </a>
-        }
-      </div>
     </div>
+
+    <!-- Mobile hamburger button -->
+    <button
+      type="button"
+      class="md:hidden relative z-[70] p-2 text-on-surface-variant hover:text-primary transition-colors"
+      [attr.aria-expanded]="isMenuOpen()"
+      [attr.aria-controls]="panelId"
+      aria-label="Toggle menu"
+      (click)="toggleMenu()"
+    >
+      @if (isMenuOpen()) {
+        <svg lucideX class="w-6 h-6 icon-crossfade"></svg>
+      } @else {
+        <svg lucideMenu class="w-6 h-6 icon-crossfade"></svg>
+      }
+    </button>
   </nav>
 </header>
+
+<!-- Mobile menu panel -->
+<div
+  [id]="panelId"
+  class="mobile-menu-panel"
+  [class.mobile-menu-panel--open]="isMenuOpen()"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Mobile navigation menu"
+>
+  <div class="flex flex-col h-full p-6 pt-20">
+    @for (link of navLinks; track link.label) {
+      <a
+        class="text-on-surface-variant hover:text-primary px-4 py-3 text-lg font-medium transition-colors border-b border-outline-variant/30"
+        [href]="link.href"
+        (click)="closeMenu()"
+      >
+        {{ link.label }}
+      </a>
+    }
+    <a
+      class="mt-6 bg-primary hover:bg-primary-container text-white px-6 py-3 rounded-custom font-semibold transition-colors text-center"
+      [href]="ctaLink.href"
+      (click)="closeMenu()"
+    >
+      {{ ctaLink.label }}
+    </a>
+  </div>
+</div>

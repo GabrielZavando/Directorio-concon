@@ -25,7 +25,7 @@ const HERO_OVERLAY_PRIMARY = '#004370';
  * a `const` (not a `class` field) because it has no per-instance state.
  */
 const HERO_OVERLAY_STYLE: Readonly<Record<string, string>> = {
-  'background-image': `linear-gradient(rgba(0, 67, 112, 0.4), rgba(0, 67, 112, 0.6)), url('/assets/panoramica-concon.jpg')`,
+  'background-image': `linear-gradient(rgba(0, 67, 112, 0.6), rgba(0, 67, 112, 0.8)), url('/assets/panoramica-concon.jpg')`,
   'background-size': 'cover',
   'background-position': 'center',
 };

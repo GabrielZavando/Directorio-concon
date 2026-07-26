@@ -1,1 +1,24 @@
 /* Header component styles — tokens consumed via Tailwind utility classes */
+
+/* Mobile menu panel — starts below the header (h-16 = 4rem) so the hamburger button is never covered */
+.mobile-menu-panel {
+  position: fixed;
+  top: 4rem;
+  right: 0;
+  width: 85%;
+  height: calc(100vh - 4rem);
+  z-index: 60;
+  background-color: var(--color-surface-container-lowest, #ffffff);
+  transform: translateX(100%);
+  transition: transform 300ms ease-out;
+  overflow-y: auto;
+}
+
+.mobile-menu-panel--open {
+  transform: translateX(0);
+}
+
+/* Icon crossfade animation */
+.icon-crossfade {
+  transition: opacity 300ms ease-out;
+}
