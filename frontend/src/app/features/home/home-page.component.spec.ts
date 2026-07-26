@@ -1,7 +1,24 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { of } from 'rxjs';
 import { HomePageComponent } from './home-page.component';
 import { SearchCriteria } from './hero/hero.types';
+import {
+  DirectorioOpcionesPort,
+  DIRECTORIO_OPCIONES_PORT,
+} from '../../shared/data-access/directorio-opciones.port';
+
+/** Minimal stub port — the home page spec only tests navigation, not data rendering. */
+const stubPort: DirectorioOpcionesPort = {
+  getOpciones: () => of({
+    categorias: [
+      { id: 'gastronomia', nombre: 'Gastronomía', icono: 'utensils', orden: 1, activa: true },
+    ],
+    barrios: [
+      { id: 'higuerillas', nombre: 'Higuerillas', tipo: 'urbano' as const },
+    ],
+  }),
+};
 
 describe('HomePageComponent', () => {
   let fixture: ComponentFixture<HomePageComponent>;
@@ -12,7 +29,10 @@ describe('HomePageComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HomePageComponent],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        { provide: DIRECTORIO_OPCIONES_PORT, useValue: stubPort },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(HomePageComponent);
@@ -25,29 +45,24 @@ describe('HomePageComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  // 3.1.3 — home page renders <app-home-hero> with categories and barrios
-  it('should render <app-home-hero> with categorias and barrios containing MVP dummy values', () => {
+  it('should render <app-home-hero> without hardcoded categorias/barrios inputs', () => {
     fixture.detectChanges();
     const heroEl = fixture.nativeElement.querySelector(
       'app-home-hero',
     ) as HTMLElement | null;
     expect(heroEl).not.toBeNull();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    // Categorías MVP dummy (al menos Restaurantes y Hospedaje)
-    expect(text).toContain('Restaurantes');
-    expect(text).toContain('Hospedaje');
-    // Barrios MVP dummy (al menos Centro y Bosques)
-    expect(text).toContain('Centro');
-    expect(text).toContain('Bosques');
+    // The hero no longer receives [categorias] or [barrios] as inputs
+    const heroAttrs = heroEl!.getAttributeNames();
+    expect(heroAttrs).not.toContain('categorias');
+    expect(heroAttrs).not.toContain('barrios');
   });
 
-  // 3.1.4 — home page navigates to /directorio with all query params
-  it('should navigate to /directorio with all query params when the hero emits a full SearchCriteria', () => {
+  it('should navigate to /directorio with canonical query params on full SearchCriteria', () => {
     const criteria: SearchCriteria = {
       q: 'pizzería',
-      categoriaId: 'cat-1',
-      barrioId: 'b-1',
+      categoriaId: 'gastronomia',
+      barrioId: 'higuerillas',
     };
 
     component.onSearchSubmit(criteria);
@@ -57,25 +72,33 @@ describe('HomePageComponent', () => {
     expect(commands).toEqual(['/directorio']);
     expect(extras?.queryParams).toEqual({
       q: 'pizzería',
-      categoriaId: 'cat-1',
-      barrioId: 'b-1',
+      categoriaId: 'gastronomia',
+      barrioId: 'higuerillas',
     });
   });
 
-  // 3.1.5 — home page omits empty filters from query params
   it('should omit empty filters from the /directorio query params', () => {
     const criteria: SearchCriteria = {
       q: '',
       categoriaId: '',
-      barrioId: 'b-1',
+      barrioId: 'higuerillas',
     };
 
     component.onSearchSubmit(criteria);
 
     expect(navigateSpy).toHaveBeenCalledTimes(1);
     const [, extras] = navigateSpy.calls.mostRecent().args;
-    expect(extras?.queryParams).toEqual({ barrioId: 'b-1' });
+    expect(extras?.queryParams).toEqual({ barrioId: 'higuerillas' });
     expect(extras?.queryParams).not.toContain('q');
     expect(extras?.queryParams).not.toContain('categoriaId');
+  });
+
+  it('should import buildQueryParams from shared utils (not a local method)', async () => {
+    // The onSearchSubmit method delegates to the imported buildQueryParams.
+    // Verify by checking that the function is NOT a method on the component class.
+    const proto = Object.getPrototypeOf(component) as Record<string, unknown>;
+    // buildQueryParams should not be a method on the component prototype
+    // (it was a private method before; now it's imported)
+    expect(proto['buildQueryParams']).toBeUndefined();
   });
 });
