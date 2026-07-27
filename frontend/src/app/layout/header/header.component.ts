@@ -1,4 +1,5 @@
 import { Component, ChangeDetectionStrategy, signal, HostListener, effect } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { LucideMenu, LucideX } from '@lucide/angular';
 
 interface NavLink {
@@ -10,19 +11,22 @@ interface NavLink {
   selector: 'app-header',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LucideMenu, LucideX],
+  imports: [LucideMenu, LucideX, RouterLink, RouterLinkActive],
   templateUrl: './header.component.html',
   styleUrl: './header.component.css',
 })
 export class HeaderComponent {
+  // SPA routes — wired to `routerLink` in the template.
+  // The "Inicio" entry uses `routerLinkActiveOptions: { exact: true }` in the
+  // template so it only highlights on the exact root path (not on subpaths).
   protected readonly navLinks: readonly NavLink[] = [
-    { label: 'Inicio', href: '#' },
-    { label: 'Directorio', href: '#' },
-    { label: 'Eventos', href: '#' },
-    { label: 'Contacto', href: '#' },
+    { label: 'Inicio', href: '/' },
+    { label: 'Directorio', href: '/directorio' },
+    { label: 'Eventos', href: '/eventos' },
+    { label: 'Contacto', href: '/contacto' },
   ];
 
-  protected readonly ctaLink: NavLink = { label: 'Registrate', href: '#' };
+  protected readonly ctaLink: NavLink = { label: 'Registrate', href: '/registrate' };
 
   readonly isMenuOpen = signal(false);
 
