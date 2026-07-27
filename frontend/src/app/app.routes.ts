@@ -5,8 +5,10 @@ import { Routes } from '@angular/router';
  *
  * Routes registered here:
  *   - `/`            → HomePageComponent (smart hero + search form)
- *   - `/directorio`  → PlaceholderDirectorioComponent (placeholder until the
- *                     directory listing page is implemented in a future change)
+ *   - `/directorio`  → DirectorioPageComponent (skeleton; real listing in future change)
+ *   - `/eventos`     → EventosPageComponent (skeleton; future change)
+ *   - `/contacto`    → ContactoPageComponent (skeleton; future change)
+ *   - `/registrate`  → RegistratePageComponent (skeleton; future change)
  */
 export const routes: Routes = [
   {
@@ -19,8 +21,29 @@ export const routes: Routes = [
   {
     path: 'directorio',
     loadComponent: () =>
-      import('./features/directorio/placeholder-directorio.component').then(
-        (m) => m.PlaceholderDirectorioComponent,
+      import('./features/directorio/directorio-page.component').then(
+        (m) => m.DirectorioPageComponent,
+      ),
+  },
+  {
+    path: 'eventos',
+    loadComponent: () =>
+      import('./features/eventos/eventos-page.component').then(
+        (m) => m.EventosPageComponent,
+      ),
+  },
+  {
+    path: 'contacto',
+    loadComponent: () =>
+      import('./features/contacto/contacto-page.component').then(
+        (m) => m.ContactoPageComponent,
+      ),
+  },
+  {
+    path: 'registrate',
+    loadComponent: () =>
+      import('./features/registrate/registrate-page.component').then(
+        (m) => m.RegistratePageComponent,
       ),
   },
 ];
