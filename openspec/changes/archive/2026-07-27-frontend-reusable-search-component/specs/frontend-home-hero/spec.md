@@ -1,8 +1,9 @@
-# frontend-home-hero Specification
+# Change Spec — frontend-home-hero (delta)
 
-## Purpose
-The HomeHeroComponent renders the hero section of the home page with a Concón panoramic background image, a semi-transparent overlay, a headline, subtitle, and delegates the search form to the embedded `<app-search-bar-container>`.
-## Requirements
+> Delta spec for the existing `frontend-home-hero` capability. The hero no longer owns its search form — `HomeHeroComponent` delegates to `<app-search-bar-container>` and `HomePageComponent` no longer hardcodes dummy `CATEGORIAS_MVP` / `BARRIOS_MVP` arrays; the search bar lives in `shared/ui/search-bar/` (new capability `frontend-reusable-search-component`). The hero keeps the overlay, headline, subtitle and responsive framing.
+
+## MODIFIED Requirements
+
 ### Requirement: Home Hero renders Concón background image with semantic overlay
 
 The `HomeHeroComponent` SHALL render a `<section class="app-hero">` that displays the public asset `panoramica-concon.jpg` with a semi-transparent overlay derived from the `primary` token of the design system, ensuring the hero remains legible regardless of image load failures. The `HomeHeroComponent` STILL does NOT inject `Router`, `HttpClient`, or any data service — its responsibility narrows to overlay + headline + subtitle + delegating the search form to the `<app-search-bar-container>` child.
@@ -88,46 +89,3 @@ The `HomePageComponent` SHALL be a smart container that owns the `Router`, embed
 - **THEN** the file does NOT contain any `CATEGORIAS_MVP` or `BARRIOS_MVP` constant
 - **AND** it does NOT declare `readonly categorias` or `readonly barrios` fields
 - **AND** it does NOT pass `[categorias]` or `[barrios]` to the hero in its template
-
-### Requirement: Angular routing enabled with `/` lazy-loading the HomePageComponent
-
-The frontend SHALL introduce `app.routes.ts` with a `/` route that lazy-loads `HomePageComponent` via `loadComponent`, and the `AppComponent` SHALL render a Header, a `<main>` containing `<router-outlet>`, and a Footer.
-
-#### Scenario: app config provides router
-
-- **WHEN** `frontend/src/app/app.config.ts` is read
-- **THEN** its `providers` array includes a `provideRouter(routes)` call importing from `@angular/router`
-
-#### Scenario: app routes lazy-load the home page
-
-- **WHEN** `frontend/src/app/app.routes.ts` is read
-- **THEN** it exports a `routes` array containing an entry with `path: ''`
-- **AND** that entry uses `loadComponent` returning a dynamic `import()` of `./features/home/home-page.component`
-- **AND** the imported symbol is `HomePageComponent`
-- **AND** there is no explicit `redirectTo` on the root path
-
-#### Scenario: AppComponent renders router-outlet between header and footer
-
-- **WHEN** the `AppComponent` template is rendered in a router test harness with the default route
-- **THEN** an `<app-header>` element is present
-- **AND** an `<app-footer>` element is present
-- **AND** a `<main>` element is present and contains a `<router-outlet>`
-- **AND** the placeholder paragraph text "Contenido pendiente" is NO LONGER present
-- **AND** the `<app-home-hero>` element is visible inside the rendered `HomePageComponent`
-
-### Requirement: `/directorio` placeholder route prevents silent navigation failure
-
-The router SHALL register a `path: 'directorio'` route whose component renders a minimal placeholder indicating the directory listing is forthcoming, so that pressing "Buscar Ahora" does not silently fail during the gap between this change and the future directory listing change. The `PlaceholderDirectorioComponent` SHALL embed the shared `SearchBarContainerComponent` and navigate with `queryParamsHandling: 'merge'`.
-
-#### Scenario: router has a directorio route
-
-- **WHEN** `frontend/src/app/app.routes.ts` is read
-- **THEN** the `routes` array contains an entry with `path: 'directorio'`
-- **AND** that entry uses `loadComponent` to import a component whose visible content includes the word "directorio"
-
-#### Scenario: navigating to /directorio renders the placeholder
-
-- **WHEN** the router test harness navigates to `/directorio?q=pizzeria`
-- **THEN** the rendered component contains visible Spanish text containing the phrase "Próximamente" OR "próximamente"
-- **AND** the URL retains the `q` query param in the location
-

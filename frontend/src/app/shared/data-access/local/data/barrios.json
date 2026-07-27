@@ -1,0 +1,106 @@
+[
+  {
+    "id": "higuerillas",
+    "nombre": "Higuerillas",
+    "descripcion": "Sector tradicional pesquero y residencial en el límite norte de la comuna",
+    "territorio": "Caleta Higuerillas, La Chacrilla, Higuerillas Norte y Sur",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "concon-sur",
+    "nombre": "Concón Sur",
+    "descripcion": "Zona residencial consolidada con comercio local y servicios comunitarios",
+    "territorio": "Concón Sur, Las Brisas, Porvenir",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "la-costa",
+    "nombre": "La Costa",
+    "descripcion": "Franja litoral turística con playas, hoteles, restaurantes y deportes náuticos",
+    "territorio": "Playa Amarilla, Borgoño, Balneario, La Boca, Roca Oceánica",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "villa-concon",
+    "nombre": "Villa Concón",
+    "descripcion": "Sector residencial de clase media con fuerte identidad comunitaria y comercio de proximidad",
+    "territorio": "Villa Concón, Los Tres Esfuerzos, San Rafael",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "enap",
+    "nombre": "ENAP",
+    "descripcion": "Zona histórico-industrial con conjuntos habitacionales y servicios básicos",
+    "territorio": "Sector ENAP, Magisterio, Las Hiedras, Las Begonias",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "las-gaviotas",
+    "nombre": "Las Gaviotas",
+    "descripcion": "Barrio residencial tranquilo con acceso a servicios educacionales y de salud",
+    "territorio": "Las Gaviotas, Los Abedules, Los Brezos",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "vista-al-mar",
+    "nombre": "Vista al Mar",
+    "descripcion": "Sector residencial con vistas panorámicas al océano y valle del Aconcagua",
+    "territorio": "Vista Mar, El Mirador, Moreno Vial",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "los-romeros",
+    "nombre": "Los Romeros",
+    "descripcion": "Zona residencial en expansión con creciente oferta de servicios y comercio",
+    "territorio": "Los Romeros, Pucará, Torquemada",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "montemar",
+    "nombre": "Montemar",
+    "descripcion": "Sector residencial de nivel medio-alto en el límite con Viña del Mar, tranquilo y arbolado",
+    "territorio": "Bosques de Montemar, Costa de Montemar, Lomas de Montemar, Costa Brava",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "rpc",
+    "nombre": "RPC",
+    "descripcion": "Conjunto residencial planificado con comercio organizado y alta conectividad vial",
+    "territorio": "RPC, RPC III, Nueva Concón, El Mirador",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "concon-ii",
+    "nombre": "Concón II",
+    "descripcion": "Zona de expansión urbana al norte del río Aconcagua con desarrollo habitacional reciente",
+    "territorio": "Concón II, Villa Aconcagua, Sector Aconcagua, La Isla",
+    "tipo": "urbano",
+    "coordenadas": null
+  },
+  {
+    "id": "zona-rural",
+    "nombre": "Zona Rural",
+    "descripcion": "Área de conservación natural, agricultura y turismo de naturaleza con baja densidad poblacional",
+    "territorio": "Puente Colmo, Mauco, Tabolango, San Andrés, Las Tres Marías, El Pellín",
+    "tipo": "rural",
+    "coordenadas": null
+  },
+  {
+    "id": "los-troncos",
+    "nombre": "Los Troncos",
+    "descripcion": "Sector residencial semi-rural con conexión a la carretera Panamericana",
+    "territorio": "Los Troncos, Vista al Valle, sectores aledaños Panamericana",
+    "tipo": "urbano",
+    "coordenadas": null
+  }
+]

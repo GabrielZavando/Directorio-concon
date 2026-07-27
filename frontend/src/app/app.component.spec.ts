@@ -1,13 +1,26 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
+import { of } from 'rxjs';
 import { routes } from './app.routes';
 import { AppComponent } from './app.component';
+import {
+  DirectorioOpcionesPort,
+  DIRECTORIO_OPCIONES_PORT,
+} from './shared/data-access/directorio-opciones.port';
+
+/** Minimal stub port — the app component spec tests routing, not data. */
+const stubPort: DirectorioOpcionesPort = {
+  getOpciones: () => of({ categorias: [], barrios: [] }),
+};
 
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppComponent],
-      providers: [provideRouter(routes)],
+      providers: [
+        provideRouter(routes),
+        { provide: DIRECTORIO_OPCIONES_PORT, useValue: stubPort },
+      ],
     }).compileComponents();
   });
 

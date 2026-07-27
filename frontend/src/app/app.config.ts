@@ -10,6 +10,7 @@ import { getStorage, provideStorage } from "@angular/fire/storage";
 import { provideRouter } from "@angular/router";
 import { environment } from "../environments/environment";
 import { routes } from "./app.routes";
+import { provideDirectorioOpciones } from "./shared/data-access/directorio-opciones.provider";
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -20,5 +21,6 @@ export const appConfig: ApplicationConfig = {
     provideFirestore(() => getFirestore()),
     provideStorage(() => getStorage()),
     provideRouter(routes),
+    provideDirectorioOpciones(),
   ],
 };

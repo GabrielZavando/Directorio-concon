@@ -34,26 +34,28 @@
 ### categorias
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
-| id | string (PK) | ID documento |
-| nombre | string | Ej. "Restaurantes" |
+| id | string (PK) | Firestore document id (slug, ej. `gastronomia`, `comercio`) |
+| nombre | string | Ej. "Gastronomía" |
 | slug | string UNIQUE | Slug |
 | descripcion | string | Descripción |
-| icono | string | Icono Lucide |
+| icono | string | Icono Lucide kebab-case (`utensils`, `store`, `tent`, `briefcase`, `car`, `heart-pulse`, `graduation-cap`, `building-2`, `party-popper`) |
 | color | string? | Hex |
-| orden | number | Orden visual |
+| orden | number | Orden visual (1..9) |
 | activa | boolean | Activa |
+| subcategorias | Subcategoria[]? | Array de `{ slug, nombre, descripcion }` — preservadas en seed local; futuras subcategorías del backend |
 | createdAt | Timestamp | Creación |
 
 ### barrios
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
-| id | string (PK) | ID documento |
-| nombre | string | Ej. "Centro" |
+| id | string (PK) | Firestore document id (slug, ej. `higuerillas`, `montemar`, `zona-rural`) |
+| nombre | string | Ej. "Higuerillas" |
 | slug | string UNIQUE | Slug |
 | codigo | string? | Código UV |
-| descripcion | string | Descripción |
+| descripcion | string | Descripción (sin tilde en seed local) |
+| territorio | string? | Sectores que abarca el barrio (metadato) |
 | coordenadas | {lat, lng}? | Centro del barrio |
-| tipo | enum | `urbano` \| `rural` |
+| tipo | enum | `urbano` \| `rural` (12 urbanos + 1 rural `zona-rural`) |
 | createdAt | Timestamp | Creación |
 
 ### usuarios
@@ -117,3 +119,36 @@ usuarios: rol (ASC)
 - Documentos: ID auto o slug kebab-case.
 - Campos: camelCase (`empresaId`, `createdAt`, `updatedAt`).
 - Timestamps: `createdAt`, `updatedAt` (Firestore Timestamp).
+
+## Ejemplos canónicos (seed local)
+
+> Los IDs son slugs que coinciden con los Firestore document ids. El seed local
+> vive en `frontend/src/app/shared/data-access/local/data/`.
+
+**Categoría ejemplo:**
+```json
+{
+  "id": "gastronomia",
+  "nombre": "Gastronomía",
+  "descripcion": "Restaurantes, cafeterías y locales de comida",
+  "icono": "utensils",
+  "orden": 1,
+  "activa": true,
+  "subcategorias": [
+    { "slug": "restaurantes", "nombre": "Restaurantes", "descripcion": "..." },
+    { "slug": "cafeterias", "nombre": "Cafeterías", "descripcion": "..." }
+  ]
+}
+```
+
+**Barrio ejemplo:**
+```json
+{
+  "id": "higuerillas",
+  "nombre": "Higuerillas",
+  "descripcion": "Zona costera al norte de Concón",
+  "territorio": "Costa norte",
+  "tipo": "urbano",
+  "coordenadas": null
+}
+```

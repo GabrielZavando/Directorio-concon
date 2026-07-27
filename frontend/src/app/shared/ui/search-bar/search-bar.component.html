@@ -1,0 +1,56 @@
+<form
+  [formGroup]="form"
+  (ngSubmit)="onSubmit()"
+  class="grid grid-cols-1 md:grid-cols-4 gap-3"
+  novalidate
+  data-testid="search-bar-form"
+>
+  <div>
+    <label for="search-bar-q" class="sr-only">Buscar</label>
+    <input
+      id="search-bar-q"
+      type="text"
+      formControlName="q"
+      class="w-full px-4 py-4 rounded-lg border-none focus:ring-2 focus:ring-primary text-on-surface"
+      placeholder="¿Qué estás buscando?"
+      aria-label="Buscar"
+    />
+  </div>
+
+  <div>
+    <label for="search-bar-categoria" class="sr-only">Categoría</label>
+    <select
+      id="search-bar-categoria"
+      formControlName="categoriaId"
+      class="w-full px-4 py-4 rounded-lg border-none focus:ring-2 focus:ring-primary text-on-surface-variant"
+      aria-label="Categoría"
+    >
+      <option value="">Seleccionar categoría</option>
+      <option *ngFor="let c of categorias" [value]="c.id">
+        {{ c.nombre }}
+      </option>
+    </select>
+  </div>
+
+  <div>
+    <label for="search-bar-ubicacion" class="sr-only">Ubicación</label>
+    <select
+      id="search-bar-ubicacion"
+      formControlName="barrioId"
+      class="w-full px-4 py-4 rounded-lg border-none focus:ring-2 focus:ring-primary text-on-surface-variant"
+      aria-label="Ubicación"
+    >
+      <option value="">Seleccionar ubicación</option>
+      <option *ngFor="let b of barrios" [value]="b.id">
+        {{ b.nombre }}
+      </option>
+    </select>
+  </div>
+
+  <button
+    type="submit"
+    class="bg-secondary-container text-primary font-bold py-4 rounded-lg hover:bg-opacity-90 transition-all"
+  >
+    Buscar Ahora
+  </button>
+</form>

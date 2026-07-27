@@ -1,13 +1,11 @@
 import {
   Component,
   ChangeDetectionStrategy,
-  Input,
   Output,
   EventEmitter,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormGroup, FormControl, ReactiveFormsModule } from '@angular/forms';
-import { SearchCriteria, CategoryOption, BarrioOption } from './hero.types';
+import { SearchBarContainerComponent } from '../../../shared/ui/search-bar/search-bar-container.component';
+import { SearchCriteria } from '../../../shared/ui/search-bar/interfaces/search-criteria.interface';
 
 /**
  * Canonical primary color of the "Dunas y Océano" design system (Ocean Blue).
@@ -33,49 +31,22 @@ const HERO_OVERLAY_STYLE: Readonly<Record<string, string>> = {
 /**
  * HomeHeroComponent — dumb presentational hero of the home page.
  *
- * SRP: only renders the hero markup and emits a typed `SearchCriteria` on
- * submit. No `Router`, no `HttpClient`, no Firestore — the smart container
- * (`HomePageComponent`) owns navigation and dummy data.
+ * SRP: only renders the hero markup and re-emits `SearchCriteria` from the
+ * embedded `SearchBarContainerComponent`. No `Router`, no `HttpClient`, no
+ * Firestore — the smart `HomePageComponent` owns navigation.
  */
 @Component({
   selector: 'app-home-hero',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [SearchBarContainerComponent],
   templateUrl: './home-hero.component.html',
   styleUrl: './home-hero.component.css',
 })
 export class HomeHeroComponent {
-  @Input() categorias: readonly CategoryOption[] = [];
-  @Input() barrios: readonly BarrioOption[] = [];
   @Output() searchSubmit = new EventEmitter<SearchCriteria>();
 
   /** Exposed to the template so unit tests can drive the form imperatively. */
   readonly heroOverlayStyle = HERO_OVERLAY_STYLE;
   readonly heroOverlayPrimary = HERO_OVERLAY_PRIMARY;
-
-  readonly form = new FormGroup<{
-    q: FormControl<string>;
-    categoriaId: FormControl<string>;
-    barrioId: FormControl<string>;
-  }>({
-    q: new FormControl<string>('', { nonNullable: true }),
-    categoriaId: new FormControl<string>('', { nonNullable: true }),
-    barrioId: new FormControl<string>('', { nonNullable: true }),
-  });
-
-  /**
-   * Builds a `SearchCriteria` from the form: trims `q` and falls back to
-   * empty strings if a control value is unset. Emits the payload via
-   * `searchSubmit` for the smart container to navigate.
-   */
-  onSubmit(): void {
-    const raw = this.form.getRawValue();
-    const payload: SearchCriteria = {
-      q: raw.q.trim(),
-      categoriaId: raw.categoriaId ?? '',
-      barrioId: raw.barrioId ?? '',
-    };
-    this.searchSubmit.emit(payload);
-  }
 }
