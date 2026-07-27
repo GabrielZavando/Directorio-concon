@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { ComponentFixture } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
 import { HeaderComponent } from './header.component';
+import { routes } from '../../app.routes';
 
 describe('HeaderComponent', () => {
   let fixture: ComponentFixture<HeaderComponent>;
@@ -8,6 +10,10 @@ describe('HeaderComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [HeaderComponent],
+      // RouterLink / RouterLinkActive need an active router to handle clicks.
+      // We use the real app.routes so the router can recognize all 5 paths
+      // and `routerLink` triggers an actual navigation.
+      providers: [provideRouter(routes)],
     }).compileComponents();
     fixture = TestBed.createComponent(HeaderComponent);
     fixture.detectChanges();
@@ -350,6 +356,232 @@ describe('HeaderComponent', () => {
       hamburgerButton?.dispatchEvent(new Event('click'));
       fixture.detectChanges();
       expect(document.body.style.overflow).toBe('');
+    });
+  });
+
+  // ─── SPA navigation (routerLink) — change frontend-spa-routes ──────────────────
+
+  describe('SPA navigation (routerLink)', () => {
+    function getAllNavAnchors(): HTMLAnchorElement[] {
+      const compiled = fixture.nativeElement as HTMLElement;
+      // Includes both the desktop nav block and the mobile panel anchors.
+      // We only assert on attributes, not on screen presence, to keep the
+      // test independent of the viewport width logic.
+      return Array.from(compiled.querySelectorAll('a'));
+    }
+
+    it('should NOT have any nav anchor with href="#" (no dead links)', () => {
+      const anchors = getAllNavAnchors();
+      // Just to be safe, ensure there is at least one anchor rendered.
+      expect(anchors.length).toBeGreaterThan(0);
+      const deadLinks = anchors.filter(
+        (a) => a.getAttribute('href') === '#',
+      );
+      expect(deadLinks.length)
+        .withContext(`no <a href="#"> allowed, got: ${deadLinks.length}`)
+        .toBe(0);
+    });
+
+    it('should use the routerLink directive on desktop nav links and CTA', () => {
+      // RouterLink renders a `ng-reflect-router-link` debug attribute (in
+      // non-production builds) plus sets the resolved `href`. Both signals
+      // indicate RouterLink is in use.
+      const compiled = fixture.nativeElement as HTMLElement;
+      const desktopNav = compiled.querySelector(
+        'div.hidden.md\\:flex',
+      ) as HTMLElement;
+      expect(desktopNav).withContext('desktop nav block is rendered').not.toBeNull();
+
+      const desktopAnchors = Array.from(
+        desktopNav.querySelectorAll('a'),
+      ) as HTMLAnchorElement[];
+      expect(desktopAnchors.length)
+        .withContext('desktop nav has 5 anchors (4 nav + 1 CTA)')
+        .toBe(5);
+
+      for (const a of desktopAnchors) {
+        const href = a.getAttribute('href') ?? '';
+        expect(href.startsWith('#'))
+          .withContext(`desktop anchor should NOT use href="#": got "${href}"`)
+          .toBeFalse();
+        expect(href)
+          .withContext(`desktop anchor should resolve to a real path: got "${href}"`)
+          .not.toBe('');
+      }
+    });
+
+    it('should point the logo link to "/" (NOT "#")', () => {
+      const compiled = fixture.nativeElement as HTMLElement;
+      const logoLink = compiled.querySelector(
+        'a[aria-label*="Directorio Concón"]',
+      ) as HTMLAnchorElement | null;
+      expect(logoLink)
+        .withContext('logo <a> with aria-label is rendered')
+        .not.toBeNull();
+      const href = logoLink!.getAttribute('href') ?? '';
+      expect(href)
+        .withContext(`logo link href is "/", got "${href}"`)
+        .toBe('/');
+    });
+
+    it('should map each nav label to its canonical route', () => {
+      const compiled = fixture.nativeElement as HTMLElement;
+      const desktopNav = compiled.querySelector(
+        'div.hidden.md\\:flex',
+      ) as HTMLElement;
+      const desktopAnchors = Array.from(
+        desktopNav.querySelectorAll('a'),
+      ) as HTMLAnchorElement[];
+
+      const byText: Record<string, string> = {};
+      for (const a of desktopAnchors) {
+        const txt = a.textContent?.trim() ?? '';
+        const href = a.getAttribute('href') ?? '';
+        byText[txt] = href;
+      }
+
+      expect(byText['Inicio']).toBe('/');
+      expect(byText['Directorio']).toBe('/directorio');
+      expect(byText['Eventos']).toBe('/eventos');
+      expect(byText['Contacto']).toBe('/contacto');
+      expect(byText['Registrate']).toBe('/registrate');
+    });
+
+    it('should bind RouterLink and RouterLinkActive on every desktop nav anchor (runtime DOM evidence)', () => {
+      // Note: in Angular Ivy, `routerLink` is bound as a property binding
+      // `[routerLink]="..."`. Property bindings set properties on the host
+      // element but DO NOT render them as DOM attributes. Two observable
+      // consequences confirm that RouterLink is wired:
+      //   (a) The resolved `href` attribute is the Router-parseable URL
+      //       (not literal `href="#"`). This proves RouterLink ran its own
+      //       `Router.parseUrl()` to compute the final href.
+      //   (b) `routerLinkActive` directives, since they ARE written as
+      //       attribute bindings (they take a string value, not a property),
+      //       DO show up as `routerlinkactive="..."` attributes.
+      //
+      // The exact import statements in the component source are verified
+      // separately as a source-read scenario in Task 5.4.
+      const compiled = fixture.nativeElement as HTMLElement;
+      const desktopNav = compiled.querySelector(
+        'div.hidden.md\\:flex',
+      ) as HTMLElement;
+      const anchors = Array.from(
+        desktopNav.querySelectorAll('a'),
+      ) as HTMLAnchorElement[];
+      expect(anchors.length)
+        .withContext('desktop nav has 5 anchors (4 nav + 1 CTA)')
+        .toBe(5);
+
+      // (a) Resolved hrefs are absolute paths (not '#' and not raw relative).
+      // RouterLink applies Router.parseUrl → Router.serializeUrl to produce
+      // the final href. The serialised URL always starts with '/' (or with
+      // a non-stub protocol). We assert no anchor still says `#`.
+      const anchorsWithHash = anchors.filter((a) => a.getAttribute('href') === '#');
+      expect(anchorsWithHash.length)
+        .withContext('no desktop anchor retained href="#" — routerLink rewrote it')
+        .toBe(0);
+
+      // (b) 4 nav anchors carry routerLinkActive; the CTA "Registrate" does
+      // not (see Header template Decision 3).
+      const routerLinkActiveCount = anchors.filter((a) =>
+        a.hasAttribute('routerlinkactive'),
+      ).length;
+      expect(routerLinkActiveCount)
+        .withContext(
+          'exactly 4 desktop nav anchors carry routerLinkActive (CTA excluded)',
+        )
+        .toBe(4);
+    });
+
+    it('should not embed SearchBarContainerComponent (sanity — header stays dumb)', () => {
+      const compiled = fixture.nativeElement as HTMLElement;
+      const searchBar = compiled.querySelector('app-search-bar-container');
+      expect(searchBar).toBeNull();
+    });
+
+    // ── Task 4.4 (RED) — routerLinkActive applies the active class after navigation ──
+
+    it('should apply the active class to the matching nav link on /directorio', async () => {
+      // The Header fixture already has `provideRouter(routes)` configured in
+      // the beforeEach. RouterLinkActive subscribes to Router.events and
+      // toggles classes when the URL matches `routerLinkActive`. We drive a
+      // real navigation via `router.navigateByUrl('/directorio')` then run
+      // change detection on the Header fixture. The directive then applies
+      // `text-primary font-semibold` to the matching link only.
+      const router = TestBed.inject(Router);
+      await router.navigateByUrl('/directorio');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const desktopNav = fixture.nativeElement.querySelector(
+        'div.hidden.md\\:flex',
+      ) as HTMLElement;
+      const anchors = Array.from(
+        desktopNav.querySelectorAll('a'),
+      ) as HTMLAnchorElement[];
+      const directorio = anchors.find(
+        (a) => a.textContent?.trim() === 'Directorio',
+      );
+      const inicio = anchors.find((a) => a.textContent?.trim() === 'Inicio');
+      const eventos = anchors.find((a) => a.textContent?.trim() === 'Eventos');
+      const contacto = anchors.find((a) => a.textContent?.trim() === 'Contacto');
+      const registrate = anchors.find((a) => a.textContent?.trim() === 'Registrate');
+      expect(directorio).withContext('Directorio anchor exists').toBeTruthy();
+      expect(inicio).withContext('Inicio anchor exists').toBeTruthy();
+      expect(eventos).withContext('Eventos anchor exists').toBeTruthy();
+      expect(contacto).withContext('Contacto anchor exists').toBeTruthy();
+      expect(registrate).withContext('Registrate anchor exists').toBeTruthy();
+
+      expect(directorio!.classList.contains('text-primary'))
+        .withContext('Directorio link has text-primary after nav to /directorio')
+        .toBeTrue();
+      expect(directorio!.classList.contains('font-semibold'))
+        .withContext('Directorio link has font-semibold after nav to /directorio')
+        .toBeTrue();
+
+      expect(inicio!.classList.contains('text-primary'))
+        .withContext('Inicio link does NOT have text-primary (different route)')
+        .toBeFalse();
+      expect(eventos!.classList.contains('text-primary'))
+        .withContext('Eventos link does NOT have text-primary')
+        .toBeFalse();
+      expect(contacto!.classList.contains('text-primary'))
+        .withContext('Contacto link does NOT have text-primary')
+        .toBeFalse();
+      expect(registrate!.classList.contains('font-semibold'))
+        .withContext('Registrate CTA does NOT carry routerLinkActive (Decision 3 — it is part of its CTA base styling, NOT from routerLinkActive)')
+        .toBeTrue(); // font-semibold is part of the CTA's base Tailwind classes.
+      // The real check that the CTA does NOT use routerLinkActive is the
+      // absence of the `routerlinkactive` attribute on that anchor:
+      expect(registrate!.hasAttribute('routerlinkactive'))
+        .withContext('Registrate CTA does NOT carry routerLinkActive (Decision 3)')
+        .toBeFalse();
+    });
+
+    it('should apply the active class ONLY to Inicio on "/" (exact-match)', async () => {
+      const router = TestBed.inject(Router);
+      await router.navigateByUrl('/');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const desktopNav = fixture.nativeElement.querySelector(
+        'div.hidden.md\\:flex',
+      ) as HTMLElement;
+      const anchors = Array.from(
+        desktopNav.querySelectorAll('a'),
+      ) as HTMLAnchorElement[];
+      const inicio = anchors.find((a) => a.textContent?.trim() === 'Inicio');
+      const directorio = anchors.find(
+        (a) => a.textContent?.trim() === 'Directorio',
+      );
+      expect(inicio!.classList.contains('text-primary'))
+        .withContext('Inicio has text-primary on "/" (exact match)')
+        .toBeTrue();
+      expect(directorio!.classList.contains('text-primary'))
+        .withContext('Directorio does NOT have text-primary on "/"')
+        .toBeFalse();
     });
   });
 });

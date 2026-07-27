@@ -1,6 +1,6 @@
 <header class="bg-surface-container-lowest border-b border-outline-variant sticky top-0 z-50">
   <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between h-16 items-center">
-    <a class="flex items-center" href="#" aria-label="Directorio Concón - Inicio">
+    <a class="flex items-center" routerLink="/" aria-label="Directorio Concón - Inicio">
       <img
         src="/assets/logo-transparente.webp"
         alt="Directorio Concón"
@@ -14,14 +14,19 @@
       @for (link of navLinks; track link.label) {
         <a
           class="text-on-surface-variant hover:text-primary px-3 py-2 text-sm font-medium transition"
-          [href]="link.href"
+          [routerLink]="link.href"
+          routerLinkActive="text-primary font-semibold"
+          [routerLinkActiveOptions]="link.href === '/' ? { exact: true } : { exact: false }"
         >
           {{ link.label }}
         </a>
       }
+      <!-- CTA "Registrate": deliberate no routerLinkActive — see design Decision 3.
+           A colored call-to-action with an active-underline line would mix the
+           visual model (the CTA is always a CTA, not a "you are here" marker). -->
       <a
         class="bg-primary hover:bg-primary-container text-white px-6 py-2.5 rounded-custom font-semibold transition-colors"
-        [href]="ctaLink.href"
+        [routerLink]="ctaLink.href"
       >
         {{ ctaLink.label }}
       </a>
@@ -58,15 +63,17 @@
     @for (link of navLinks; track link.label) {
       <a
         class="text-on-surface-variant hover:text-primary px-4 py-3 text-lg font-medium transition-colors border-b border-outline-variant/30"
-        [href]="link.href"
+        [routerLink]="link.href"
         (click)="closeMenu()"
+        routerLinkActive="text-primary font-semibold"
+        [routerLinkActiveOptions]="link.href === '/' ? { exact: true } : { exact: false }"
       >
         {{ link.label }}
       </a>
     }
     <a
       class="mt-6 bg-primary hover:bg-primary-container text-white px-6 py-3 rounded-custom font-semibold transition-colors text-center"
-      [href]="ctaLink.href"
+      [routerLink]="ctaLink.href"
       (click)="closeMenu()"
     >
       {{ ctaLink.label }}

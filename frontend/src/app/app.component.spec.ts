@@ -86,8 +86,10 @@ describe('AppComponent', () => {
       .toBeTruthy();
   });
 
-  // Integration: the /directorio route renders the placeholder.
-  it('should render the <app-placeholder-directorio> at /directorio?q=foo', async () => {
+  // Integration: the /directorio route renders the DirectorioPageComponent
+  // (this is the new SPA skeleton that replaced the legacy
+  // PlaceholderDirectorioComponent — see change `frontend-spa-routes`).
+  it('should render the <app-directorio-page> at /directorio?q=foo', async () => {
     const router = TestBed.inject(Router);
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
@@ -96,9 +98,17 @@ describe('AppComponent', () => {
     fixture.detectChanges();
 
     const compiled = fixture.nativeElement as HTMLElement;
-    const placeholder = compiled.querySelector('app-placeholder-directorio');
-    expect(placeholder).withContext('placeholder renders at /directorio').toBeTruthy();
-    const h1 = placeholder?.querySelector('h1')?.textContent ?? '';
-    expect(h1.toLowerCase()).toContain('próximamente');
+    const directorioPage = compiled.querySelector('app-directorio-page');
+    expect(directorioPage)
+      .withContext('DirectorioPageComponent renders at /directorio')
+      .toBeTruthy();
+    const h1 = directorioPage?.querySelector('h1')?.textContent ?? '';
+    expect(h1.trim())
+      .withContext('h1 text is exactly "Directorio"')
+      .toBe('Directorio');
+    const text = (directorioPage?.textContent ?? '').toLowerCase();
+    expect(text)
+      .withContext('skeleton renders Próximamente')
+      .toContain('próximamente');
   });
 });
