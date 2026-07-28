@@ -31,7 +31,7 @@ export class AppController {
           properties: {
             docs: { type: "string", example: "/api/docs" },
             health: { type: "string", example: "/api/v1/health" },
-            empresas: { type: "string", example: "/api/v1/empresas" },
+            places: { type: "string", example: "/api/v1/places" },
           },
         },
       },

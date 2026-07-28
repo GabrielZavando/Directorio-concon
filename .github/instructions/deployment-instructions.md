@@ -616,7 +616,7 @@ ls -lh dist/directorio-concon-frontend/browser/
 ### Post-despliegue
 - [ ] Testing manual de flujos críticos
 - [ ] Verificar autenticación
-- [ ] Verificar carga de empresas
+- [ ] Verificar carga de places
 - [ ] Verificar mapa interactivo
 - [ ] Verificar búsqueda y filtros
 - [ ] Monitoreo activo configurado

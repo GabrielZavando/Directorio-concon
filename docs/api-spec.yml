@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Directorio Concón API
   description: |
-    API REST para el Directorio de Empresas de Concón (NestJS + Firebase Firestore).
+    API REST para el Directorio de Lugares de Concón (NestJS + Firebase Firestore).
     Contrato entre frontend y backend — actualizar ANTES de implementar cambios.
   version: "1.0.0"
   contact:
@@ -45,69 +45,128 @@ components:
         limit:
           type: integer
 
-    Empresa:
+    Coordenadas:
+      type: object
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+
+    Turno:
+      type: object
+      required: [apertura, cierre]
+      properties:
+        apertura:
+          type: string
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+          example: "09:00"
+        cierre:
+          type: string
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+          example: "14:00"
+
+    HorarioDia:
+      type: object
+      required: [dia, abierto, turnos]
+      properties:
+        dia:
+          type: string
+          enum: [lunes, martes, miercoles, jueves, viernes, sabado, domingo]
+        abierto:
+          type: boolean
+        turnos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Turno'
+
+    HorarioEspecial:
+      type: object
+      required: [fecha, descripcion, turnos]
+      properties:
+        fecha:
+          type: string
+          format: date
+          example: "2025-12-31"
+        descripcion:
+          type: string
+          example: "Noche de Año Nuevo"
+        turnos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Turno'
+
+    RedSocial:
+      type: object
+      required: [plataforma, url]
+      properties:
+        plataforma:
+          type: string
+          enum: [instagram, facebook, twitter, linkedin, tiktok, youtube]
+        url:
+          type: string
+          format: uri
+
+    Imagenes:
+      type: object
+      properties:
+        logo:
+          type: string
+          format: uri
+          nullable: true
+        portada:
+          type: string
+          format: uri
+          nullable: true
+        galeria:
+          type: array
+          items:
+            type: string
+            format: uri
+
+    ValoracionGoogle:
+      type: object
+      properties:
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+        reviewsCount:
+          type: integer
+          minimum: 0
+        mapsLink:
+          type: string
+          format: uri
+
+    Place:
       type: object
       properties:
         id:
           type: string
-        nombre:
-          type: string
         slug:
           type: string
-        descripcion:
-          type: string
-        categoriaId:
-          type: string
-        barrioId:
-          type: string
-        direccion:
-          type: string
-        telefono:
-          type: string
-          nullable: true
-        email:
-          type: string
-          nullable: true
-        sitioWeb:
-          type: string
-          nullable: true
-        planId:
-          type: string
-          enum: [gratuito, premium]
-        destacado:
-          type: boolean
-        verificado:
-          type: boolean
-        status:
-          type: string
-          enum: [pendiente, aprobado, rechazado]
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    CreateEmpresa:
-      type: object
-      required: [nombre, descripcion, categoriaId, barrioId, direccion, planId]
-      properties:
         nombre:
           type: string
-          minLength: 2
-          maxLength: 100
+        descripcionCorta:
+          type: string
+          maxLength: 140
         descripcion:
           type: string
-          minLength: 10
-          maxLength: 1000
         categoriaId:
           type: string
+        subcategoriaId:
+          type: string
+          nullable: true
         barrioId:
           type: string
         direccion:
           type: string
-          maxLength: 200
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
         telefono:
+          type: string
+          nullable: true
+        whatsapp:
           type: string
           nullable: true
         email:
@@ -118,31 +177,242 @@ components:
           type: string
           format: uri
           nullable: true
+        redesSociales:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedSocial'
+          maxItems: 3
+        imagenes:
+          $ref: '#/components/schemas/Imagenes'
+        horarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorarioDia'
+        horariosEspeciales:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorarioEspecial'
+        abierto24x7:
+          type: boolean
+        servicios:
+          type: array
+          items:
+            type: string
+            enum: [wifi, estacionamiento, acceso-discapacidad, apto-mascotas, delivery, take-away, terraza, vista-al-mar, reservas, ninos-bienvenida]
+        metodosPago:
+          type: array
+          items:
+            type: string
+            enum: [efectivo, debito, credito, transferencia, qr]
+        idiomas:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [pendiente, aprobado, rechazado]
+        verificado:
+          type: boolean
+        fechaVerificacion:
+          type: string
+          format: date-time
+          nullable: true
+        destacado:
+          type: boolean
         planId:
           type: string
           enum: [gratuito, premium]
-        coordenadas:
-          type: object
-          properties:
-            lat:
-              type: number
-            lng:
-              type: number
+        vistasTotales:
+          type: integer
+          minimum: 0
+        valoracionGoogle:
+          $ref: '#/components/schemas/ValoracionGoogle'
+        usuarioId:
+          type: string
+        fechaPublicacion:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
-    UpdateEmpresa:
+    CreatePlace:
+      type: object
+      required: [nombre, descripcionCorta, descripcion, categoriaId, barrioId, direccion, planId]
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 100
+        descripcionCorta:
+          type: string
+          minLength: 1
+          maxLength: 140
+        descripcion:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        categoriaId:
+          type: string
+        subcategoriaId:
+          type: string
+          nullable: true
+        barrioId:
+          type: string
+        direccion:
+          type: string
+          maxLength: 200
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
+        telefono:
+          type: string
+          nullable: true
+        whatsapp:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        sitioWeb:
+          type: string
+          format: uri
+          nullable: true
+        redesSociales:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedSocial'
+          maxItems: 3
+        imagenes:
+          $ref: '#/components/schemas/Imagenes'
+        horarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorarioDia'
+        horariosEspeciales:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorarioEspecial'
+        abierto24x7:
+          type: boolean
+          default: false
+        servicios:
+          type: array
+          items:
+            type: string
+            enum: [wifi, estacionamiento, acceso-discapacidad, apto-mascotas, delivery, take-away, terraza, vista-al-mar, reservas, ninos-bienvenida]
+        metodosPago:
+          type: array
+          items:
+            type: string
+            enum: [efectivo, debito, credito, transferencia, qr]
+        idiomas:
+          type: array
+          items:
+            type: string
+        planId:
+          type: string
+          enum: [gratuito, premium]
+        usuarioId:
+          type: string
+
+    UpdatePlace:
       type: object
       properties:
         nombre:
           type: string
+          minLength: 2
+          maxLength: 100
+        descripcionCorta:
+          type: string
+          maxLength: 140
         descripcion:
           type: string
+          maxLength: 2000
+        direccion:
+          type: string
+          maxLength: 200
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
         telefono:
           type: string
+          nullable: true
+        whatsapp:
+          type: string
+          nullable: true
         email:
           type: string
+          format: email
+          nullable: true
         sitioWeb:
           type: string
+          format: uri
+          nullable: true
+        redesSociales:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedSocial'
+          maxItems: 3
+        imagenes:
+          $ref: '#/components/schemas/Imagenes'
         horarios:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorarioDia'
+        horariosEspeciales:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorarioEspecial'
+        abierto24x7:
+          type: boolean
+        servicios:
+          type: array
+          items:
+            type: string
+            enum: [wifi, estacionamiento, acceso-discapacidad, apto-mascotas, delivery, take-away, terraza, vista-al-mar, reservas, ninos-bienvenida]
+        metodosPago:
+          type: array
+          items:
+            type: string
+            enum: [efectivo, debito, credito, transferencia, qr]
+        idiomas:
+          type: array
+          items:
+            type: string
+        destacado:
+          type: boolean
+        planId:
+          type: string
+          enum: [gratuito, premium]
+
+    AbiertoAhoraResponse:
+      type: object
+      required: [abierto]
+      properties:
+        abierto:
+          type: boolean
+        turno:
+          $ref: '#/components/schemas/Turno'
+
+    MapDataItem:
+      type: object
+      required: [id, slug, nombre, coordenadas, categoriaId, barrioId]
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        nombre:
+          type: string
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
+        categoriaId:
+          type: string
+        barrioId:
           type: string
 
 security:
@@ -165,9 +435,9 @@ paths:
                     type: string
                     example: ok
 
-  /empresas:
+  /places:
     get:
-      summary: Listar empresas (paginado, filtros)
+      summary: Listar places (paginado, filtros)
       parameters:
         - name: page
           in: query
@@ -189,7 +459,7 @@ paths:
           schema: { type: string, enum: [pendiente, aprobado, rechazado] }
       responses:
         "200":
-          description: Lista de empresas
+          description: Lista de places
           content:
             application/json:
               schema:
@@ -198,26 +468,26 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Empresa'
+                      $ref: '#/components/schemas/Place'
                   meta:
                     $ref: '#/components/schemas/Pagination'
         "401":
           $ref: '#/components/schemas/Error'
     post:
-      summary: Crear empresa
+      summary: Crear place
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateEmpresa'
+              $ref: '#/components/schemas/CreatePlace'
       responses:
         "201":
-          description: Empresa creada
+          description: Place creado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Empresa'
+                $ref: '#/components/schemas/Place'
         "400":
           $ref: '#/components/schemas/Error'
         "401":
@@ -226,9 +496,9 @@ paths:
           description: Slug duplicado
           $ref: '#/components/schemas/Error'
 
-  /empresas/{id}:
+  /places/{id}:
     get:
-      summary: Obtener empresa por id
+      summary: Obtener place por id
       parameters:
         - name: id
           in: path
@@ -236,15 +506,15 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Empresa
+          description: Place
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Empresa'
+                $ref: '#/components/schemas/Place'
         "404":
           $ref: '#/components/schemas/Error'
     put:
-      summary: Actualizar empresa
+      summary: Actualizar place
       parameters:
         - name: id
           in: path
@@ -255,18 +525,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateEmpresa'
+              $ref: '#/components/schemas/UpdatePlace'
       responses:
         "200":
-          description: Empresa actualizada
+          description: Place actualizado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Empresa'
+                $ref: '#/components/schemas/Place'
         "404":
           $ref: '#/components/schemas/Error'
     delete:
-      summary: Eliminar empresa
+      summary: Eliminar place
       parameters:
         - name: id
           in: path
@@ -274,13 +544,25 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Eliminada
+          description: Eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                  id:
+                    type: string
         "404":
           $ref: '#/components/schemas/Error'
+        "409":
+          description: No se puede eliminar: existen solicitudes asociadas
+          $ref: '#/components/schemas/Error'
 
-  /empresas/slug/{slug}:
+  /places/slug/{slug}:
     get:
-      summary: Obtener empresa por slug
+      summary: Obtener place por slug
       parameters:
         - name: slug
           in: path
@@ -288,10 +570,43 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Empresa
+          description: Place
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Empresa'
+                $ref: '#/components/schemas/Place'
+        "404":
+          $ref: '#/components/schemas/Error'
+
+  /places/map-data:
+    get:
+      summary: Obtener datos ligeros para mapa interactivo
+      responses:
+        "200":
+          description: Array de places con coordenadas para marcadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MapDataItem'
+        "401":
+          $ref: '#/components/schemas/Error'
+
+  /places/{id}/abierto-ahora:
+    get:
+      summary: Verificar si el place está abierto ahora (zona horaria America/Santiago)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Estado de apertura actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbiertoAhoraResponse'
         "404":
           $ref: '#/components/schemas/Error'

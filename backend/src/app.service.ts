@@ -15,16 +15,16 @@ export class AppService {
     const backendUrl = this.configService.get<string>("app.backendUrl");
 
     return {
-      message: "API del Directorio de Empresas de Concón",
+      message: "API del Directorio de Concón",
       description:
-        "Sistema completo de gestión de empresas locales con funcionalidades premium e IA integrada",
+        "Directorio de empresas y lugares de interés de Concón — gestión, descubrimiento y mapa interactivo",
       version: "1.0.0",
       environment: nodeEnv,
       timestamp: new Date().toISOString(),
       endpoints: {
         docs: nodeEnv === "development" ? `${backendUrl}/api/docs` : null,
         health: `${backendUrl}/api/v1/health`,
-        empresas: `${backendUrl}/api/v1/empresas`,
+        places: `${backendUrl}/api/v1/places`,
         categorias: `${backendUrl}/api/v1/categorias`,
         barrios: `${backendUrl}/api/v1/barrios`,
         auth: `${backendUrl}/api/v1/auth`,
