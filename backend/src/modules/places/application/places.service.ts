@@ -10,6 +10,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import type { PlaceRepositoryInterface } from "../domain/place-repository.interface";
 import type { SolicitudesRepositoryInterface } from "../domain/solicitudes-repository.interface";
@@ -122,11 +123,17 @@ export class PlacesService {
       sitioWeb: dto.sitioWeb,
       redesSociales: this.toPlain(dto.redesSociales),
       imagenes: dto.imagenes
-        ? { logo: dto.imagenes.logo, portada: dto.imagenes.portada, galeria: dto.imagenes.galeria ?? [] }
+        ? {
+            logo: dto.imagenes.logo,
+            portada: dto.imagenes.portada,
+            galeria: dto.imagenes.galeria ?? [],
+          }
         : { galeria: [] },
       planId: dto.planId,
       horarios: this.toPlainArray(dto.horarios),
-      horariosEspeciales: this.toPlainArray(dto.horariosEspeciales as Place["horariosEspeciales"]),
+      horariosEspeciales: this.toPlainArray(
+        dto.horariosEspeciales as Place["horariosEspeciales"],
+      ),
       abierto24x7: dto.abierto24x7 ?? false,
       servicios: dto.servicios as Place["servicios"],
       metodosPago: dto.metodosPago as Place["metodosPago"],
@@ -309,7 +316,7 @@ export class PlacesService {
   ): void {
     const max = planId === "premium" ? 10 : 3;
     if (galeria && galeria.length > max) {
-      throw new NotFoundException(
+      throw new UnprocessableEntityException(
         `Plan ${planId} permite máximo ${max} imágenes en galería`,
       );
     }
