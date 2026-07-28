@@ -16,12 +16,12 @@ Detailed instructions for incorporating **Artificial Intelligence** functionalit
 ```typescript
 // ✅ Correct - Spanish comments
 /**
- * Busca empresas similares usando búsqueda semántica
+ * Busca places similares usando búsqueda semántica
  * @param query - Consulta de búsqueda del usuario
  * @param limit - Número máximo de resultados
- * @returns Promise con array de empresas similares
+ * @returns Promise con array de places similares
  */
-async function buscarEmpresasSimilares(query: string, limit: number = 10): Promise<Empresa[]> {
+async function buscarPlacesSimilares(query: string, limit: number = 10): Promise<Place[]> {
   // Generar embedding para la consulta
   const embedding = await this.generarEmbedding(query);
   
@@ -89,7 +89,7 @@ IA: "Encontré 2 talleres mecánicos en el centro que atienden sábados:
 ### 2. 💡 Sistema de Recomendaciones Personalizadas
 
 #### Descripción
-Engine de recomendaciones que aprende de los patrones de búsqueda y comportamiento del usuario para sugerir empresas relevantes.
+Engine de recomendaciones que aprende de los patrones de búsqueda y comportamiento del usuario para sugerir places relevantes.
 
 #### Tipos de Recomendaciones
 - **Basadas en ubicación**: "Cerca de ti", "En tu ruta"
@@ -102,16 +102,16 @@ Engine de recomendaciones que aprende de los patrones de búsqueda y comportamie
 ```typescript
 interface RecommendationEngine {
   // Filtrado colaborativo
-  collaborativeFiltering(userId: string): Promise<Empresa[]>;
+  collaborativeFiltering(userId: string): Promise<Place[]>;
   
   // Basado en contenido
-  contentBasedFiltering(empresa: Empresa): Promise<Empresa[]>;
+  contentBasedFiltering(place: Place): Promise<Place[]>;
   
   // Híbrido (combinación de ambos)
   hybridRecommendations(userId: string, context: RecommendationContext): Promise<RecommendationResult>;
   
   // Tendencias y popularidad
-  trendingRecommendations(timeframe: 'day' | 'week' | 'month'): Promise<Empresa[]>;
+  trendingRecommendations(timeframe: 'day' | 'week' | 'month'): Promise<Place[]>;
 }
 ```
 
@@ -123,8 +123,8 @@ Procesamiento automático de reseñas y comentarios para extraer insights sobre 
 #### Funcionalidades
 - **Análisis de sentimiento**: Positivo, neutral, negativo con confidence score
 - **Extracción de temas**: Qué aspectos mencionan más (comida, servicio, ambiente)
-- **Resumen automático**: "Esta empresa destaca por su excelente atención al cliente"
-- **Alertas para empresas**: Notificaciones sobre cambios en sentiment
+- **Resumen automático**: "Este place destaca por su excelente atención al cliente"
+- **Alertas para places**: Notificaciones sobre cambios en sentiment
 
 #### Pipeline de Procesamiento
 ```typescript
@@ -160,28 +160,28 @@ Sistema de búsqueda que entiende la intención y contexto del usuario, no solo 
 ```typescript
 interface SemanticSearch {
   search(query: string, context: SearchContext): Promise<{
-    results: EmpresaSearchResult[];
+    results: PlaceSearchResult[];
     interpretation: string; // "Busco interpretar que necesitas..."
     suggestions: string[]; // Búsquedas relacionadas
     confidence: number;
   }>;
   
-  // Generar embeddings para empresas
-  generateEmbeddings(empresa: Empresa): Promise<number[]>;
+  // Generar embeddings para places
+  generateEmbeddings(place: Place): Promise<number[]>;
   
   // Búsqueda por similaridad
-  findSimilar(embedding: number[], limit: number): Promise<Empresa[]>;
+  findSimilar(embedding: number[], limit: number): Promise<Place[]>;
 }
 ```
 
-### 5. 📈 Insights y Analytics Inteligentes para Empresas
+### 5. 📈 Insights y Analytics Inteligentes para Places
 
 #### Descripción
-Dashboard con insights automáticos que ayudan a las empresas a entender su performance y mejorar su presencia.
+Dashboard con insights automáticos que ayudan a los places a entender su performance y mejorar su presencia.
 
 #### Insights Disponibles
 - **Análisis de tráfico**: Picos de búsqueda, horarios populares
-- **Comparación competitiva**: Cómo se compara con empresas similares
+- **Comparación competitiva**: Cómo se compara con places similares
 - **Análisis de conversión**: Búsquedas → vistas → contactos
 - **Sugerencias de optimización**: "Actualiza tu horario para aparecer más"
 - **Predicciones**: "Se espera 30% más tráfico el próximo fin de semana"
@@ -189,7 +189,7 @@ Dashboard con insights automáticos que ayudan a las empresas a entender su perf
 #### Métricas Inteligentes
 ```typescript
 interface BusinessInsights {
-  generateInsights(empresaId: string): Promise<{
+  generateInsights(placeId: string): Promise<{
     trafficAnalysis: TrafficInsight[];
     competitorAnalysis: CompetitorInsight;
     optimizationSuggestions: OptimizationSuggestion[];
@@ -198,10 +198,10 @@ interface BusinessInsights {
   }>;
   
   // Comparar con competidores
-  competitorAnalysis(empresaId: string): Promise<CompetitorComparison>;
+  competitorAnalysis(placeId: string): Promise<CompetitorComparison>;
   
   // Sugerencias automáticas
-  generateOptimizationTips(empresa: Empresa): Promise<OptimizationTip[]>;
+  generateOptimizationTips(place: Place): Promise<OptimizationTip[]>;
 }
 ```
 
@@ -348,7 +348,7 @@ import { QdrantClient } from '@qdrant/js-client-rest';
 @Injectable()
 export class QdrantService {
   private client: QdrantClient;
-  private readonly collectionName = 'directorio-empresas';
+  private readonly collectionName = 'directorio-places';
 
   constructor(private configService: ConfigService) {
     this.client = new QdrantClient({
@@ -450,7 +450,7 @@ export class AICacheService {
     await this.redis.setex(cacheKey, ttl, response);
   }
 
-  async getRecommendations(userId: string): Promise<Empresa[] | null> {
+  async getRecommendations(userId: string): Promise<Place[] | null> {
     const cacheKey = `recommendations:${userId}`;
     const cached = await this.redis.get(cacheKey);
     return cached ? JSON.parse(cached) : null;
@@ -612,8 +612,8 @@ export class AICacheService {
         *ngFor="let recommendation of recommendations$ | async; trackBy: trackRecommendation"
         class="group relative">
         
-        <!-- Standard empresa card -->
-        <app-empresa-card [empresa]="recommendation.empresa"></app-empresa-card>
+        <!-- Standard place card -->
+        <app-place-card [place]="recommendation.place"></app-place-card>
         
         <!-- AI Badge -->
         <div class="absolute top-3 left-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1">
@@ -797,7 +797,7 @@ graph TD
     D -->|Sí| E[Retornar respuesta cacheada]
     D -->|No| F[Analizar intención con IA]
     F --> G{¿Requiere búsqueda?}
-    G -->|Sí| H[Buscar empresas relevantes]
+    G -->|Sí| H[Buscar places relevantes]
     G -->|No| I[Generar respuesta general]
     H --> J[Generar respuesta con resultados]
     I --> K[Guardar en cache]
@@ -833,9 +833,9 @@ graph TD
     C --> D[Extracción de temas/entidades]
     D --> E[Cálculo de score y confidence]
     E --> F[Guardar resultados en DB]
-    F --> G[Actualizar métricas de empresa]
+    F --> G[Actualizar métricas del place]
     G --> H{¿Cambio significativo?}
-    H -->|Sí| I[Notificar a empresa]
+    H -->|Sí| I[Notificar a place]
     H -->|No| J[Fin]
     I --> K[Actualizar dashboard]
     K --> J
@@ -870,7 +870,7 @@ interface ChatSession {
     accuracy: number;        // metros de precisión
   };
   intent?: string;           // Intención clasificada automáticamente
-  businessCategory?: string; // Categoría de empresas más consultada
+  businessCategory?: string; // Categoría de places más consultada
   averageResponseTime?: number; // ms promedio de respuesta
   totalTokensUsed?: number;  // Tokens consumidos en la sesión
 }
@@ -891,15 +891,15 @@ interface ChatMessage {
     confidence: number;      // 0-1
   };
   entities?: {
-    type: 'empresa' | 'categoria' | 'barrio' | 'servicio' | 'ubicacion' | 'tiempo';
+    type: 'place' | 'categoria' | 'barrio' | 'servicio' | 'ubicacion' | 'tiempo';
     value: string;
     confidence: number;
     startIndex: number;
     endIndex: number;
   }[];
   suggestions?: string[];    // follow-up suggestions
-  relatedEmpresas?: {
-    empresaId: string;
+  relatedPlaces?: {
+    placeId: string;
     relevanceScore: number;  // 0-1
     reason: string;          // Why it was suggested
   }[];
@@ -937,7 +937,7 @@ interface UserPreferences {
     query: string;
     timestamp: Timestamp;
     resultCount: number;
-    clickedResults: string[]; // empresa IDs clicked
+    clickedResults: string[]; // place IDs clicked
     searchMethod: 'text' | 'voice' | 'chat' | 'filters';
     location?: {
       lat: number;
@@ -947,7 +947,7 @@ interface UserPreferences {
   
   // Interacciones mejoradas
   interactions: {
-    empresaId: string;
+    placeId: string;
     type: 'view' | 'contact' | 'recommend' | 'share' | 'favorite' | 'review';
     timestamp: Timestamp;
     duration?: number;       // time spent viewing (ms)
@@ -985,10 +985,10 @@ interface UserPreferences {
 }
 ```
 
-#### 4. `ai-empresa-embeddings`
+#### 4. `ai-place-embeddings`
 ```typescript
-interface EmpresaEmbedding {
-  id: string;               // empresaId
+interface PlaceEmbedding {
+  id: string;               // placeId
   
   // Múltiples tipos de embeddings
   embeddings: {
@@ -1053,7 +1053,7 @@ interface EmpresaEmbedding {
 ```typescript
 interface SentimentAnalysis {
   id: string;
-  empresaId: string;
+  placeId: string;
   
   // Fuente del análisis
   sourceType: 'review' | 'chat_mention' | 'social_media' | 'survey' | 'aggregated';
@@ -1135,7 +1135,7 @@ interface SentimentAnalysis {
 ```typescript
 interface BusinessInsight {
   id: string;
-  empresaId: string;
+  placeId: string;
   
   // Período de análisis
   period: {
@@ -1194,7 +1194,7 @@ interface BusinessInsight {
       type: 'market_opportunity' | 'competitor_analysis' | 'positioning' | 'pricing';
       title: string;
       description: string;
-      competitors: string[];   // empresa IDs
+      competitors: string[];   // place IDs
       marketShare: number;     // estimated market share
       recommendations: string[];
       priority: 'low' | 'medium' | 'high' | 'critical';
@@ -1328,7 +1328,7 @@ interface RecommendationModel {
   // Historial de recomendaciones
   recommendationHistory: {
     recommendationId: string;
-    empresaId: string;
+    placeId: string;
     score: number;                    // 0-1, recommendation strength
     algorithm: 'collaborative' | 'content' | 'hybrid' | 'ai_generated';
     reason: string;                   // explanation for recommendation
@@ -1420,15 +1420,15 @@ interface SearchAnalytics {
     };
     
     topResults: {
-      empresaId: string;
+      placeId: string;
       rank: number;
       score: number;                  // relevance score
       source: 'text' | 'semantic' | 'recommendation';
     }[];
     
     userInteractions: {
-      clicked: string[];              // empresa IDs clicked
-      contacted: string[];            // empresa IDs contacted
+      clicked: string[];              // place IDs clicked
+      contacted: string[];            // place IDs contacted
       timeSpent: number[];            // seconds on each result
       scrollDepth: number;            // how far user scrolled
     };
@@ -1570,7 +1570,7 @@ interface ModelPerformance {
 
 ```typescript
 interface QdrantPayload {
-  empresaId: string;
+  placeId: string;
   nombre: string;
   categoriaId: string;
   categoriaName: string;
@@ -1578,7 +1578,7 @@ interface QdrantPayload {
   barrioName: string;
   tags: string[];
   lastUpdated: number;      // timestamp
-  status: string;           // para filtrar solo empresas aprobadas
+  status: string;           // para filtrar solo places aprobadas
   coordenadas?: {
     lat: number;
     lng: number;
@@ -1587,10 +1587,10 @@ interface QdrantPayload {
 
 // Ejemplo de uso
 const vectorData = {
-  id: 'empresa-123',
+  id: 'place-123',
   vector: [0.1, 0.2, -0.3, ...], // 1536 dimensiones para OpenAI
   payload: {
-    empresaId: 'empresa-123',
+    placeId: 'place-123',
     nombre: 'Restaurante La Perla',
     categoriaId: 'cat-restaurantes',
     categoriaName: 'Restaurantes',
@@ -1648,7 +1648,7 @@ ANTHROPIC_MAX_TOKENS=1000
 # Qdrant Vector Database
 QDRANT_URL=http://localhost:6333
 QDRANT_API_KEY=your-qdrant-api-key
-QDRANT_COLLECTION_NAME=directorio-empresas
+QDRANT_COLLECTION_NAME=directorio-places
 QDRANT_TIMEOUT=30000
 QDRANT_GRPC_PORT=6334
 
@@ -1746,7 +1746,7 @@ export const environment = {
 - [ ] Setup Pinecone vector database
 - [ ] Setup Redis caching
 - [ ] Módulo AI base en backend
-- [ ] Generación de embeddings para empresas existentes
+- [ ] Generación de embeddings para places existentes
 - [ ] Testing básico de integración
 
 ### Fase 2: Chatbot Inteligente (2 sprints)
@@ -1754,7 +1754,7 @@ export const environment = {
 - [ ] Componente de chatbot en frontend
 - [ ] Manejo de intenciones básicas
 - [ ] Cache de respuestas frecuentes
-- [ ] Integración con base de datos de empresas
+- [ ] Integración con base de datos de places
 - [ ] Testing de conversaciones
 
 ### Fase 3: Sistema de Recomendaciones (2 sprints)
@@ -1777,11 +1777,11 @@ export const environment = {
 - [ ] Procesamiento de reseñas existentes
 - [ ] Componente de visualización
 - [ ] Alertas automáticas
-- [ ] Dashboard para empresas
+- [ ] Dashboard para places
 
 ### Fase 6: Insights y Analytics (2 sprints)
 - [ ] Engine de generación de insights
-- [ ] Dashboard de analytics para empresas
+- [ ] Dashboard de analytics para places
 - [ ] Reportes automáticos
 - [ ] Predicciones básicas
 - [ ] Notificaciones inteligentes
@@ -1862,9 +1862,9 @@ export const environment = {
 - **Embedding Sync Time**: Tiempo de actualización de vectores
 
 ### Métricas de Negocio
-- **Conversión a Contacto**: % usuarios que contactan empresas
+- **Conversión a Contacto**: % usuarios que contactan places
 - **Retención de Usuarios**: Usuarios que regresan al sitio
-- **Engagement de Empresas**: Uso del dashboard de insights
+- **Engagement de Places**: Uso del dashboard de insights
 - **NPS**: Net Promoter Score general del sitio
 
 ---
@@ -1952,10 +1952,10 @@ export const environment = {
 
 ### Funcionalidades Avanzadas
 - **Asistente de Voz**: Integración con Web Speech API
-- **IA Multimodal**: Análisis de imágenes de empresas
+- **IA Multimodal**: Análisis de imágenes de places
 - **Predicciones Avanzadas**: Forecasting de demanda
 - **Personalización Extrema**: 1:1 customización de experiencia
-- **IA Generativa para Contenido**: Descripciones automáticas de empresas
+- **IA Generativa para Contenido**: Descripciones automáticas de places
 
 ### Integraciones
 - **WhatsApp Business**: Chatbot via WhatsApp

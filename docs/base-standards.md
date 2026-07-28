@@ -133,39 +133,39 @@ Arquitectura BE: Clean Architecture por feature
 
 | Usuario | Login | Rol | Función |
 |---|---|---|---|
-| **Visitante anónimo** | sin login | — | Descubre empresas por categoría/barrio, abre ficha, ve mapa. No requiere autenticación. |
-| **Empresario** | Firebase Auth | `empresa` | Se registra, crea su empresa (genera `solicitud` pendiente), gestiona su ficha (horarios/servicios/redes/logo). Es el usuario operacional central. |
-| **Admin del directorio** | Firebase Auth | `admin` | Aprueba/rechaza `solicitudes`, gestiona `categorias` y `barrios`, destaca/verifica empresas, modera el directorio. |
+| **Visitante anónimo** | sin login | — | Descubre places por categoría/barrio, abre ficha, ve mapa. No requiere autenticación. |
+| **Publicador** | Firebase Auth | `empresa` | Se registra, crea su place (genera `solicitud` pendiente), gestiona su ficha (horarios/servicios/redes/logo). Es el usuario operacional central. |
+| **Admin del directorio** | Firebase Auth | `admin` | Aprueba/rechaza `solicitudes`, gestiona `categorias` y `barrios`, destaca/verifica places, modera el directorio. |
 
 > Sin `reviewer` — sistema de reviews/calificaciones queda fuera del MVP (post-MVP).
 
 ### 8.3 Flujos de negocio
 
-#### Flujo 1 — Registro de empresa
+#### Flujo 1 — Registro de place
 
-1. Empresario se registra en Firebase Auth → rol `empresa` (asignado vía `usuarios` collection).
-2. `POST /api/v1/empresas` crea la empresa con `status: pendiente` y genera automáticamente un documento `solicitudes` con `tipo: 'registro'`, `status: 'pendiente'`.
+1. Publicador se registra en Firebase Auth → rol `empresa` (asignado vía `usuarios` collection).
+2. `POST /api/v1/places` crea el place con `status: pendiente` y genera automáticamente un documento `solicitudes` con `tipo: 'registro'`, `status: 'pendiente'`, `placeId` apuntando al nuevo place.
 3. El `admin` revisa la `solicitud`:
-   - Aprueba → `solicitud.status: aprobado` + `empresa.status: aprobado` → visible públicamente.
-   - Rechaza → `solicitud.status: rechazado` + `empresa.status: rechazado` (queda registrada pero oculta).
+   - Aprueba → `solicitud.status: aprobado` + `place.status: aprobado` → visible públicamente.
+   - Rechaza → `solicitud.status: rechazado` + `place.status: rechazado` (queda registrado pero oculto).
 
 #### Flujo 2 — Descubrimiento (visitante anónimo)
 
 1. Visitante anónimo entra al home (`docs/home/code.html` referencia visual).
-2. Filtra empresas por `categoriaId`, `barrioId` o query de texto: `GET /api/v1/empresas?q=&categoriaId=&barrioId=&page=&limit=`.
-3. Abre una ficha por `slug`: `GET /api/v1/empresas/slug/:slug` (`docs/perfil/code.html` referencia visual).
-4. Ve el mapa interactivo: `GET /api/v1/empresas/map-data` (`docs/mapa/code.html` referencia visual).
+2. Filtra places por `categoriaId`, `barrioId` o query de texto: `GET /api/v1/places?q=&categoriaId=&barrioId=&page=&limit=`.
+3. Abre una ficha por `slug`: `GET /api/v1/places/slug/:slug` (`docs/perfil/code.html` referencia visual).
+4. Ve el mapa interactivo: `GET /api/v1/places/map-data` (`docs/mapa/code.html` referencia visual).
 
 #### Flujo 3 — Gestión de catálogo (admin)
 
-1. `admin` mantiene `categorias` y `barrios` mediante CRUD admin (Angular Material en panel admin futuro).
+1. `admin` mantiene `categorias`, `barrios` y `places` mediante CRUD admin (Angular Material en panel admin futuro).
 2. Al iniciar el proyecto, `npm run seed` (en `backend/`) pobla Firestore con un inventario fijo de categorías de Concón (Restaurantes, Hospedaje, Servicios, Retail, Salud…) y barrios (Centro, Bosques, Montemar, La Boca, Reñaca Alto…).
 
 ### 8.4 Roadmap de módulos
 
 #### MVP (en este orden de implementación)
 
-1. **`auth`** — Firebase Auth + guards JWT + roles. **Próximo módulo a implementar.** El service de `empresas` ya tiene la lógica stub de verificar `usuarioId` que se activará acá.
+1. **`auth`** — Firebase Auth + guards JWT + roles. **Próximo módulo a implementar.** El service de `places` ya tiene la lógica stub de verificar `usuarioId` que se activará acá.
 2. **`usuarios`** — CRUD de usuarios + vinculación con Auth.
 3. **`categorias`** — CRUD admin + seed fijo (`npm run seed`).
 4. **`barrios`** — CRUD admin + seed fijo.
@@ -174,7 +174,7 @@ Arquitectura BE: Clean Architecture por feature
    - Home / landing → `docs/home/code.html`
    - Auth signup/login → `docs/login/code.html`
    - Vista mapa → `docs/mapa/code.html`
-   - Ficha de empresa → `docs/perfil/code.html`
+   - Ficha de place → `docs/perfil/code.html`
 
 #### Post-MVP (módulos comentados en `app.module.ts`, no en scope)
 
@@ -187,7 +187,7 @@ Arquitectura BE: Clean Architecture por feature
 #### Cambios futuros fuera de MVP
 
 - **Panel admin** + Angular Material UI (cambio OpenSpec separado).
-- **`empresas`** → refactor a Clean Architecture (cambio `empresas-clean-arch-refactor-2026-07`).
+- **`places`** → refactor a Clean Architecture (cambio futuro `places-clean-arch-refactor`).
 
 ### 8.5 Fuentes de contexto del proyecto (auxiliares)
 

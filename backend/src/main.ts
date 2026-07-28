@@ -92,7 +92,7 @@ async function bootstrap() {
         "firebase-auth",
       )
       .addTag("auth", "Autenticación y autorización")
-      .addTag("empresas", "Gestión de empresas")
+      .addTag("places", "Gestión de places (locales, empresas, instituciones)")
       .addTag("categorias", "Gestión de categorías")
       .addTag("barrios", "Gestión de barrios")
       .addTag("usuarios", "Gestión de usuarios")

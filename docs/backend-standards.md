@@ -98,9 +98,9 @@ Runtime: Node.js 22 (>=20.19)
 Framework: NestJS 11 (modular, REST)
 Lenguaje: TypeScript 5
 BaaS: Firebase
-  - Firestore  : base de datos NoSQL (colecciones: empresas, categorias, barrios, usuarios, solicitudes)
+  - Firestore  : base de datos NoSQL (colecciones: places, categorias, barrios, usuarios, solicitudes)
   - Auth       : Firebase Authentication (tokens JWT verificados con Admin SDK)
-  - Storage    : logos/imágenes de empresas
+  - Storage    : logos/imágenes de places
 Cache: Redis (opcional, fallback a memoria)
 Validación: class-validator + class-transformer (ValidationPipe global whitelist+forbidNonWhitelisted)
 Docs: Swagger/OpenAPI (solo dev, /api/docs)
@@ -125,7 +125,7 @@ Cada feature en `src/modules/<nombre>/`:
 - Usar transacciones para operaciones atómicas.
 - Paginación con cursors (no offset).
 - Crear índices compuestos ANTES de deployar queries (ver `.github/instructions/database-instructions.md`).
-- Índices requeridos: empresas(categoriaId), empresas(barrioId), empresas(status+destacado+createdAt), empresas(slug único), categorias(slug único), barrios(slug único), usuarios(email único).
+- Índices requeridos: places(categoriaId), places(barrioId), places(status+destacado+createdAt), places(slug único), categorias(slug único), barrios(slug único), usuarios(email único).
 
 ### Autenticación y roles
 
@@ -136,7 +136,7 @@ Cada feature en `src/modules/<nombre>/`:
 ### Testing
 
 - Unit tests para servicios (mock de `FirebaseService`).
-- E2E solo en endpoints críticos (auth, empresas).
+- E2E solo en endpoints críticos (auth, places).
 - Cobertura mínima objetivo: 90%.
 
 ### Lint / build

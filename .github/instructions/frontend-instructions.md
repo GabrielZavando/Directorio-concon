@@ -2,7 +2,7 @@
 
 ## 📋 Resumen
 
-Instrucciones detalladas para el desarrollo del frontend del Directorio de Empresas de Concón usando **Angular 17+**, **TailwindCSS** y **Google Maps**.
+Instrucciones detalladas para el desarrollo del frontend del Directorio de Places de Concón usando **Angular 17+**, **TailwindCSS** y **Google Maps**.
 
 ---
 
@@ -125,7 +125,7 @@ src/
 │   │   ├── services/
 │   │   │   ├── api.service.ts
 │   │   │   ├── auth.service.ts
-│   │   │   ├── empresas.service.ts
+│   │   │   ├── places.service.ts
 │   │   │   ├── categorias.service.ts
 │   │   │   └── barrios.service.ts
 │   │   ├── guards/
@@ -135,7 +135,7 @@ src/
 │   │   │   ├── auth.interceptor.ts
 │   │   │   └── error.interceptor.ts
 │   │   └── models/
-│   │       ├── empresa.model.ts
+│   │       ├── place.model.ts
 │   │       ├── categoria.model.ts
 │   │       ├── barrio.model.ts
 │   │       └── usuario.model.ts
@@ -154,7 +154,7 @@ src/
 │   │   │   └── home.component.css
 │   │   ├── search/
 │   │   ├── map/
-│   │   ├── empresa-detail/
+│   │   ├── place-detail/
 │   │   ├── categorias/
 │   │   ├── barrios/
 │   │   ├── publish/
@@ -253,10 +253,10 @@ export const routes: Routes = [
       import('./features/map/map.component').then((m) => m.MapComponent),
   },
   {
-    path: 'empresa/:slug',
+    path: 'place/:slug',
     loadComponent: () =>
-      import('./features/empresa-detail/empresa-detail.component').then(
-        (m) => m.EmpresaDetailComponent
+      import('./features/place-detail/place-detail.component').then(
+        (m) => m.PlaceDetailComponent
       ),
   },
   {
@@ -459,54 +459,54 @@ export class AuthService {
 }
 ```
 
-### Empresas Service
+### Places Service
 
-**core/services/empresas.service.ts**:
+**core/services/places.service.ts**:
 ```typescript
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { map, shareReplay } from 'rxjs/operators';
 import { ApiService } from './api.service';
-import { Empresa, SearchFilters, PaginatedResponse } from '../models/empresa.model';
+import { Place, SearchFilters, PaginatedResponse } from '../models/place.model';
 
 @Injectable({
   providedIn: 'root',
 })
-export class EmpresasService {
+export class PlacesService {
   private apiService = inject(ApiService);
 
-  getEmpresas(page: number = 1, limit: number = 20): Observable<PaginatedResponse<Empresa>> {
-    return this.apiService.get<PaginatedResponse<Empresa>>('empresas', { page, limit }).pipe(
+  getPlaces(page: number = 1, limit: number = 20): Observable<PaginatedResponse<Place>> {
+    return this.apiService.get<PaginatedResponse<Place>>('places', { page, limit }).pipe(
       shareReplay(1)
     );
   }
 
-  getEmpresa(id: string): Observable<Empresa> {
-    return this.apiService.get<Empresa>(`empresas/${id}`);
+  getPlace(id: string): Observable<Place> {
+    return this.apiService.get<Place>(`places/${id}`);
   }
 
-  getEmpresaBySlug(slug: string): Observable<Empresa> {
-    return this.apiService.get<Empresa>(`empresas/slug/${slug}`);
+  getPlaceBySlug(slug: string): Observable<Place> {
+    return this.apiService.get<Place>(`places/slug/${slug}`);
   }
 
-  searchEmpresas(filters: SearchFilters): Observable<PaginatedResponse<Empresa>> {
-    return this.apiService.get<PaginatedResponse<Empresa>>('empresas/search', filters);
+  searchPlaces(filters: SearchFilters): Observable<PaginatedResponse<Place>> {
+    return this.apiService.get<PaginatedResponse<Place>>('places/search', filters);
   }
 
-  getMapData(): Observable<Empresa[]> {
-    return this.apiService.get<Empresa[]>('empresas/map-data');
+  getMapData(): Observable<Place[]> {
+    return this.apiService.get<Place[]>('places/map-data');
   }
 
-  createEmpresa(empresa: Partial<Empresa>): Observable<Empresa> {
-    return this.apiService.post<Empresa>('empresas', empresa);
+  createPlace(place: Partial<Place>): Observable<Place> {
+    return this.apiService.post<Place>('places', place);
   }
 
-  updateEmpresa(id: string, empresa: Partial<Empresa>): Observable<Empresa> {
-    return this.apiService.put<Empresa>(`empresas/${id}`, empresa);
+  updatePlace(id: string, place: Partial<Place>): Observable<Place> {
+    return this.apiService.put<Place>(`places/${id}`, place);
   }
 
-  deleteEmpresa(id: string): Observable<void> {
-    return this.apiService.delete<void>(`empresas/${id}`);
+  deletePlace(id: string): Observable<void> {
+    return this.apiService.delete<void>(`places/${id}`);
   }
 }
 ```
@@ -640,9 +640,9 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { EmpresasService } from '../../core/services/empresas.service';
+import { PlacesService } from '../../core/services/places.service';
 import { CategoriasService } from '../../core/services/categorias.service';
-import { Empresa } from '../../core/models/empresa.model';
+import { Place } from '../../core/models/place.model';
 import { Categoria } from '../../core/models/categoria.model';
 
 @Component({
@@ -653,12 +653,12 @@ import { Categoria } from '../../core/models/categoria.model';
   styleUrl: './home.component.css',
 })
 export class HomeComponent implements OnInit {
-  private empresasService = inject(EmpresasService);
+  private placesService = inject(PlacesService);
   private categoriasService = inject(CategoriasService);
 
   searchQuery = '';
   categorias: Categoria[] = [];
-  empresasDestacadas: Empresa[] = [];
+  placesDestacados: Place[] = [];
   loading = true;
 
   ngOnInit(): void {
@@ -673,15 +673,15 @@ export class HomeComponent implements OnInit {
       error: (error) => console.error('Error loading categorias:', error),
     });
 
-    this.empresasService
-      .searchEmpresas({ destacado: true, limit: 6 })
+    this.placesService
+      .searchPlaces({ destacado: true, limit: 6 })
       .subscribe({
         next: (response) => {
-          this.empresasDestacadas = response.data;
+          this.placesDestacados = response.data;
           this.loading = false;
         },
         error: (error) => {
-          console.error('Error loading empresas:', error);
+          console.error('Error loading places:', error);
           this.loading = false;
         },
       });
@@ -719,7 +719,7 @@ export class HomeComponent implements OnInit {
           Descubre Concón
         </h1>
         <p class="text-xl md:text-2xl text-white/95 mb-10 max-w-2xl mx-auto font-medium drop-shadow-md">
-          La capital gastronómica y costera de Chile. 150+ empresas verificadas
+          La capital gastronómica y costera de Chile. 150+ places verificadas
         </p>
 
         <!-- Search Bar -->
@@ -797,7 +797,7 @@ export class HomeComponent implements OnInit {
               <h3 class="text-lg font-semibold text-white mb-1 drop-shadow-md">
                 {{ categoria.nombre }}
               </h3>
-              <p class="text-sm text-white/90 drop-shadow">Ver empresas</p>
+              <p class="text-sm text-white/90 drop-shadow">Ver places</p>
             </div>
           </div>
         </a>
@@ -878,7 +878,7 @@ import { AuthService } from '../../../core/services/auth.service';
               </a>
             </ng-template>
             <a routerLink="/publicar" class="btn-secondary">
-              Publicar Empresa
+              Publicar Place
             </a>
           </div>
         </div>
@@ -904,8 +904,8 @@ export class NavigationComponent {
 import { Component, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GoogleMap, MapInfoWindow, MapMarker, GoogleMapsModule } from '@angular/google-maps';
-import { EmpresasService } from '../../core/services/empresas.service';
-import { Empresa } from '../../core/models/empresa.model';
+import { PlacesService } from '../../core/services/places.service';
+import { Place } from '../../core/models/place.model';
 
 @Component({
   selector: 'app-map',
@@ -921,18 +921,18 @@ import { Empresa } from '../../core/models/empresa.model';
         height="100%"
       >
         <map-marker
-          *ngFor="let empresa of empresas"
-          [position]="{ lat: empresa.coordenadas.lat, lng: empresa.coordenadas.lng }"
-          [options]="{ title: empresa.nombre }"
-          (mapClick)="openInfoWindow(marker, empresa)"
+          *ngFor="let place of places"
+          [position]="{ lat: place.coordenadas.lat, lng: place.coordenadas.lng }"
+          [options]="{ title: place.nombre }"
+          (mapClick)="openInfoWindow(marker, place)"
           #marker="mapMarker"
         ></map-marker>
 
         <map-info-window>
-          <div *ngIf="selectedEmpresa" class="p-2">
-            <h3 class="font-semibold">{{ selectedEmpresa.nombre }}</h3>
-            <p class="text-sm text-gray-600">{{ selectedEmpresa.direccion }}</p>
-            <a [href]="'/empresa/' + selectedEmpresa.slug" class="text-primary-600 text-sm">
+          <div *ngIf="selectedPlace" class="p-2">
+            <h3 class="font-semibold">{{ selectedPlace.nombre }}</h3>
+            <p class="text-sm text-gray-600">{{ selectedPlace.direccion }}</p>
+            <a [href]="'/place/' + selectedPlace.slug" class="text-primary-600 text-sm">
               Ver detalles
             </a>
           </div>
@@ -944,7 +944,7 @@ import { Empresa } from '../../core/models/empresa.model';
 export class MapComponent implements OnInit {
   @ViewChild(MapInfoWindow) infoWindow!: MapInfoWindow;
   
-  private empresasService = inject(EmpresasService);
+  private placesService = inject(PlacesService);
 
   center: google.maps.LatLngLiteral = { lat: -32.9167, lng: -71.5167 };
   zoom = 13;
@@ -957,24 +957,24 @@ export class MapComponent implements OnInit {
     minZoom: 10,
   };
 
-  empresas: Empresa[] = [];
-  selectedEmpresa: Empresa | null = null;
+  places: Place[] = [];
+  selectedPlace: Place | null = null;
 
   ngOnInit(): void {
     this.loadMapData();
   }
 
   loadMapData(): void {
-    this.empresasService.getMapData().subscribe({
-      next: (empresas) => {
-        this.empresas = empresas.filter(e => e.coordenadas);
+    this.placesService.getMapData().subscribe({
+      next: (places) => {
+        this.places = places.filter(e => e.coordenadas);
       },
       error: (error) => console.error('Error loading map data:', error),
     });
   }
 
-  openInfoWindow(marker: MapMarker, empresa: Empresa): void {
-    this.selectedEmpresa = empresa;
+  openInfoWindow(marker: MapMarker, place: Place): void {
+    this.selectedPlace = place;
     this.infoWindow.open(marker);
   }
 }
@@ -994,7 +994,7 @@ export class MapComponent implements OnInit {
 ### Servicios Core
 - [ ] ApiService base
 - [ ] AuthService con Firebase Auth
-- [ ] EmpresasService
+- [ ] PlacesService
 - [ ] CategoriasService
 - [ ] BarriosService
 
@@ -1010,7 +1010,7 @@ export class MapComponent implements OnInit {
 - [ ] HomePage
 - [ ] SearchPage
 - [ ] MapPage
-- [ ] EmpresaDetailPage
+- [ ] PlaceDetailPage
 - [ ] CategoriasPage
 - [ ] BarriosPage
 - [ ] PublishPage

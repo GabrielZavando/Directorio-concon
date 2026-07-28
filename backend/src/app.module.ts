@@ -9,7 +9,7 @@ import { FirebaseConfig } from "@/config/firebase.config";
 import { ValidationConfig } from "@/config/validation.config";
 
 // Módulos principales
-import { EmpresasModule } from "@/modules/empresas/empresas.module";
+import { PlacesModule } from "@/modules/places/places.module";
 // import { CategoriasModule } from '@/modules/categorias/categorias.module';
 // import { BarriosModule } from '@/modules/barrios/barrios.module';
 // import { UsuariosModule } from '@/modules/usuarios/usuarios.module';
@@ -82,7 +82,7 @@ import { AppService } from "./app.service";
     FirebaseModule,
 
     // Módulos principales (TODO: Descomentar cuando estén implementados)
-    EmpresasModule,
+    PlacesModule,
     // CategoriasModule,
     // BarriosModule,
     // UsuariosModule,
