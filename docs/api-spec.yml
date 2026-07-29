@@ -415,6 +415,320 @@ components:
         barrioId:
           type: string
 
+    Evento:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        nombre:
+          type: string
+        descripcionCorta:
+          type: string
+          maxLength: 140
+        descripcion:
+          type: string
+        categoriaId:
+          type: string
+        subcategoriaId:
+          type: string
+        barrioId:
+          type: string
+        organizador:
+          type: string
+        organizadorContacto:
+          type: string
+          nullable: true
+        organizadorWeb:
+          type: string
+          format: uri
+          nullable: true
+        ubicacionNombre:
+          type: string
+          nullable: true
+        ubicacionDireccion:
+          type: string
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+        precioTipo:
+          type: string
+          enum: [gratis, pago, donacion, invitacion]
+        precioValor:
+          type: number
+          minimum: 0
+        precioMoneda:
+          type: string
+          enum: [CLP, USD]
+        capacidadMaxima:
+          type: integer
+          minimum: 1
+          nullable: true
+        publicoObjetivo:
+          type: array
+          items:
+            type: string
+            enum: [familia, adultos, tercera_edad, mascotas, todos, ninos, adolescentes]
+        nivelRuido:
+          type: string
+          enum: [bajo, medio, alto]
+        portada:
+          type: string
+          format: uri
+          nullable: true
+        accesibilidad:
+          type: array
+          items:
+            type: string
+            enum: [acceso-silla-ruedas, banos-accesibles, estacionamiento-reservado, interprete-senas, material-braille, rampa-acceso]
+        status:
+          type: string
+          enum: [pendiente, aprobado, rechazado]
+        estado:
+          type: string
+          enum: [borrador, programado, en_curso, finalizado, cancelado, suspendido]
+        destacado:
+          type: boolean
+        verificado:
+          type: boolean
+        placeId:
+          type: string
+          nullable: true
+        usuarioId:
+          type: string
+        vistasTotales:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        fechaPublicacion:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateEvento:
+      type: object
+      required: [nombre, descripcionCorta, descripcion, subcategoriaId, barrioId, organizador, ubicacionDireccion, coordenadas, fechaInicio, fechaFin, precioTipo, precioValor, publicoObjetivo, nivelRuido]
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 120
+        descripcionCorta:
+          type: string
+          minLength: 1
+          maxLength: 140
+        descripcion:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        subcategoriaId:
+          type: string
+        barrioId:
+          type: string
+        organizador:
+          type: string
+          minLength: 1
+          maxLength: 200
+        organizadorContacto:
+          type: string
+          nullable: true
+        organizadorWeb:
+          type: string
+          format: uri
+          nullable: true
+        ubicacionNombre:
+          type: string
+          maxLength: 200
+          nullable: true
+        ubicacionDireccion:
+          type: string
+          maxLength: 200
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+        precioTipo:
+          type: string
+          enum: [gratis, pago, donacion, invitacion]
+        precioValor:
+          type: number
+          minimum: 0
+        precioMoneda:
+          type: string
+          enum: [CLP, USD]
+          default: CLP
+        capacidadMaxima:
+          type: integer
+          minimum: 1
+          nullable: true
+        publicoObjetivo:
+          type: array
+          items:
+            type: string
+            enum: [familia, adultos, tercera_edad, mascotas, todos, ninos, adolescentes]
+          minItems: 1
+        nivelRuido:
+          type: string
+          enum: [bajo, medio, alto]
+        portada:
+          type: string
+          format: uri
+          nullable: true
+        accesibilidad:
+          type: array
+          items:
+            type: string
+            enum: [acceso-silla-ruedas, banos-accesibles, estacionamiento-reservado, interprete-senas, material-braille, rampa-acceso]
+        placeId:
+          type: string
+          nullable: true
+
+    UpdateEvento:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 120
+        descripcionCorta:
+          type: string
+          maxLength: 140
+        descripcion:
+          type: string
+          maxLength: 2000
+        organizador:
+          type: string
+          maxLength: 200
+        organizadorContacto:
+          type: string
+          nullable: true
+        organizadorWeb:
+          type: string
+          format: uri
+          nullable: true
+        ubicacionNombre:
+          type: string
+          maxLength: 200
+          nullable: true
+        ubicacionDireccion:
+          type: string
+          maxLength: 200
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+        precioTipo:
+          type: string
+          enum: [gratis, pago, donacion, invitacion]
+        precioValor:
+          type: number
+          minimum: 0
+        precioMoneda:
+          type: string
+          enum: [CLP, USD]
+        capacidadMaxima:
+          type: integer
+          minimum: 1
+          nullable: true
+        publicoObjetivo:
+          type: array
+          items:
+            type: string
+            enum: [familia, adultos, tercera_edad, mascotas, todos, ninos, adolescentes]
+          minItems: 1
+        nivelRuido:
+          type: string
+          enum: [bajo, medio, alto]
+        portada:
+          type: string
+          format: uri
+          nullable: true
+        accesibilidad:
+          type: array
+          items:
+            type: string
+            enum: [acceso-silla-ruedas, banos-accesibles, estacionamiento-reservado, interprete-senas, material-braille, rampa-acceso]
+        destacado:
+          type: boolean
+        verificado:
+          type: boolean
+        placeId:
+          type: string
+          nullable: true
+
+    EventoMapDataItem:
+      type: object
+      required: [id, slug, nombre, coordenadas, subcategoriaId, barrioId, fechaInicio]
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        nombre:
+          type: string
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
+        subcategoriaId:
+          type: string
+        barrioId:
+          type: string
+        fechaInicio:
+          type: string
+          format: date-time
+
+    EventoQuery:
+      type: object
+      properties:
+        page:
+          type: integer
+          default: 1
+        limit:
+          type: integer
+          default: 20
+        q:
+          type: string
+        categoriaId:
+          type: string
+          default: eventos
+        subcategoriaId:
+          type: string
+        barrioId:
+          type: string
+        fechaDesde:
+          type: string
+          format: date-time
+        fechaHasta:
+          type: string
+          format: date-time
+        precioTipo:
+          type: string
+          enum: [gratis, pago, donacion, invitacion]
+        estado:
+          type: string
+          enum: [borrador, programado, en_curso, finalizado, cancelado, suspendido]
+          default: programado
+        destacado:
+          type: boolean
+
 security:
   - bearerAuth: []
 
@@ -608,5 +922,188 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AbiertoAhoraResponse'
+        "404":
+          $ref: '#/components/schemas/Error'
+
+  /eventos:
+    get:
+      summary: Listar eventos (paginado, filtros, solo status aprobado)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: categoriaId
+          in: query
+          schema: { type: string, default: eventos }
+        - name: subcategoriaId
+          in: query
+          schema: { type: string }
+        - name: barrioId
+          in: query
+          schema: { type: string }
+        - name: fechaDesde
+          in: query
+          schema: { type: string, format: date-time }
+        - name: fechaHasta
+          in: query
+          schema: { type: string, format: date-time }
+        - name: precioTipo
+          in: query
+          schema: { type: string, enum: [gratis, pago, donacion, invitacion] }
+        - name: estado
+          in: query
+          schema: { type: string, enum: [borrador, programado, en_curso, finalizado, cancelado, suspendido], default: programado }
+        - name: destacado
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Lista de eventos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Evento'
+                  meta:
+                    $ref: '#/components/schemas/Pagination'
+        "401":
+          $ref: '#/components/schemas/Error'
+    post:
+      summary: Crear evento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvento'
+      responses:
+        "201":
+          description: Evento creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evento'
+        "400":
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "409":
+          description: Slug duplicado
+          $ref: '#/components/schemas/Error'
+
+  /eventos/map-data:
+    get:
+      summary: Obtener datos ligeros de eventos para mapa interactivo
+      responses:
+        "200":
+          description: Array de eventos con coordenadas para marcadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventoMapDataItem'
+        "401":
+          $ref: '#/components/schemas/Error'
+
+  /eventos/{id}:
+    get:
+      summary: Obtener evento por id (solo status aprobado para público)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Evento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evento'
+        "404":
+          $ref: '#/components/schemas/Error'
+    put:
+      summary: Actualizar evento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEvento'
+      responses:
+        "200":
+          description: Evento actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evento'
+        "400":
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          $ref: '#/components/schemas/Error'
+        "404":
+          $ref: '#/components/schemas/Error'
+    delete:
+      summary: Eliminar evento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                  id:
+                    type: string
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          $ref: '#/components/schemas/Error'
+        "404":
+          $ref: '#/components/schemas/Error'
+        "409":
+          description: No se puede eliminar: existen solicitudes pendientes asociadas
+          $ref: '#/components/schemas/Error'
+
+  /eventos/slug/{slug}:
+    get:
+      summary: Obtener evento por slug (solo status aprobado para público)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Evento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evento'
         "404":
           $ref: '#/components/schemas/Error'

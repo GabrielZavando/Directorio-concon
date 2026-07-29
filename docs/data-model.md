@@ -97,18 +97,77 @@
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
 | id | string (PK) | ID documento |
-| placeId | string (ref) | Place asociado |
-| usuarioId | string (ref) | Usuario |
-| tipo | enum | `registro` \| `actualizacion` |
+| placeId | string? (ref) | Place asociado (nullable para solicitudes de eventos; XOR con `eventoId`) |
+| eventoId | string? (ref) | Evento asociado (nullable para solicitudes de places; XOR con `placeId`) |
+| usuarioId | string (ref) | Usuario creador |
+| tipo | enum | `registro` \| `actualizacion` \| `registro-evento` \| `actualizacion-evento` |
 | status | enum | `pendiente` \| `aprobado` \| `rechazado` |
+| proposal | object? | Staging de updates para `tipo: 'actualizacion-evento'` (JSON con los campos a aplicar al aprobar). Null para los demás `tipo`. |
 | comentarios | string? | Comentarios |
 | revisadoPor | string? | UID admin |
 | createdAt | Timestamp | Creación |
 | revisadoAt | Timestamp? | Revisión |
 
 > **Nota (módulo places):** al crear un place (`POST /api/v1/places`) se genera automáticamente un documento `solicitudes` con `tipo: 'registro'` y `status: 'pendiente'`, y el place queda en `status: 'pendiente'` hasta su aprobación por un admin.
+>
+> **Nota (módulo eventos):** al crear un evento (`POST /api/v1/eventos`) se genera automáticamente un documento `solicitudes` con `tipo: 'registro-evento'` y `status: 'pendiente'`, `eventoId` apuntando al nuevo evento. Al actualizar un evento aprobado se genera `tipo: 'actualizacion-evento'` con `proposal` conteniendo los campos staging (no se aplican in-place hasta el approval del admin).
+>
+> **Constraint XOR:** una `solicitud` referencia `placeId` **O** `eventoId`, nunca ambos (validado en `SolicitudesService`). `placeId` se vuelve nullable en esta extensión para soportar solicitudes de eventos; `eventoId` también es nullable para solicitudes de places.
+
+### eventos
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| id | string (PK auto) | ID de documento Firestore |
+| nombre | string | Nombre del evento (2..120 chars) |
+| slug | string UNIQUE | Slug URL-friendly derivado del `nombre` |
+| descripcionCorta | string | Resumen breve para tarjetas (1..140 chars) |
+| descripcion | string | Descripción detallada (10..2000 chars) |
+| categoriaId | string (constante) | Siempre `'eventos'` (seteado por sistema, no en DTO) |
+| subcategoriaId | string (ref) | Referencia a `categorias.subcategorias[].slug` de la categoría `eventos` (uno de los 10 slugs sembrados) |
+| barrioId | string (ref) | Referencia a `barrios` |
+| organizador | string | Nombre organizador (1..200 chars) |
+| organizadorContacto | string? | Teléfono o email de contacto |
+| organizadorWeb | string? | URL web/red social del organizador |
+| ubicacionNombre | string? | Nombre del lugar (ej: "Playa Amarilla") (1..200 chars) |
+| ubicacionDireccion | string | Dirección completa (1..200 chars) |
+| coordenadas | Coordenadas | `{ lat: number; lng: number }` (reuso del VO de `places`) |
+| fechaInicio | Timestamp | Fecha/hora de inicio (ISO 8601) |
+| fechaFin | Timestamp | Fecha/hora de término (ISO 8601); **debe ser > `fechaInicio`** |
+| precioTipo | enum | `gratis` \| `pago` \| `donacion` \| `invitacion` |
+| precioValor | number | Valor de entrada (`0` si `precioTipo='gratis'`; `> 0` en caso contrario) |
+| precioMoneda | enum | `CLP` \| `USD` (default `CLP`) |
+| capacidadMaxima | number? | Aforo máximo (> 0) |
+| publicoObjetivo | PublicoObjetivoEnum[] | ≥ 1 elemento; `familia` \| `adultos` \| `tercera_edad` \| `mascotas` \| `todos` \| `ninos` \| `adolescentes` |
+| nivelRuido | enum | `bajo` \| `medio` \| `alto` |
+| portada | string? | URL imagen portada (16:9 recomendado) |
+| accesibilidad | AccesibilidadEnum[]? | `acceso-silla-ruedas` \| `banos-accesibles` \| `estacionamiento-reservado` \| `interprete-señas` \| `material-braille` \| `rampa-acceso` |
+| status | enum | `pendiente` \| `aprobado` \| `rechazado` (flujo `solicitudes`) |
+| estado | enum | `borrador` \| `programado` \| `en_curso` \| `finalizado` \| `cancelado` \| `suspendido` (ciclo de vida del evento) |
+| destacado | boolean | Destacado en home/listados (default `false`) |
+| verificado | boolean | Verificado por admin (default `false`) |
+| placeId | string? | Ref opcional a `places` (si el evento lo organiza una empresa del directorio; debe ser un place con `status: 'aprobado'`) |
+| usuarioId | string | Firebase Auth UID del creador (REQUIRED, seteado desde token verificado; no en DTO) |
+| vistasTotales | number | Post-MVP placeholder, default 0 (sin lógica de incremento en este cambio, mirror de `places`) |
+| createdAt | Timestamp | Creación |
+| updatedAt | Timestamp | Modificación |
+| fechaPublicacion | Timestamp? | Seteado cuando `status` pasa a `'aprobado'` (espejo de `places.fechaPublicacion`) |
+
+**Value Objects y enums nuevos:**
+
+- `PrecioTipo = 'gratis' | 'pago' | 'donacion' | 'invitacion'`
+- `PrecioMoneda = 'CLP' | 'USD'`
+- `PublicoObjetivoEnum = 'familia' | 'adultos' | 'tercera_edad' | 'mascotas' | 'todos' | 'ninos' | 'adolescentes'`
+- `AccesibilidadEnum = 'acceso-silla-ruedas' | 'banos-accesibles' | 'estacionamiento-reservado' | 'interprete-señas' | 'material-braille' | 'rampa-acceso'`
+- `NivelRuido = 'bajo' | 'medio' | 'alto'`
+- `EventoStatus = 'pendiente' | 'aprobado' | 'rechazado'`
+- `EventoEstado = 'borrador' | 'programado' | 'en_curso' | 'finalizado' | 'cancelado' | 'suspendido'`
+- `Coordenadas` — reusar el VO ya definido en `places`: `{ lat: number; lng: number }`
+
+> **Nota (ciclo de vida del evento):** `status` rige el flujo de aprobación admin vía `solicitudes` (mirror de `places`). `estado` rige el ciclo de vida del evento (seteable por publisher/admin). En esta versión las transiciones automáticas `programado`→`en_curso`→`finalizado` basadas en `fechaInicio`/`fechaFin` **no se implementan** (Non-Goal post-MVP).
 
 ## Reglas de negocio del dominio
+
+### Reglas comunes (places + eventos)
 
 - Un place pertenece a una categoría y un barrio (`categoriaId`, `barrioId` obligatorios).
 - `subcategoriaId` es opcional y debe referenciar un slug existente en `categorias.subcategorias[].slug` de la `categoriaId` seleccionada.
@@ -120,8 +179,32 @@
 - `horarios`: cada día puede tener 0..3 turnos; si `abierto: false`, `turnos` debe ser `[]`.
 - `horariosEspeciales` sobrescribe `horarios` para la fecha indicada; `turnos: []` significa cerrado ese día.
 - `abierto24x7: true` ignora `horarios` y `horariosEspeciales` (siempre abierto).
-- Campos post-MVP (`idiomas`, `vistasTotales`, `valoracionGoogle`) se persisten como placeholders; no hay lógica de sincronía ni incremento en este cambio.
+- Campos post-MVP (`idiomas`, `vistasTotales`, `valoracionGoogle` en places) se persisten como placeholders; no hay lógica de sincronía ni incremento en este cambio.
 - Paginación por cursor Firestore (no offset). Índices compuestos requeridos.
+
+### Reglas específicas de eventos
+
+- Un evento **siempre** tiene `categoriaId: 'eventos'` (constante, seteada por sistema; no se acepta en el DTO de create/update — forbidNonWhitelisted).
+- `subcategoriaId` (evento) es **obligatorio** y debe ser uno de los 10 slugs sembrados para la categoría `eventos`: `festivales-culturales`, `ferias-gastronomicas`, `ferias-libres`, `deportes-y-competencias`, `conciertos-y-shows`, `talleres-y-clases-abiertas`, `eventos-familiares`, `temporada-de-verano`, `fiestas-patrias`, `mercados-sustentables`.
+- `barrioId` (evento) referencia un `barrios` existente (validado antes de persistir).
+- `fechaFin` debe ser estrictamente mayor que `fechaInicio`.
+- `precioTipo='gratis'` ⟹ `precioValor === 0`. `precioTipo !== 'gratis'` ⟹ `precioValor > 0`.
+- `publicoObjetivo` debe contener al menos un elemento del enum controlado.
+- `placeId` (si presente) debe referenciar un `places` existente con `status: 'aprobado'`.
+- `usuarioId` es REQUIRED; se setea desde el token Firebase Auth verificado (no se acepta en el DTO).
+- Todo evento nuevo se crea con `status: 'pendiente'`, `estado: 'borrador'` y genera automáticamente una `solicitud` con `tipo: 'registro-evento'`, `status: 'pendiente'`, `eventoId` apuntando al nuevo evento.
+- Editar un evento con `status: 'aprobado'` NO aplica cambios in-place: genera una `solicitud` con `tipo: 'actualizacion-evento'`, `status: 'pendiente'`, `eventoId`, `usuarioId`, `proposal` (objeto JSON con los campos staging). El evento visible al público permanece sin cambios hasta que el admin aprueba la solicitud.
+- Editar un evento con `status !== 'aprobado'` (`pendiente` o `rechazado`) aplica in-place sin generar nueva `solicitud`.
+- Rol `empresa` solo gestiona sus propios eventos (`evento.usuarioId === uid token`); caso contrario → `403`.
+- Rol `admin` gestiona cualquier evento.
+- Visitante anónimo solo ve eventos con `status: 'aprobado'` (en `GET /eventos`, `GET /eventos/{id}`, `GET /eventos/slug/{slug}` y `GET /eventos/map-data`). Eventos pendientes/rechazados retornan `404` por id/slug al público.
+- `DELETE` retorna `409` si existen `solicitudes` pendientes asociadas (`eventoId + status='pendiente'`).
+- XOR en `solicitudes`: una solicitud referencia `placeId` **O** `eventoId`, nunca ambos (validado en `SolicitudesService`).
+- Aprobar una `solicitud` con `tipo: 'registro-evento'` → setea el evento asociado a `status: 'aprobado'`, `estado: 'programado'`, `fechaPublicacion: <now>`.
+- Rechazar una `solicitud` con `tipo: 'registro-evento'` → setea el evento a `status: 'rechazado'` (sigue oculto al público).
+- Aprobar una `solicitud` con `tipo: 'actualizacion-evento'` → aplica los campos de `proposal` al evento asociado in-place (refresca `updatedAt`).
+- Rechazar una `solicitud` con `tipo: 'actualizacion-evento'` → no modifica el evento.
+- Transiciones automáticas de `estado` (`programado`→`en_curso`→`finalizado` por `fechaInicio`/`fechaFin`) son Non-Goal en este cambio (post-MVP).
 
 ## Índices Firestore requeridos
 
@@ -137,6 +220,14 @@ barrios: tipo (ASC)
 usuarios: email (ASC) — único
 usuarios: rol (ASC)
 solicitudes: placeId (ASC) + status (ASC)
+solicitudes: eventoId (ASC) + status (ASC)
+eventos: categoriaId (ASC) + fechaInicio (ASC)
+eventos: barrioId (ASC) + fechaInicio (ASC)
+eventos: status (ASC) + destacado (DESC) + fechaInicio (ASC)
+eventos: slug (ASC) — único
+eventos: usuarioId (ASC) + createdAt (DESC)
+eventos: fechaInicio (ASC) + estado (ASC)
+eventos: subcategoriaId (ASC) + fechaInicio (ASC)
 ```
 
 ## Convenciones de nombres
