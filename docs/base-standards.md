@@ -183,6 +183,7 @@ Arquitectura BE: Clean Architecture por feature
 - `reviews` — Sistema de calificaciones de visitantes (no `reviewer` como persona separada; cualquier usuario puede calificar).
 - `ai` — Generación de descripciones, búsqueda semántica, chatbot recomendador (sin IA en MVP).
 - `analytics` — Métricas y analítica.
+- `eventos` — Directorio de eventos comunales (colección `eventos`, módulo NestJS Clean Architecture, flujo de aprobación vía `solicitudes` extendido, frontend completo con formulario, listado, ficha y mapa). En implementación activa como change `eventos-crud`.
 
 #### Cambios futuros fuera de MVP
 

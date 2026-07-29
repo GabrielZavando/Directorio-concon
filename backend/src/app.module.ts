@@ -10,6 +10,8 @@ import { ValidationConfig } from "@/config/validation.config";
 
 // Módulos principales
 import { PlacesModule } from "@/modules/places/places.module";
+import { EventosModule } from "@/modules/eventos/eventos.module";
+import { SolicitudesModule } from "@/modules/solicitudes/solicitudes.module";
 // import { CategoriasModule } from '@/modules/categorias/categorias.module';
 // import { BarriosModule } from '@/modules/barrios/barrios.module';
 // import { UsuariosModule } from '@/modules/usuarios/usuarios.module';
@@ -83,6 +85,8 @@ import { AppService } from "./app.service";
 
     // Módulos principales (TODO: Descomentar cuando estén implementados)
     PlacesModule,
+    EventosModule,
+    SolicitudesModule,
     // CategoriasModule,
     // BarriosModule,
     // UsuariosModule,

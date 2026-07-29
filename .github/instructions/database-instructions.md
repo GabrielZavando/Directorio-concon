@@ -1792,6 +1792,81 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
       ]
     },
     
+    // EVENTOS INDEXES
+    
+    // eventos - Por categoriaId y fechaInicio
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "categoriaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por barrioId y fechaInicio
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "barrioId", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por status, destacado y fechaInicio (listado público)
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "destacado", "order": "DESCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por slug (único)
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "slug", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por usuarioId y createdAt (mis eventos)
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "usuarioId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    // eventos - Por fechaInicio y estado (eventos próximos)
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por subcategoriaId y fechaInicio
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subcategoriaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    // solicitudes - Por eventoId y status
+    {
+      "collectionGroup": "solicitudes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventoId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    
     // INDEXES ADICIONALES PARA EMPRESAS CON PLANES
     
     // places - Por plan
