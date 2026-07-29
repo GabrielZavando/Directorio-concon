@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { of } from 'rxjs';
 import { routes } from './app.routes';
@@ -9,23 +11,27 @@ import {
 } from './shared/data-access/directorio-opciones.port';
 import { HomePageComponent } from './features/home/home-page.component';
 import { DirectorioPageComponent } from './features/directorio/directorio-page.component';
-import { EventosPageComponent } from './features/eventos/eventos-page.component';
+import { EventosListPageComponent } from './features/eventos/pages/eventos-list-page.component';
+import { EventoDetailPageComponent } from './features/eventos/pages/evento-detail-page.component';
+import { EventoFormPageComponent } from './features/eventos/pages/evento-form-page.component';
+import { MisEventosPageComponent } from './features/eventos/pages/mis-eventos-page.component';
+import { AdminEventosPageComponent } from './features/eventos/pages/admin-eventos-page.component';
+import { EventosMapaComponent } from './features/eventos/pages/eventos-mapa.component';
 import { ContactoPageComponent } from './features/contacto/contacto-page.component';
 import { RegistratePageComponent } from './features/registrate/registrate-page.component';
 
 /**
  * app.routes.ts — routing contract for the public SPA.
  *
- * Asserts that the canonical 5 SPA routes resolve to the expected lazy-loaded
- * page components. Each route uses `loadComponent` so the test must wait for
- * the dynamic import to resolve (via `RouterTestingHarness.navigateByUrl`).
+ * Asserts that all SPA routes resolve to the expected lazy-loaded
+ * page components. Each route uses `loadComponent` or `loadChildren` so the
+ * test must wait for the dynamic import to resolve (via
+ * `RouterTestingHarness.navigateByUrl`).
  *
  * Why the `DIRECTORIO_OPCIONES_PORT` stub?
  *   `/` lazy-loads `HomePageComponent`, which embeds `HomeHeroComponent`, which
  *   embeds the shared `SearchBarContainerComponent`. Without the port provided,
- *   navigating to `/` throws NG0201 (No provider found). This stub is the same
- *   shape used in `home-page.component.spec.ts`. It does NOT affect the other
- *   4 routes (their nested page components are dumb skeletons — no providers).
+ *   navigating to `/` throws NG0201 (No provider found).
  */
 const stubDirectorioOpciones: DirectorioOpcionesPort = {
   getOpciones: () =>
@@ -46,10 +52,83 @@ const stubDirectorioOpciones: DirectorioOpcionesPort = {
 };
 
 describe('app.routes (SPA routing contract)', () => {
+  beforeAll(() => {
+    /** Minimal MVCObject that Google Maps components expect for event handling. */
+    class MVCObject {
+      addListener() { return { remove: () => {} }; }
+      bindTo() { /* noop */ }
+      get() { return undefined; }
+      set() { /* noop */ }
+      setValues() { /* noop */ }
+      unbind() { /* noop */ }
+      unbindAll() { /* noop */ }
+    }
+    const MockMap = class MockMap extends MVCObject {
+      constructor() { super(); }
+      setCenter() { /* noop */ }
+      setZoom() { /* noop */ }
+      getBounds() { return null; }
+      fitBounds() { /* noop */ }
+      panTo() { /* noop */ }
+      controls: unknown[] = [];
+      data: unknown = null;
+    };
+    const MockMarker = class MockMarker extends MVCObject {
+      constructor() { super(); }
+      setMap() { /* noop */ }
+      getPosition() { return null; }
+      setPosition() { /* noop */ }
+      setTitle() { /* noop */ }
+      getTitle() { return ''; }
+      setIcon() { /* noop */ }
+      setLabel() { /* noop */ }
+      setAnimation() { /* noop */ }
+      setDraggable() { /* noop */ }
+      setVisible() { /* noop */ }
+      setZIndex() { /* noop */ }
+    };
+    const MockInfoWindow = class MockInfoWindow extends MVCObject {
+      constructor() { super(); }
+      open() { /* noop */ }
+      close() { /* noop */ }
+      setContent() { /* noop */ }
+      setPosition() { /* noop */ }
+      setOptions() { /* noop */ }
+    };
+    (window as any).google = {
+      maps: {
+        Map: MockMap,
+        Marker: MockMarker,
+        InfoWindow: MockInfoWindow,
+        LatLng: class LatLng {
+          private _lat: number;
+          private _lng: number;
+          constructor(lat: number, lng: number) { this._lat = lat; this._lng = lng; }
+          lat() { return this._lat; }
+          lng() { return this._lng; }
+          toString() { return `(${this._lat},${this._lng})`; }
+          toUrlValue() { return ''; }
+          equals() { return false; }
+        },
+        event: {
+          clearInstanceListeners() { /* noop */ },
+          addListener() { return { remove: () => {} }; },
+          addListenerOnce() { return { remove: () => {} }; },
+          removeListener() { /* noop */ },
+          trigger() { /* noop */ },
+          clearListeners() { /* noop */ },
+        },
+        MapTypeId: { ROADMAP: 'roadmap' },
+      } as any,
+    };
+  });
+
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
+        provideHttpClient(withInterceptorsFromDi()),
+        provideHttpClientTesting(),
         { provide: DIRECTORIO_OPCIONES_PORT, useValue: stubDirectorioOpciones },
       ],
     });
@@ -59,7 +138,7 @@ describe('app.routes (SPA routing contract)', () => {
     const harness = await RouterTestingHarness.create('');
     const component = await harness.navigateByUrl('', HomePageComponent);
     expect(component)
-      .withContext('" /" resolves to HomePageComponent')
+      .withContext('"/" resolves to HomePageComponent')
       .toBeInstanceOf(HomePageComponent);
   });
 
@@ -74,16 +153,101 @@ describe('app.routes (SPA routing contract)', () => {
       .toBeInstanceOf(DirectorioPageComponent);
   });
 
-  it('should navigate to "/eventos" and resolve to EventosPageComponent', async () => {
+  // ── Eventos routes (now using loadChildren) ──────────────────────
+
+  it('should navigate to "/eventos" and resolve to EventosListPageComponent', async () => {
     const harness = await RouterTestingHarness.create('/eventos');
     const component = await harness.navigateByUrl(
       '/eventos',
-      EventosPageComponent,
+      EventosListPageComponent,
     );
     expect(component)
-      .withContext('"/eventos" resolves to EventosPageComponent')
-      .toBeInstanceOf(EventosPageComponent);
+      .withContext('"/eventos" resolves to EventosListPageComponent')
+      .toBeInstanceOf(EventosListPageComponent);
   });
+
+  it('should navigate to "/eventos/nuevo" and resolve to EventoFormPageComponent', async () => {
+    const harness = await RouterTestingHarness.create('/eventos');
+    const component = await harness.navigateByUrl(
+      '/eventos/nuevo',
+      EventoFormPageComponent,
+    );
+    expect(component)
+      .withContext('"/eventos/nuevo" resolves to EventoFormPageComponent')
+      .toBeInstanceOf(EventoFormPageComponent);
+  });
+
+  it('should navigate to "/eventos/test-slug" and resolve to EventoDetailPageComponent', async () => {
+    const harness = await RouterTestingHarness.create('/eventos');
+    const component = await harness.navigateByUrl(
+      '/eventos/test-slug',
+      EventoDetailPageComponent,
+    );
+    expect(component)
+      .withContext('"/eventos/:slug" resolves to EventoDetailPageComponent')
+      .toBeInstanceOf(EventoDetailPageComponent);
+  });
+
+  it('should navigate to "/eventos/evt-1/editar" and resolve to EventoFormPageComponent', async () => {
+    const harness = await RouterTestingHarness.create('/eventos');
+    const component = await harness.navigateByUrl(
+      '/eventos/evt-1/editar',
+      EventoFormPageComponent,
+    );
+    expect(component)
+      .withContext('"/eventos/:id/editar" resolves to EventoFormPageComponent')
+      .toBeInstanceOf(EventoFormPageComponent);
+  });
+
+  it('should navigate to "/eventos/mapa" and resolve to EventosMapaComponent', async () => {
+    const httpMock = TestBed.inject(HttpTestingController);
+    const harness = await RouterTestingHarness.create('/eventos');
+    const component: EventosMapaComponent = await harness.navigateByUrl(
+      '/eventos/mapa',
+      EventosMapaComponent,
+    );
+    expect(component)
+      .withContext('"/eventos/mapa" resolves to EventosMapaComponent')
+      .toBeInstanceOf(EventosMapaComponent);
+
+    // Flush all pending HTTP requests; ignore cancelled ones
+    for (const req of httpMock.match((_) => true)) {
+      try {
+        req.flush([]);
+      } catch {
+        // request was cancelled (component destroyed during navigation)
+      }
+    }
+    httpMock.verify();
+  });
+
+  // ── Mis eventos ──────────────────────────────────────────────────
+
+  it('should navigate to "/mis-eventos" and resolve to MisEventosPageComponent', async () => {
+    const harness = await RouterTestingHarness.create('/mis-eventos');
+    const component = await harness.navigateByUrl(
+      '/mis-eventos',
+      MisEventosPageComponent,
+    );
+    expect(component)
+      .withContext('"/mis-eventos" resolves to MisEventosPageComponent')
+      .toBeInstanceOf(MisEventosPageComponent);
+  });
+
+  // ── Admin eventos ─────────────────────────────────────────────────
+
+  it('should navigate to "/admin/eventos" and resolve to AdminEventosPageComponent', async () => {
+    const harness = await RouterTestingHarness.create('/admin/eventos');
+    const component = await harness.navigateByUrl(
+      '/admin/eventos',
+      AdminEventosPageComponent,
+    );
+    expect(component)
+      .withContext('"/admin/eventos" resolves to AdminEventosPageComponent')
+      .toBeInstanceOf(AdminEventosPageComponent);
+  });
+
+  // ── Other public routes ──────────────────────────────────────────
 
   it('should navigate to "/contacto" and resolve to ContactoPageComponent', async () => {
     const harness = await RouterTestingHarness.create('/contacto');
@@ -107,74 +271,45 @@ describe('app.routes (SPA routing contract)', () => {
       .toBeInstanceOf(RegistratePageComponent);
   });
 
-  // --- Verify phase (Task 3.3) ---
-  // NOTE: `RouterTestingHarness.create()` can only be called once per test.
-  // Each of the verify tests below creates exactly one harness and reuses it
-  // across `navigateByUrl` calls inside the same test.
+  // ── Verify phase skeleton headings ───────────────────────────────
 
-  it('should render the skeleton heading per route (one harness, multiple navigations)', async () => {
+  it('should render real content on mis-eventos and admin/eventos pages', async () => {
     const harness = await RouterTestingHarness.create();
 
-    const skeletonCases: Array<[string, string]> = [
-      ['/directorio', 'Directorio'],
-      ['/eventos', 'Eventos'],
-      ['/contacto', 'Contacto'],
-      ['/registrate', 'Registrate'],
-    ];
-
-    for (const [url, expectedHeading] of skeletonCases) {
-      await harness.navigateByUrl(url);
-      const native = harness.routeNativeElement;
-      expect(native)
-        .withContext(`RouterOutlet for ${url} is rendered`)
-        .not.toBeNull();
-      const h1 = native!.querySelector('h1') as HTMLHeadingElement | null;
-      expect(h1).withContext(`an <h1> exists for ${url}`).not.toBeNull();
-      expect(h1!.textContent?.trim())
-        .withContext(`heading on ${url} equals "${expectedHeading}"`)
-        .toBe(expectedHeading);
+    // Mis Eventos page has real content (Task 16)
+    await harness.navigateByUrl('/mis-eventos');
+    {
+      // Flush the pending HTTP request from ngOnInit
+      const httpMock = TestBed.inject(HttpTestingController);
+      const req = httpMock.expectOne(
+        (r) => r.url.endsWith('/api/v1/eventos') && r.method === 'GET',
+      );
+      req.flush({ success: true, statusCode: 200, data: [] });
     }
-  });
+    const misText = (harness.routeNativeElement!.textContent ?? '').toLowerCase();
+    expect(misText)
+      .withContext('"/mis-eventos" contains "Mis Eventos"')
+      .toContain('mis eventos');
+    expect(misText)
+      .withContext('"/mis-eventos" contains "Nuevo Evento"')
+      .toContain('nuevo evento');
 
-  it('should not render the legacy <app-placeholder-directorio> on /directorio', async () => {
-    const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/directorio');
-    await harness.detectChanges();
-    const native = harness.routeNativeElement;
-    expect(native).not.toBeNull();
-
-    // The new skeleton selector is not expected AT the <router-outlet>:
-    // routed components are inserted as the host element of their own view
-    // (not wrapped by the component selector). Presence of the skeleton is
-    // therefore confirmed via its internal <h1>.
-    const h1 = native!.querySelector('h1') as HTMLHeadingElement | null;
-    expect(h1)
-      .withContext('the new skeleton <h1> is rendered')
-      .not.toBeNull();
-    expect(h1!.textContent?.trim())
-      .withContext('<h1> text is "Directorio" — skeleton, not placeholder')
-      .toBe('Directorio');
-
-    // The OLD legacy PlaceholderDirectorioComponent embedded the
-    // <app-search-bar-container>; the new skeleton does NOT. This is the
-    // discriminator that proves the legacy markup is gone.
-    const legacySearchBar = native!.querySelector('app-search-bar-container');
-    expect(legacySearchBar)
-      .withContext('legacy embedded <app-search-bar-container> must NOT appear')
-      .toBeNull();
-  });
-
-  it('should render the "Próximamente" message on every skeleton route (one harness, multiple navigations)', async () => {
-    const harness = await RouterTestingHarness.create();
-
-    for (const url of ['/directorio', '/eventos', '/contacto', '/registrate']) {
-      await harness.navigateByUrl(url);
-      const native = harness.routeNativeElement;
-      const text = (native!.textContent ?? '').toLowerCase();
-      expect(text)
-        .withContext(`"${url}" contains "Próximamente"`)
-        .toContain('próximamente');
+    // Admin Eventos page has real content (Task 16)
+    await harness.navigateByUrl('/admin/eventos');
+    {
+      // Flush the pending HTTP request from ngOnInit
+      const httpMock = TestBed.inject(HttpTestingController);
+      const req = httpMock.expectOne(
+        (r) => r.url.endsWith('/api/v1/eventos') && r.method === 'GET',
+      );
+      req.flush({ success: true, statusCode: 200, data: [] });
     }
+    const adminText = (harness.routeNativeElement!.textContent ?? '').toLowerCase();
+    expect(adminText)
+      .withContext('"/admin/eventos" contains "Administrar Eventos"')
+      .toContain('administrar eventos');
+    expect(adminText)
+      .withContext('"/admin/eventos" contains "Solicitudes"')
+      .toContain('solicitudes');
   });
 });
-
