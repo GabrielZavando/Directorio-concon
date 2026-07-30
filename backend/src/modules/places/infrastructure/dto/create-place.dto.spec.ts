@@ -58,6 +58,63 @@ describe("CreatePlaceDto validation", () => {
     expect(errors.length).toBe(0);
   });
 
+  // -- usuarioId removed from CreatePlace body (roles-rename change) --
+  describe("CreatePlace does not accept usuarioId from the body", () => {
+    // Matches the global ValidationPipe config in backend/src/main.ts:51-52.
+    // We re-assert this config in the test so the test is self-contained.
+    const PIPELINE_VALIDATOR_OPTIONS = {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    } as const;
+
+    it("rejects the body with usuarioId set (forbidNonWhitelisted)", async () => {
+      const dto = makeValidDto({ usuarioId: "uid-spoofed-001" });
+      const errors = await validate(dto, PIPELINE_VALIDATOR_OPTIONS);
+      // The global ValidationPipe has forbidNonWhitelisted: true
+      // (see backend/src/main.ts:52), so unknown properties raise a
+      // ValidationError with a 'whitelistValidation' constraint key.
+      const unknownPropError = errors.find(
+        (e) =>
+          e.property === "usuarioId" ||
+          (e.constraints &&
+            Object.keys(e.constraints).some((k) => k.includes("whitelist"))),
+      );
+      expect(unknownPropError).toBeDefined();
+    });
+
+    it("does not expose a usuarioId decorator on the CreatePlaceDto class", () => {
+      // Compile-time + runtime: the class MUST NOT list a 'usuarioId' field.
+      // If anyone reintroduces it, this test fails. Defense against regression.
+      const dto = makeValidDto();
+      expect(dto).not.toHaveProperty("usuarioId");
+      expect(Object.keys(dto)).not.toContain("usuarioId");
+    });
+
+    it("accepts a valid body that omits usuarioId (control case)", async () => {
+      const dto = makeValidDto();
+      const errors = await validate(dto, PIPELINE_VALIDATOR_OPTIONS);
+      expect(errors.length).toBe(0);
+    });
+
+    it("reports a whitelistValidation error targeted at usuarioId (control test)", async () => {
+      const dto = makeValidDto({ usuarioId: "uid-spoofed-002" });
+      // class-validator's `whitelist: true` reports the unknown property
+      // as a validation error but does NOT mutate the DTO instance.
+      // The NestJS ValidationPipe (main.ts:48-57) wraps this call and
+      // throws 400 to the caller.
+      const errors = await validate(dto, PIPELINE_VALIDATOR_OPTIONS);
+      // The error MUST be specifically about the unknown property `usuarioId`,
+      // NOT some other validation error (e.g., nombre too short).
+      const unknownPropError = errors.find((e) => {
+        const constraints = e.constraints ?? {};
+        return Object.keys(constraints).some((k) =>
+          k.toLowerCase().includes("whitelist"),
+        );
+      });
+      expect(unknownPropError).toBeDefined();
+    });
+  });
+
   // -- nombre --
   it("rejects nombre shorter than 2 chars", async () => {
     const dto = makeValidDto({ nombre: "A" });
@@ -127,19 +184,26 @@ describe("CreatePlaceDto validation", () => {
 
   // -- redesSociales --
   it("rejects more than 3 redesSociales", async () => {
+    // Uses canonical PlataformaSocialEnum values so the rejection is solely
+    // driven by ArrayMaxSize (not by enum rejection). The 6 valid enum values
+    // are instagram/facebook/x-twitter/linkedin/tiktok/youtube; we exceed the
+    // 3-item limit by using 4 distinct valid platforms.
     const dto = makeValidDto({
       redesSociales: [
-        { plataforma: "a", url: "https://a.com" },
-        { plataforma: "b", url: "https://b.com" },
-        { plataforma: "c", url: "https://c.com" },
-        { plataforma: "d", url: "https://d.com" },
+        { plataforma: "instagram", url: "https://instagram.com/a" },
+        { plataforma: "facebook", url: "https://facebook.com/b" },
+        { plataforma: "x-twitter", url: "https://twitter.com/c" },
+        { plataforma: "linkedin", url: "https://linkedin.com/d" },
       ],
     });
     const errors = await validate(dto);
     expect(errors.some((e) => e.property === "redesSociales")).toBe(true);
   });
 
-  // -- coordenadas --
+  // Note: deep `redesSociales[].plataforma` enum-closure tests (PlataformaSocialEnum
+  // membership, legacy 'twitter' rejection, etc.) live in `red-social.dto.spec.ts`
+  // co-located with `RedSocialDto` — this spec focuses on the parent DTO.
+
   it("rejects out-of-range lat", async () => {
     const dto = makeValidDto({ coordenadas: { lat: 91, lng: 0 } });
     const errors = await validate(dto);

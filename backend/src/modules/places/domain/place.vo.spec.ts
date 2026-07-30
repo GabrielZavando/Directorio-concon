@@ -271,8 +271,8 @@ describe("RedSocial VO", () => {
     it("accepts ≤3 items", () => {
       expect(
         isValidRedesSociales([
-          { plataforma: "ig", url: "https://ig.com/a" },
-          { plataforma: "fb", url: "https://fb.com/b" },
+          { plataforma: "instagram", url: "https://ig.com/a" },
+          { plataforma: "facebook", url: "https://fb.com/b" },
         ]),
       ).toBe(true);
     });
@@ -280,12 +280,110 @@ describe("RedSocial VO", () => {
     it("rejects >3 items", () => {
       expect(
         isValidRedesSociales([
-          { plataforma: "a", url: "https://a.com" },
-          { plataforma: "b", url: "https://b.com" },
-          { plataforma: "c", url: "https://c.com" },
-          { plataforma: "d", url: "https://d.com" },
+          { plataforma: "instagram", url: "https://a.com" },
+          { plataforma: "facebook", url: "https://b.com" },
+          { plataforma: "x-twitter", url: "https://c.com" },
+          { plataforma: "linkedin", url: "https://d.com" },
         ]),
       ).toBe(false);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RedSocial VO — PlataformaSocialEnum closure (roles-rename change)
+// ---------------------------------------------------------------------------
+describe("RedSocial VO — plataforma enum closure", () => {
+  describe("accepts the 6 canonical PlataformaSocialEnum values", () => {
+    const validPlatforms: ReadonlyArray<readonly [string, string]> = [
+      ["instagram", "https://instagram.com/test"],
+      ["facebook", "https://facebook.com/test"],
+      ["x-twitter", "https://twitter.com/test"],
+      ["linkedin", "https://linkedin.com/test"],
+      ["tiktok", "https://tiktok.com/@test"],
+      ["youtube", "https://youtube.com/@test"],
+    ];
+
+    validPlatforms.forEach(([plataforma, url]) => {
+      it(`accepts '${plataforma}' as a valid platform`, () => {
+        expect(isValidRedSocial({ plataforma, url })).toBe(true);
+      });
+    });
+  });
+
+  describe("rejects platforms outside the closed enum", () => {
+    it("rejects 'whatsapp' (not in PlataformaSocialEnum)", () => {
+      expect(
+        isValidRedSocial({
+          plataforma: "whatsapp",
+          url: "https://wa.me/56912345678",
+        }),
+      ).toBe(false);
+    });
+
+    it("rejects 'telegram' (not in PlataformaSocialEnum)", () => {
+      expect(
+        isValidRedSocial({
+          plataforma: "telegram",
+          url: "https://t.me/test",
+        }),
+      ).toBe(false);
+    });
+
+    it("rejects 'threads' (not in PlataformaSocialEnum)", () => {
+      expect(
+        isValidRedSocial({
+          plataforma: "threads",
+          url: "https://threads.net/@test",
+        }),
+      ).toBe(false);
+    });
+
+    it("rejects arbitrary string 'a' (legacy test value, no longer valid)", () => {
+      expect(isValidRedSocial({ plataforma: "a", url: "https://a.com" })).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("rejects the legacy 'twitter' value (renamed to 'x-twitter')", () => {
+    it("rejects 'twitter' even with a valid URL", () => {
+      expect(
+        isValidRedSocial({
+          plataforma: "twitter",
+          url: "https://twitter.com/test",
+        }),
+      ).toBe(false);
+    });
+
+    it("accepts 'x-twitter' as the migrated replacement (same URL allowed)", () => {
+      expect(
+        isValidRedSocial({
+          plataforma: "x-twitter",
+          url: "https://twitter.com/test",
+        }),
+      ).toBe(true);
+    });
+  });
+
+  describe("isValidRedesSociales enforces enum across the array", () => {
+    it("rejects a 2-item array if one plataforma is outside the enum", () => {
+      expect(
+        isValidRedesSociales([
+          { plataforma: "instagram", url: "https://instagram.com/a" },
+          { plataforma: "whatsapp", url: "https://wa.me/569" },
+        ]),
+      ).toBe(false);
+    });
+
+    it("accepts a 3-item array with all valid enum values", () => {
+      expect(
+        isValidRedesSociales([
+          { plataforma: "instagram", url: "https://instagram.com/a" },
+          { plataforma: "facebook", url: "https://facebook.com/b" },
+          { plataforma: "x-twitter", url: "https://twitter.com/c" },
+        ]),
+      ).toBe(true);
     });
   });
 });
