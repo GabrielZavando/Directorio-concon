@@ -20,7 +20,7 @@ API REST desarrollada con **NestJS 10** y **Firebase** para el Directorio de Emp
 ### Core
 - ✅ CRUD completo de empresas, categorías y barrios
 - ✅ Sistema de autenticación con Firebase Auth
-- ✅ Gestión de usuarios con roles (admin/empresa/usuario)
+- ✅ Gestión de usuarios con roles (admin/owner/member)
 - ✅ Sistema de solicitudes y aprobaciones
 
 ### Sistema de Planes Premium

@@ -224,8 +224,8 @@ interface Usuario {
   id: string;                    // UID de Firebase Auth
   email: string;
   nombre: string;
-  rol: 'admin' | 'empresa' | 'usuario';
-  empresaId?: string;            // Si es dueño de empresa
+  rol: 'admin' | 'owner' | 'member';
+  placeId?: string;             // Si es dueño de place (solo rol owner)
   telefono?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;

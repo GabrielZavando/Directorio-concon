@@ -633,7 +633,7 @@ class HorarioEspecialDto {
 
 class RedSocialDto {
   @ApiProperty()
-  @IsEnum(['instagram', 'facebook', 'twitter', 'linkedin', 'tiktok', 'youtube'])
+  @IsEnum(['instagram', 'facebook', 'x-twitter', 'linkedin', 'tiktok', 'youtube'])
   plataforma: string;
 
   @ApiProperty()

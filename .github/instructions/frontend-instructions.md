@@ -370,7 +370,7 @@ export interface Usuario {
   id: string;
   email: string;
   nombre: string;
-  rol: 'admin' | 'empresa' | 'usuario';
+  rol: 'admin' | 'owner' | 'member';
 }
 
 @Injectable({
@@ -420,7 +420,7 @@ export class AuthService {
           id: userCredential.user.uid,
           email,
           nombre,
-          rol: 'usuario',
+          rol: 'member',
         })
         .toPromise();
     } catch (error) {

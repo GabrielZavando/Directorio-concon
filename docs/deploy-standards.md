@@ -60,7 +60,7 @@
 ## Smoke Tests
 
 - Health: `GET /api/v1/health` → 200 `{ status: 'ok' }`.
-- Endpoints clave por entorno (ej. `GET /api/v1/empresas?limit=1` tras auth en staging).
+- Endpoints clave por entorno (ej. `GET /api/v1/places?limit=1` tras auth en staging).
 - Script: `curl -fsS https://api.directorio-concon.com/api/v1/health`.
 
 ## Rollback

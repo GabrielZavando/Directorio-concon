@@ -200,7 +200,7 @@ places/{placeId}
   - id: string (UID de Auth)
   - email: string
   - nombre: string
-  - rol: string (admin | empresa | usuario)
+  - rol: string (admin | owner | member)
   - placeId: string (opcional)
   - telefono: string (opcional)
   - avatar: string (URL de avatar)

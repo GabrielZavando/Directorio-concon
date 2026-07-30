@@ -44,7 +44,7 @@
 
 **Value Objects (tipos anidados):**
 
-- `RedSocial = { plataforma: string; url: string }`
+- `RedSocial = { plataforma: PlataformaSocialEnum; url: string }` — **enum cerrado** (ver `PlataformaSocialEnum` abajo)
 - `Imagenes = { logo?: string; portada?: string; galeria: string[] }`
 - `HorarioDia = { dia: DiaSemana; abierto: boolean; turnos: Turno[] }`
 - `Turno = { apertura: 'HH:mm'; cierre: 'HH:mm' }` (apertura < cierre)
@@ -52,7 +52,10 @@
 - `DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'`
 - `ServicioEnum = 'wifi' | 'estacionamiento' | 'acceso-discapacidad' | 'apto-mascotas' | 'delivery' | 'take-away' | 'terraza' | 'vista-al-mar' | 'reservas' | 'ninos-bienvenida'`
 - `MetodoPagoEnum = 'efectivo' | 'debito' | 'credito' | 'transferencia' | 'qr'`
+- `PlataformaSocialEnum = 'instagram' | 'facebook' | 'x-twitter' | 'linkedin' | 'tiktok' | 'youtube'` — enum cerrado; reemplaza al `plataforma: string` libre. Coherente con `ServicioEnum`, `MetodoPagoEnum`, etc. y con `docs/api-spec.yml` + iconografía `lucide-angular`.
 - `ValoracionGoogle = { rating: number; reviewsCount: number; mapsLink: string }`
+
+> **Migración `twitter` → `x-twitter`:** el valor legacy `'twitter'` (renamed de plataforma en julio 2023) deja de ser válido. Cualquier documento `places` en Firestore staging con `redesSociales[].plataforma === 'twitter'` debe migrarse manualmente a `'x-twitter'`. **Auditado en la Task 6 del change `roles-rename`:** no existen seeds/fixtures locales con valores legacy en el repo (el directorio `frontend/src/app/shared/data-access/local/data/` solo contiene `barrios.json` y `categorias.json`, ninguno con `redesSociales`; el módulo `eventos` no modela `redesSociales`; no hay scripts `backend/scripts/` con seeds TS/JS). El único punto de posible migración es Firestore staging, que se audita manualmente en deploy.
 
 ### categorias
 | Campo | Tipo | Descripción |
@@ -87,11 +90,29 @@
 | id | string (UID Auth) | UID Firebase Auth |
 | email | string UNIQUE | Email |
 | nombre | string | Nombre |
-| rol | enum | `admin` \| `empresa` \| `usuario` |
-| placeId | string? | Si es dueño de un place |
+| rol | enum | `admin` \| `owner` \| `member` |
+| placeId | string? | Si es dueño de un place (solo rol `owner`; null para `admin` y `member`) |
 | telefono | string? | Teléfono |
 | createdAt | Timestamp | Creación |
 | updatedAt | Timestamp | Modificación |
+
+**Semántica por rol:**
+
+- `admin` — acceso total: aprueba/rechaza `solicitudes`, gestiona `categorias`/`barrios`, edita cualquier place/evento, toggles `destacado`/`verificado`.
+- `owner` — gestiona su `places` (vinculado via `placeId`); crea eventos con `eventos.usuarioId === token.uid`; no puede administrar catálogos ni aprobar solicitudes. Reemplaza al rol legacy `empresa`.
+- `member` — perfil básico autenticado; acceso de lectura pública completo; capacidad (futura, deferred — ver "Favoritos (deferred)") de guardar `places` favoritos; NO puede `POST /places` ni `POST /eventos` (403). Reemplaza al rol legacy `usuario`.
+
+> **Nota — Rename del enum (rol):** el enum cambió de `'admin' | 'empresa' | 'usuario'` a `'admin' | 'owner' | 'member'` (English-only, function-based naming, "Family B"). El rename es schema-only: la colección `usuarios` está vacía (el módulo `usuarios` no está implementado), por lo que **no hay migración de datos**. Cuando el change MVP `auth + usuarios` aterrice, los registros nuevos empiezan con los valores nuevos directamente.
+
+> **Authentication debt (documentada, NO accionada en este change — la cierra el futuro `auth + usuarios`):**
+>
+> 1. `places.usuarioId` hoy persiste como el literal string `"anonymous"` (stub en `backend/src/modules/places/infrastructure/places.controller.ts:44-46`), sin importar quién llama `POST /places`. El modelo afirma que este campo es el UID del propietario; el runtime reaches parity cuando `auth + usuarios` aterrice.
+> 2. `eventos.usuarioId` hoy se obtiene del header HTTP provisional `x-usuario-id` (ver `backend/src/modules/eventos/infrastructure/eventos.controller.ts:50,132,156`), no de un Firebase Auth JWT verificado. Hay un endpoint `x-usuario-id` provisor encargado de la autoría temporal; no es un boundary de seguridad — el runtime reaches parity cuando `auth + usuarios` aterrice.
+> 3. `solicitudes.revisadoPor` se escribe sin validación runtime del `rol === 'admin'` (el `UsuariosModule` no existe, los Guards no están cableados). El modelo afirma que este campo MUST resolver a un `usuarios` con rol `admin`; el runtime reaches parity cuando `auth + usuarios` aterrice.
+>
+> Este bloque de deuda solo **documenta**; el cambio `roles-rename` no cierra las tres deudas. Sí cierra una brecha lateral: remover `usuarioId` del body de `CreatePlace` (ver `docs/api-spec.yml`), para evitar vector de spoofing cuando `auth` aterrice.
+
+> **Favoritos (deferred):** el campo `favoritos` (places guardados por rol `member`) se modelará en el change futuro `auth + usuarios`, no en este. Las tres formas de almacenamiento bajo consideración son: (a) `usuarios.favoritos: string[]` (array de `placeId` en el doc), (b) subcolección `usuarios/{uid}/favoritos/{placeId}`, (c) colección top-level `favoritos` con docs `{usuarioId, placeId, createdAt}`. La shape se decidirá en ese change contra patrones de acceso reales (queries "favoritos de este usuario" vs "qué usuarios guardaron este place").
 
 ### solicitudes
 | Campo | Tipo | Descripción |
@@ -104,7 +125,7 @@
 | status | enum | `pendiente` \| `aprobado` \| `rechazado` |
 | proposal | object? | Staging de updates para `tipo: 'actualizacion-evento'` (JSON con los campos a aplicar al aprobar). Null para los demás `tipo`. |
 | comentarios | string? | Comentarios |
-| revisadoPor | string? | UID admin |
+| revisadoPor | string? | UID del admin que aprobó/rechazó. MUST resolver a un `usuarios.id` con `rol === 'admin'`. Hoy sin validación runtime (ver "Authentication debt" en §usuarios); el `RolesGuard` con `@Roles('admin')` se introduce en el change futuro `auth + usuarios`. |
 | createdAt | Timestamp | Creación |
 | revisadoAt | Timestamp? | Revisión |
 
@@ -145,8 +166,8 @@
 | estado | enum | `borrador` \| `programado` \| `en_curso` \| `finalizado` \| `cancelado` \| `suspendido` (ciclo de vida del evento) |
 | destacado | boolean | Destacado en home/listados (default `false`) |
 | verificado | boolean | Verificado por admin (default `false`) |
-| placeId | string? | Ref opcional a `places` (si el evento lo organiza una empresa del directorio; debe ser un place con `status: 'aprobado'`) |
-| usuarioId | string | Firebase Auth UID del creador (REQUIRED, seteado desde token verificado; no en DTO) |
+| placeId | string? | Ref opcional a un `places` aprobado (ref geográfica/organizacional al lugar del evento). **Sin invariante de pertenencia** al place del creador del evento: el responsable es `usuarioId`, no el dueño del `placeId` referenciado. Si se setea, MUST referenciar un `places` con `status: 'aprobado'`. |
+| usuarioId | string | Firebase Auth UID del creador (REQUIRED, seteado desde token verificado; no en DTO). Identifica al **responsable de publicación** del evento; es independiente de `eventos.placeId` — el responsable puede publicar eventos sin placeId, con su propio place, o con un place ajeno (referencia geográfica/organizacional, sin invariante de pertenencia). Ver §Reglas comunes "Responsabilidad del evento" para el detalle. |
 | vistasTotales | number | Post-MVP placeholder, default 0 (sin lógica de incremento en este cambio, mirror de `places`) |
 | createdAt | Timestamp | Creación |
 | updatedAt | Timestamp | Modificación |
@@ -173,14 +194,31 @@
 - `subcategoriaId` es opcional y debe referenciar un slug existente en `categorias.subcategorias[].slug` de la `categoriaId` seleccionada.
 - `slug` de place/categoria/barrio debe ser único (verificar antes de crear).
 - Todo place nuevo se crea con `status: 'pendiente'` y genera una `solicitud` con `placeId`.
-- Solo `admin` aprueba/rechaza solicitudes y edita places ajenos.
-- Rol `empresa` solo gestiona su propio place (`placeId`).
+- Solo rol `admin` aprueba/rechaza solicitudes y edita places ajenos.
+- Rol `owner` solo gestiona su propio place (`placeId`) y crea eventos (`eventos.usuarioId === token.uid`).
+- Rol `member` NO puede `POST /places` ni `POST /eventos` (403).
+- Registro de usuarios: rol default `'member'` (cuando el módulo `auth + usuarios` aterrice).
 - `galeria` en `imagenes`: plan gratuito máx 3 imágenes, plan premium máx 10.
 - `horarios`: cada día puede tener 0..3 turnos; si `abierto: false`, `turnos` debe ser `[]`.
 - `horariosEspeciales` sobrescribe `horarios` para la fecha indicada; `turnos: []` significa cerrado ese día.
 - `abierto24x7: true` ignora `horarios` y `horariosEspeciales` (siempre abierto).
 - Campos post-MVP (`idiomas`, `vistasTotales`, `valoracionGoogle` en places) se persisten como placeholders; no hay lógica de sincronía ni incremento en este cambio.
 - Paginación por cursor Firestore (no offset). Índices compuestos requeridos.
+
+### Responsabilidad del evento (places + eventos)
+
+- El "responsable de publicación" del evento es `eventos.usuarioId` (quien lo crea/publica, autenticado via token).
+- `eventos.placeId` es una referencia **opcional sin invariante de pertenencia** al place del creador. El evento puede:
+  - Vincularse al place del propio creador (caso común).
+  - Vincularse al place de otro `owner` (ej: festival comunitario organizado en un restaurante reconocido).
+  - No vincularse a ningún place (`placeId: null` — festival en playa, sin venue en directorio).
+- Cualquiera sea el caso, **el responsable sigue siendo `eventos.usuarioId`**, no el dueño del place referenciado. `placeId` representa el *lugar* del evento, no el *autor*.
+
+### Reglas RBAC (solicitudes.revisadoPor)
+
+- La regla "solo `admin` puede mutar `solicitudes.status` a `'aprobado'`/`'rechazado'`" se documenta en línea con el campo `solicitudes.revisadoPor` (ver §solicitudes arriba) para mantener la fuente canónica adyacente al schema. Este bloque de §Reglas comunes existe como referencia transversal.
+- **Hoy no se valida en runtime** porque el módulo `auth` no está implementado (ver "Authentication debt" en §usuarios). El `RolesGuard` con `@Roles('admin')` se introduce en el change futuro `auth + usuarios`.
+
 
 ### Reglas específicas de eventos
 
@@ -195,8 +233,9 @@
 - Todo evento nuevo se crea con `status: 'pendiente'`, `estado: 'borrador'` y genera automáticamente una `solicitud` con `tipo: 'registro-evento'`, `status: 'pendiente'`, `eventoId` apuntando al nuevo evento.
 - Editar un evento con `status: 'aprobado'` NO aplica cambios in-place: genera una `solicitud` con `tipo: 'actualizacion-evento'`, `status: 'pendiente'`, `eventoId`, `usuarioId`, `proposal` (objeto JSON con los campos staging). El evento visible al público permanece sin cambios hasta que el admin aprueba la solicitud.
 - Editar un evento con `status !== 'aprobado'` (`pendiente` o `rechazado`) aplica in-place sin generar nueva `solicitud`.
-- Rol `empresa` solo gestiona sus propios eventos (`evento.usuarioId === uid token`); caso contrario → `403`.
+- Rol `owner` solo gestiona sus propios eventos (`evento.usuarioId === uid token`); caso contrario → `403`.
 - Rol `admin` gestiona cualquier evento.
+- Rol `member` no puede crear ni gestionar eventos (`POST /eventos` → 403).
 - Visitante anónimo solo ve eventos con `status: 'aprobado'` (en `GET /eventos`, `GET /eventos/{id}`, `GET /eventos/slug/{slug}` y `GET /eventos/map-data`). Eventos pendientes/rechazados retornan `404` por id/slug al público.
 - `DELETE` retorna `409` si existen `solicitudes` pendientes asociadas (`eventoId + status='pendiente'`).
 - XOR en `solicitudes`: una solicitud referencia `placeId` **O** `eventoId`, nunca ambos (validado en `SolicitudesService`).
