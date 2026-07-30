@@ -102,7 +102,12 @@ components:
       properties:
         plataforma:
           type: string
-          enum: [instagram, facebook, twitter, linkedin, tiktok, youtube]
+          enum: [instagram, facebook, x-twitter, linkedin, tiktok, youtube]
+          description: |
+            Closed enum. The legacy 'twitter' value was migrated to 'x-twitter'
+            (reflecting the 2023 platform rename). Clients sending 'twitter'
+            receive a 400; they must update to 'x-twitter'. Consistent with
+            docs/data-model.md PlataformaSocialEnum and the backend VO/DTO.
         url:
           type: string
           format: uri
@@ -317,8 +322,6 @@ components:
         planId:
           type: string
           enum: [gratuito, premium]
-        usuarioId:
-          type: string
 
     UpdatePlace:
       type: object
@@ -871,7 +874,7 @@ paths:
         "404":
           $ref: '#/components/schemas/Error'
         "409":
-          description: No se puede eliminar: existen solicitudes asociadas
+          description: "No se puede eliminar: existen solicitudes asociadas"
           $ref: '#/components/schemas/Error'
 
   /places/slug/{slug}:
@@ -1087,7 +1090,7 @@ paths:
         "404":
           $ref: '#/components/schemas/Error'
         "409":
-          description: No se puede eliminar: existen solicitudes pendientes asociadas
+          description: "No se puede eliminar: existen solicitudes pendientes asociadas"
           $ref: '#/components/schemas/Error'
 
   /eventos/slug/{slug}:

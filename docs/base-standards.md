@@ -133,9 +133,12 @@ Arquitectura BE: Clean Architecture por feature
 
 | Usuario | Login | Rol | Función |
 |---|---|---|---|
-| **Visitante anónimo** | sin login | — | Descubre places por categoría/barrio, abre ficha, ve mapa. No requiere autenticación. |
-| **Publicador** | Firebase Auth | `empresa` | Se registra, crea su place (genera `solicitud` pendiente), gestiona su ficha (horarios/servicios/redes/logo). Es el usuario operacional central. |
+| **Visitante anónimo** | sin login | — | Descubre places por categoría/barrio, abre ficha, ve mapa. No requiere autenticación. Rol implícito del sistema (no se persiste en `usuarios`). |
+| **Member registrado** | Firebase Auth | `member` | Usuario autenticado con perfil básico. Acceso de lectura pública completo. Capacidad (futura, deferred al change `auth + usuarios`) de guardar `places` favoritos. NO puede publicar places ni eventos. Reemplaza al rol legacy `usuario`. |
+| **Owner de place** | Firebase Auth | `owner` | Se registra, crea su place (genera `solicitud` pendiente), gestiona su ficha (horarios/servicios/redes/logo). Es el usuario operacional central. Crea eventos con `eventos.usuarioId === token.uid`. Reemplaza al rol legacy `empresa`. |
 | **Admin del directorio** | Firebase Auth | `admin` | Aprueba/rechaza `solicitudes`, gestiona `categorias` y `barrios`, destaca/verifica places, modera el directorio. |
+
+> **Nota:** 3 roles autenticados (`admin`, `owner`, `member`) + 1 visitante anónimo (sin login, sin persistencia en `usuarios`) coexisten. El enum renombrado cierra desde el change `roles-rename`; la deuda de autenticación (stubs `"anonymous"` y header `x-usuario-id`) se documentó en `docs/data-model.md §usuarios` y se cierra cuando el change MVP `auth + usuarios` aterrice.
 
 > Sin `reviewer` — sistema de reviews/calificaciones queda fuera del MVP (post-MVP).
 
@@ -143,7 +146,7 @@ Arquitectura BE: Clean Architecture por feature
 
 #### Flujo 1 — Registro de place
 
-1. Publicador se registra en Firebase Auth → rol `empresa` (asignado vía `usuarios` collection).
+1. Owner se registra en Firebase Auth → rol `owner` (asignado vía `usuarios` collection).
 2. `POST /api/v1/places` crea el place con `status: pendiente` y genera automáticamente un documento `solicitudes` con `tipo: 'registro'`, `status: 'pendiente'`, `placeId` apuntando al nuevo place.
 3. El `admin` revisa la `solicitud`:
    - Aprueba → `solicitud.status: aprobado` + `place.status: aprobado` → visible públicamente.

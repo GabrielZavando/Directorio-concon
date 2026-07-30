@@ -16,6 +16,7 @@ import type { PlaceRepositoryInterface } from "../domain/place-repository.interf
 import type { SolicitudesRepositoryInterface } from "../domain/solicitudes-repository.interface";
 import type { Place } from "../domain/place.entity";
 import type { HorarioDia, Turno } from "../domain/horario-dia.vo";
+import type { RedSocial } from "../domain/red-social.vo";
 import { SOLICITUDES_REPOSITORY } from "../domain/solicitudes-repository.token";
 import { PLACE_REPOSITORY } from "../domain/place-repository.token";
 
@@ -36,7 +37,7 @@ export interface CreatePlaceDto {
   whatsapp?: string;
   email?: string;
   sitioWeb?: string;
-  redesSociales?: { plataforma: string; url: string }[];
+  redesSociales?: RedSocial[];
   imagenes?: { logo?: string; portada?: string; galeria: string[] };
   planId: "gratuito" | "premium";
   horarios?: HorarioDia[];

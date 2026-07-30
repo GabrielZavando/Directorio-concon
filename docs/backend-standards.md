@@ -130,7 +130,7 @@ Cada feature en `src/modules/<nombre>/`:
 ### Autenticación y roles
 
 - Guard JWT verifica `idToken` Firebase (`admin.auth().verifyIdToken`).
-- Roles: `admin` (CRUD total + aprobar), `empresa` (CRUD propia), `usuario` (solo lectura pública).
+- Roles: `admin` (CRUD total + aprobar), `owner` (CRUD propia), `member` (solo lectura pública).
 - No loguear tokens ni PII. CORS explícito por entorno.
 
 ### Testing
