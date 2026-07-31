@@ -37,7 +37,7 @@
 | destacado | boolean | Destacado en home |
 | vistasTotales | number | Post-MVP placeholder, default 0 |
 | valoracionGoogle | ValoracionGoogle? | Post-MVP placeholder `{ rating, reviewsCount, mapsLink }` |
-| usuarioId | string? | Propietario (Firebase Auth UID) |
+| usuarioId | string? | Propietario (Firebase Auth UID) — REQUIRED; se setea desde el verified JWT del caller al `POST /places` (tras el change `auth-usuarios`, reemplaza el stub histórico `"anonymous"`). No se acepta en el body del create (forbidNonWhitelisted). |
 | fechaPublicacion | Timestamp? | Cuándo pasó a aprobado |
 | createdAt | Timestamp | Creación |
 | updatedAt | Timestamp | Modificación |
@@ -102,17 +102,19 @@
 - `owner` — gestiona su `places` (vinculado via `placeId`); crea eventos con `eventos.usuarioId === token.uid`; no puede administrar catálogos ni aprobar solicitudes. Reemplaza al rol legacy `empresa`.
 - `member` — perfil básico autenticado; acceso de lectura pública completo; capacidad (futura, deferred — ver "Favoritos (deferred)") de guardar `places` favoritos; NO puede `POST /places` ni `POST /eventos` (403). Reemplaza al rol legacy `usuario`.
 
-> **Nota — Rename del enum (rol):** el enum cambió de `'admin' | 'empresa' | 'usuario'` a `'admin' | 'owner' | 'member'` (English-only, function-based naming, "Family B"). El rename es schema-only: la colección `usuarios` está vacía (el módulo `usuarios` no está implementado), por lo que **no hay migración de datos**. Cuando el change MVP `auth + usuarios` aterrice, los registros nuevos empiezan con los valores nuevos directamente.
+> **Nota — Rename del enum (rol):** el enum cambió de `'admin' | 'empresa' | 'usuario'` a `'admin' | 'owner' | 'member'` (English-only, function-based naming, "Family B"). El rename es schema-only: la colección `usuarios` estaba vacía al momento del change `roles-rename` (el módulo `usuarios` no estaba implementado), por lo que **no hubo migración de datos**. Tras el change MVP `auth + usuarios` (que ensambla el módulo `usuarios` y el módulo `auth`), los registros nuevos empiezan con los valores nuevos directamente, con default `'member'` en el flujo de provisioning admin.
 
-> **Authentication debt (documentada, NO accionada en este change — la cierra el futuro `auth + usuarios`):**
+> **Authentication debt — [CLOSED por el change `auth-usuarios`, se materializa al archivar dicho change]:**
 >
-> 1. `places.usuarioId` hoy persiste como el literal string `"anonymous"` (stub en `backend/src/modules/places/infrastructure/places.controller.ts:44-46`), sin importar quién llama `POST /places`. El modelo afirma que este campo es el UID del propietario; el runtime reaches parity cuando `auth + usuarios` aterrice.
-> 2. `eventos.usuarioId` hoy se obtiene del header HTTP provisional `x-usuario-id` (ver `backend/src/modules/eventos/infrastructure/eventos.controller.ts:50,132,156`), no de un Firebase Auth JWT verificado. Hay un endpoint `x-usuario-id` provisor encargado de la autoría temporal; no es un boundary de seguridad — el runtime reaches parity cuando `auth + usuarios` aterrice.
-> 3. `solicitudes.revisadoPor` se escribe sin validación runtime del `rol === 'admin'` (el `UsuariosModule` no existe, los Guards no están cableados). El modelo afirma que este campo MUST resolver a un `usuarios` con rol `admin`; el runtime reaches parity cuando `auth + usuarios` aterrice.
+> El change `roles-rename` documentó tres divergencias runtime entre el modelo canónico y la implementación de los módulos existentes. El change `auth-usuarios` cierra las tres divergencias (sus tasks 10, 11, 12 introducen la enforcement runtime; el dato de auditoría a continuación preserva la historia):
 >
-> Este bloque de deuda solo **documenta**; el cambio `roles-rename` no cierra las tres deudas. Sí cierra una brecha lateral: remover `usuarioId` del body de `CreatePlace` (ver `docs/api-spec.yml`), para evitar vector de spoofing cuando `auth` aterrice.
+> 1. **[CLOSED]** `places.usuarioId` persistía como el literal string `"anonymous"` (stub en `backend/src/modules/places/infrastructure/places.controller.ts:44-46`), sin importar quién llamaba `POST /places`. En el change `auth-usuarios`, el controlador adopta `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner')` y reemplaza el stub por `usuarioId = user.uid` proveniente delverified Firebase Auth JWT.
+> 2. **[CLOSED]** `eventos.usuarioId` se obtenía del header HTTP provisional `x-usuario-id` (referencias históricas: `backend/src/modules/eventos/infrastructure/eventos.controller.ts:50,132,156`), no de un Firebase Auth JWT verificado. En el change `auth-usuarios`, el controlador elimina los headers `x-usuario-id` / `x-rol` y reemplaza el sourcing del `usuarioId` por `@CurrentUser() user: AuthContext` (`user.uid` verificado). El header provisional se elimina sin breaking-vivo (no existe frontend en producción).
+> 3. **[CLOSED]** `solicitudes.revisadoPor` se escribía sin validación runtime del `rol === 'admin'` (el `UsuariosModule` no existía, los Guards no estaban cableados, y además el `SolicitudesModule` no exponía un HTTP controller de approve/reject). En el change `auth-usuarios` se introduce el `SolicitudesController` con los endpoints `POST /solicitudes/:id/approve|reject` decorados con `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')`, seteando `revisadoPor` desde `user.uid` con el `rol === 'admin'` garantizado por el `RolesGuard`.
+>
+> El bloque de deuda del change `roles-rename` solo **documentaba**; el cambio `auth-usuarios` **cierra** las tres. La brecha lateral del change previo (remover `usuarioId` del body de `CreatePlace` para evitar vector de spoofing) queda como base de contrato, y ahora el runtime efectivamente usa el UID provisto por JWT.
 
-> **Favoritos (deferred):** el campo `favoritos` (places guardados por rol `member`) se modelará en el change futuro `auth + usuarios`, no en este. Las tres formas de almacenamiento bajo consideración son: (a) `usuarios.favoritos: string[]` (array de `placeId` en el doc), (b) subcolección `usuarios/{uid}/favoritos/{placeId}`, (c) colección top-level `favoritos` con docs `{usuarioId, placeId, createdAt}`. La shape se decidirá en ese change contra patrones de acceso reales (queries "favoritos de este usuario" vs "qué usuarios guardaron este place").
+> **Favoritos (deferred — sigue fuera del change `auth-usuarios`):** el campo `favoritos` (places guardados por rol `member`) se modelará en un change futuro `favoritos-crud` (no en `auth-usuarios` ni en `roles-rename`). Las tres formas de almacenamiento bajo consideración son: (a) `usuarios.favoritos: string[]` (array de `placeId` en el doc), (b) subcolección `usuarios/{uid}/favoritos/{placeId}`, (c) colección top-level `favoritos` con docs `{usuarioId, placeId, createdAt}`. La shape se decidirá contra patrones de acceso reales (queries "favoritos de este usuario" vs "qué usuarios guardaron este place").
 
 ### solicitudes
 | Campo | Tipo | Descripción |
@@ -125,7 +127,7 @@
 | status | enum | `pendiente` \| `aprobado` \| `rechazado` |
 | proposal | object? | Staging de updates para `tipo: 'actualizacion-evento'` (JSON con los campos a aplicar al aprobar). Null para los demás `tipo`. |
 | comentarios | string? | Comentarios |
-| revisadoPor | string? | UID del admin que aprobó/rechazó. MUST resolver a un `usuarios.id` con `rol === 'admin'`. Hoy sin validación runtime (ver "Authentication debt" en §usuarios); el `RolesGuard` con `@Roles('admin')` se introduce en el change futuro `auth + usuarios`. |
+| revisadoPor | string? | UID del admin que aprobó/rechazó. MUST resolver a un `usuarios.id` con `rol === 'admin'`. Tras el change `auth-usuarios`, la validación runtime está garantizada por el `RolesGuard` con `@Roles('admin')` en los endpoints `POST /solicitudes/:id/approve|reject` del nuevo `SolicitudesController` (ver "Authentication debt — [CLOSED]" en §usuarios). |
 | createdAt | Timestamp | Creación |
 | revisadoAt | Timestamp? | Revisión |
 
@@ -217,7 +219,7 @@
 ### Reglas RBAC (solicitudes.revisadoPor)
 
 - La regla "solo `admin` puede mutar `solicitudes.status` a `'aprobado'`/`'rechazado'`" se documenta en línea con el campo `solicitudes.revisadoPor` (ver §solicitudes arriba) para mantener la fuente canónica adyacente al schema. Este bloque de §Reglas comunes existe como referencia transversal.
-- **Hoy no se valida en runtime** porque el módulo `auth` no está implementado (ver "Authentication debt" en §usuarios). El `RolesGuard` con `@Roles('admin')` se introduce en el change futuro `auth + usuarios`.
+- Tras el change `auth-usuarios`, la regla **se valida en runtime** vía el `SolicitudesController` (nuevo en ese change) con `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')` sobre los endpoints `POST /solicitudes/:id/approve|reject`. Antes del change `auth-usuarios`, la regla solo se documentaba (ver "Authentication debt — [CLOSED]" en §usuarios).
 
 
 ### Reglas específicas de eventos
