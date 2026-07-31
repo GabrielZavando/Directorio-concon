@@ -271,4 +271,10 @@ No hay migración de datos (`usuarios` collection vacía). Sin frontend vivo.
 - [x] Correr `/archive auth-usuarios` (custom command) — archiva `openspec/changes/auth-usuarios/` a `openspec/changes/archive/2026-07-31-auth-usuarios/` y fusiona las deltas a `openspec/specs/`.
   - **Ejecutado**: `openspec archive auth-usuarios -y` → specs aplicadas (`+ 6, ~ 7, → 1`): `api-contract` +1/~1, `auth` +5 (spec nuevo), `eventos` ~1, `places` ~2, `solicitudes` ~1, `usuarios` ~2/→1 (requirement "Authentication debt" renombrado vía sección `RENAMED` del delta — necesario porque el merge MODIFIED exige header exacto).
   - `openspec status` → **No active changes**.
-- [ ] Commit conventional: `feat(auth): implement Firebase Auth JWT + RolesGuard + usuarios CRUD + cierre debilidades de autenticación`.
+- [x] Commit conventional: `feat(auth): implement Firebase Auth JWT + RolesGuard + usuarios CRUD + cierre debilidades de autenticación`.
+  - **Ejecutado** (change `auth-usuarios` completo): branch `feature/auth-usuarios` creado desde HEAD (historia previa intacta, base `master`).
+  - 3 commits lógicos siguiendo el precedente `eventos-crud`:
+    1. `b043c80` `feat(auth): implement Firebase Auth JWT + RolesGuard + usuarios CRUD` — backend + tests (54 files, incluye move `rol.enum` → `auth/domain/`).
+    2. `e9b9b34` `docs(api): declare bearerAuth security + close auth debt in data model` — `api-spec.yml`, `data-model.md`, `base-standards.md`.
+    3. `f46d0cb` `chore(openspec): archive auth-usuarios change + update canonical specs` — specs canónicas + artifacts archivados.
+  - Push `origin/feature/auth-usuarios` OK (upstream configurado). PR a `master` creado manualmente por el usuario (gh no autenticado): https://github.com/GabrielZavando/Directorio-concon/pull/new/feature/auth-usuarios
