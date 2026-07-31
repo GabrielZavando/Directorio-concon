@@ -1,8 +1,12 @@
-# usuarios Specification
+# usuarios Specification (delta — auth-usuarios)
 
-## Purpose
-TBD - created by archiving change roles-rename. Update Purpose after archive.
-## Requirements
+## RENAMED Requirements
+
+FROM: ### Requirement: Authentication debt (documented, not yet enforced)
+TO: ### Requirement: Authentication debt (closed — enforced at runtime)
+
+## MODIFIED Requirements
+
 ### Requirement: Usuario entity schema
 The system SHALL persist a `Usuario` document in the Firestore collection `usuarios` with the following fields:
 
@@ -49,16 +53,6 @@ The usuarios module (`backend/src/modules/usuarios/`) is fully assembled by this
 - **THEN** the response is `400` with error: `rol must be one of: admin, owner, member`
 - **AND** the `usuarios` document is not mutated
 
-### Requirement: Favouritos (deferred)
-The `usuarios` entity SHALL NOT include a `favoritos` field in this change. The modelling of the favourite-places capability for the `member` role (the user can save `places` references and list them on their profile) is **deferred** to the future `auth + usuarios` change, where the storage shape (array on the `usuarios` document vs. subcollection `usuarios/{uid}/favoritos/{placeId}` vs. top-level collection `favoritos`) will be decided against actual access patterns.
-
-This change only records the deferral as a `docs/data-model.md` note; no schema entry, no DTO field, no migration.
-
-#### Scenario: Spec reader is informed of the deferral
-- **WHEN** a stakeholder opens `docs/data-model.md §usuarios`
-- **THEN** a "Favoritos (deferred)" note appears, declaring the field's omission is intentional and scoped to the future `auth + usuarios` change
-- **AND** the note enumerates the three storage shapes under consideration so the decision can be picked up without rediscovery
-
 ### Requirement: Authentication debt (closed — enforced at runtime)
 ~~The canonical model `docs/data-model.md` SHALL carry an explicit "Authentication debt" note block to inform consumers that, until the future MVP `auth + usuarios` change ships, the runtime behaviour of `usuarioId` fields across the existing modules diverges from the model's stated intent.~~
 
@@ -99,4 +93,3 @@ The `docs/data-model.md` "Authentication debt" note block is updated by this cha
 - **WHEN** a stakeholder opens `docs/data-model.md §usuarios`
 - **THEN** the "Authentication debt" note block (updated by this change) marks each of the three bullets as **closed** with a reference to the `auth-usuarios` change
 - **AND** the note no longer reads as a future `auth + usuarios` change obligation
-

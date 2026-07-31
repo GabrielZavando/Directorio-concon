@@ -1,43 +1,6 @@
-# solicitudes Specification
+# solicitudes Specification (delta — auth-usuarios)
 
-## Purpose
-TBD - created by archiving change roles-rename. Update Purpose after archive.
-## Requirements
-### Requirement: Solicitud entity schema
-The system SHALL persist a `Solicitud` document in the Firestore collection `solicitudes` with the following fields:
-
-- `id: string` — Firestore document ID (auto-generated)
-- `placeId?: string` — reference to a `places` document; REQUIRED-but-nullable (XOR with `eventoId`): present when `tipo ∈ {'registro', 'actualizacion'}`, `null` when `tipo` ends in `-evento`
-- `eventoId?: string` — reference to an `eventos` document; REQUIRED-but-nullable (XOR with `placeId`): present when `tipo ∈ {'registro-evento', 'actualizacion-evento'}`, `null` otherwise
-- `usuarioId: string` — Firebase Auth UID of the publisher who triggered the solicitud (REQUIRED, never null)
-- `tipo: SolicitudTipo` — enum: `'registro' | 'actualizacion' | 'registro-evento' | 'actualizacion-evento'`
-- `status: SolicitudStatus` — enum: `'pendiente' | 'aprobado' | 'rechazado'` (default `'pendiente'` on create)
-- `proposal?: Record<string, unknown>` — JSON object carrying the staged update fields; REQUIRED when `tipo === 'actualizacion-evento'`, `null` for all other `tipo` values
-- `comentarios?: string` — free text, optional publisher/admin commentary
-- `revisadoPor?: string` — Firebase Auth UID of the admin who approved/rejected the solicitud; set when `status` transitions to `'aprobado'` or `'rechazado'`; MUST reference a `usuarios` document with `rol === 'admin'`
-- `createdAt: Date` — document creation timestamp
-- `revisadoAt?: Date` — timestamp of the `aprobar`/`rechazar` action
-
-The XOR invariant (`placeId` ⊕ `eventoId`, exactly one is non-null per `tipo`) is enforced by `SolicitudesService`; this requirement repeats it for the canonical record.
-
-#### Scenario: Auto-create solicitud on POST /places
-- **WHEN** a publisher sends `POST /api/v1/places` and the place is persisted with `status: 'pendiente'`
-- **THEN** a `solicitud` document is auto-created with `tipo: 'registro'`, `status: 'pendiente'`, `placeId` pointing to the new place, `eventoId: null`, `usuarioId` set to the publisher's UID, `proposal: null`
-- **AND** the solicitud `id` is returned to the caller (or surfaced via the admin queue)
-
-#### Scenario: Auto-create solicitud on POST /eventos
-- **WHEN** a publisher sends `POST /api/v1/eventos` and the event is persisted with `status: 'pendiente'` and `estado: 'borrador'`
-- **THEN** a `solicitud` document is auto-created with `tipo: 'registro-evento'`, `status: 'pendiente'`, `eventoId` pointing to the new event, `placeId: null`, `usuarioId` set to the publisher's UID, `proposal: null`
-
-#### Scenario: Auto-create solicitud on PUT /eventos/{id} when event is approved
-- **WHEN** a publisher (the event's owner or an admin) sends `PUT /api/v1/eventos/{id}` for an event with `status: 'aprobado'`
-- **THEN** the event document is NOT modified in-place
-- **AND** a `solicitud` is auto-created with `tipo: 'actualizacion-evento'`, `status: 'pendiente'`, `eventoId` pointing to the event, `usuarioId` set to the editor's UID, `proposal: { ...updateFields }` (a JSON object carrying the staged change)
-
-#### Scenario: Reject solicitud with both placeId and eventoId set (XOR violation)
-- **WHEN** `SolicitudesService.create` is called with both `placeId` and `eventoId` non-null
-- **THEN** the service throws a domain error (the XOR invariant is enforced at the application boundary, before persistence)
-- **AND** nothing is persisted
+## MODIFIED Requirements
 
 ### Requirement: `revisadoPor` resolver — rol `'admin'`
 The system SHALL ensure that any `solicitud` mutation that sets `status` to `'aprobado'` or `'rechazado'` is performed by an authenticated `usuarios` document with `rol === 'admin'`, and that the `revisadoPor` field stores that admin's UID.
@@ -86,4 +49,3 @@ The endpoints accept an optional `{ comentarios?: string }` body for the reject 
 - **WHEN** an admin calls `POST /api/v1/solicitudes/<id>/reject` with `{ comentarios: '...', unexpectedField: true }`
 - **THEN** the response is `400` with error: `property unexpectedField should not exist`
 - **AND** nothing is mutated (the global `ValidationPipe` with `forbidNonWhitelisted` enforces the contract)
-

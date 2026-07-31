@@ -1,39 +1,6 @@
-# api-contract Specification
+# api-contract Specification (delta — auth-usuarios)
 
-## Purpose
-TBD - created by archiving change roles-rename. Update Purpose after archive.
-## Requirements
-### Requirement: `RedSocial.plataforma` is a closed enum across the API
-The system SHALL accept only the following values for `redesSociales[].plataforma` anywhere the field appears in the API contract (`CreatePlace`, `UpdatePlace`, `Place` response):
-
-`'instagram' | 'facebook' | 'x-twitter' | 'linkedin' | 'tiktok' | 'youtube'`
-
-The legacy value `'twitter'` was renamed to `'x-twitter'` (reflecting the 2023 platform rename). Any client sending `'twitter'` receives a `400` `Bad Request` with a validation error listing the six valid values; the client is expected to update to `'x-twitter'`.
-
-This contract is implemented in:
-
-- `docs/api-spec.yml` — `RedSocial.plataforma` declares `enum: [instagram, facebook, x-twitter, linkedin, tiktok, youtube]`.
-- `docs/data-model.md` — `RedSocial` value object documents `plataforma: PlataformaSocialEnum`, with the `PlataformaSocialEnum` union enumerated.
-- `backend/src/modules/places/domain/plataforma-social.enum.ts` — defines `PlataformaSocialEnum` and `PLATAFORMA_SOCIAL_VALUES`.
-- `backend/src/modules/places/domain/red-social.vo.ts` — `isValidRedSocial` rejects `plataforma` values not in the enum.
-- `backend/src/modules/places/infrastructure/dto/red-social.dto.ts` — `@IsEnum(PLATAFORMA_SOCIAL_VALUES)` replaces the previous `@IsString()`.
-
-This requirement is **consistent with the existing closed-enum convention** (`ServicioEnum`, `MetodoPagoEnum`, `PublicoObjetivoEnum`, `AccesibilidadEnum`, `NivelRuido`) — `RedSocial.plataforma` was the only catalogue-like field on a `places` value object that was previously free-string.
-
-#### Scenario: OpenAPI generator stubs honour the enum
-- **WHEN** a frontend (or third-party client) generates TypeScript types from `docs/api-spec.yml`
-- **THEN** the `RedSocial.plataforma` field is typed as `'instagram' | 'facebook' | 'x-twitter' | 'linkedin' | 'tiktok' | 'youtube'` (not `string`), matching the backend domain enum
-- **AND** a value like `'whatsapp'` is a compile-time TypeScript error in the generated client
-
-#### Scenario: Backend rejects an unknown plataforma
-- **WHEN** a `POST /api/v1/places` arrives with `redesSociales: [{ plataforma: 'threads', url: 'https://threads.net/x' }]`
-- **THEN** the response is `400` with message: `plataforma must be one of: instagram, facebook, x-twitter, linkedin, tiktok, youtube`
-- **AND** the place is not persisted
-
-#### Scenario: Backend rejects the legacy 'twitter' value
-- **WHEN** a `POST /api/v1/places` arrives with `redesSociales: [{ plataforma: 'twitter', url: 'https://twitter.com/x' }]`
-- **THEN** the response is `400` with the same enum validation message
-- **AND** the error message lists `'x-twitter'` as the valid replacement so the client can self-correct
+## MODIFIED Requirements
 
 ### Requirement: `CreatePlace` does not accept `usuarioId` from the client
 The system SHALL NOT accept a `usuarioId` property in the `CreatePlace` request body. The `usuarioId` of a `Place` is server-derived from the verified Firebase Auth JWT (the authenticated publisher's UID).
@@ -79,6 +46,8 @@ The `Place` and `Evento` response schemas still expose `usuarioId` as a read-onl
 - **THEN** the generated model does not include a `usuarioId` field
 - **AND** any form bound to this model does not display a `usuarioId` input — the field is a render artifact of the previous spec
 
+## ADDED Requirements
+
 ### Requirement: `bearerAuth` security applied to protected paths
 The system SHALL declare the `bearerAuth` security scheme (already defined in `docs/api-spec.yml`) as the security requirement on every protected path, and SHALL leave it absent on the anonymous-accessible discovery paths. The OpenAPI contract reflects the runtime enforcement introduced by the `auth` module's `JwtAuthGuard` + `RolesGuard` composition.
 
@@ -119,4 +88,3 @@ Anonymous-accessible paths (no `bearerAuth`, no role required — public discove
 - **WHEN** a frontend generates a TypeScript client from `docs/api-spec.yml`
 - **THEN** the generated client's `createPlace`, `createEvento`, `approveSolicitud`, `updatePerfil`, etc. functions type-require an `Authorization` header (or a configurable token)
 - **AND** the generated `listPlaces`, `listEventos`, `getEventoBySlug`, etc. functions do NOT require authentication
-
