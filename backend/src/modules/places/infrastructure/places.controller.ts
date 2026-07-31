@@ -15,12 +15,18 @@ import {
   HttpStatus,
   NotFoundException,
   ConflictException,
+  UseGuards,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { PlacesService } from "../application/places.service";
 import { CreatePlaceDto } from "./dto/create-place.dto";
 import { UpdatePlaceDto } from "./dto/update-place.dto";
 import { QueryPlaceDto } from "./dto/query-place.dto";
+import { JwtAuthGuard } from "../../auth/application/jwt-auth.guard";
+import { RolesGuard } from "../../auth/application/roles.guard";
+import { Roles } from "../../auth/application/roles.decorator";
+import { CurrentUser } from "../../auth/application/current-user.decorator";
+import type { AuthContext } from "../../auth/domain/auth-context.interface";
 
 @ApiTags("places")
 @Controller("places")
@@ -32,6 +38,8 @@ export class PlacesController {
   // -------------------------------------------------------------------------
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner")
   @ApiOperation({
     summary: "Create a new place (generates solicitud automatically)",
   })
@@ -40,10 +48,8 @@ export class PlacesController {
     description: "Place created with status pendiente",
   })
   @ApiResponse({ status: 409, description: "Slug duplicado" })
-  async create(@Body() dto: CreatePlaceDto) {
-    // TODO: extract usuarioId from JWT guard (Task auth module)
-    const usuarioId = "anonymous";
-    return this.placesService.createPlace(dto, usuarioId);
+  async create(@Body() dto: CreatePlaceDto, @CurrentUser() user: AuthContext) {
+    return this.placesService.createPlace(dto, user.uid);
   }
 
   // -------------------------------------------------------------------------

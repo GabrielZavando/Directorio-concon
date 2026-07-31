@@ -61,7 +61,8 @@ describe("ValidationConfig — envSchema + dead config audit", () => {
      * Audit on 2026-07-29: the `dtoValidation.usuario.rol.enum` block was
      * updated in Task 2 of `roles-rename` to `['admin', 'owner', 'member']`.
      * After the dead-config cleanup, no `dtoValidation.usuario` block remains.
-     * The Rol enum is the canonical source (rol.enum.ts).
+     * The Rol enum canonical source lives at
+     * `backend/src/modules/auth/domain/rol.enum.ts` (moved by `auth-usuarios`).
      */
     const configFactory = ValidationConfig as unknown as () => Record<
       string,

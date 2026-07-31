@@ -1,10 +1,16 @@
 /**
  * Tests for the reusable Rol domain enum.
  *
- * The Rol enum is referenced by the future `auth + usuarios` change's
- * RolesGuard and by any DTO that validates role-typed input. The enum
- * values follow the Family B naming (`admin / owner / member`) — see
- * docs/data-model.md §usuarios and openspec/changes/roles-rename.
+ * The `Rol` enum lives in the `auth` module because it is the canonical
+ * type for authentication + authorization (used by `RolesGuard`,
+ * `AuthContext`, JWT custom claims). Originally introduced by the
+ * `roles-rename` change at `backend/src/modules/usuarios/domain/rol.enum.ts`
+ * and relocated by the `auth + usuarios` change to
+ * `backend/src/modules/auth/domain/rol.enum.ts` so that `auth` owns its
+ * own domain.
+ *
+ * The enum values follow the Family B naming (`admin / owner / member`) —
+ * see `docs/data-model.md §usuarios` and `openspec/changes/roles-rename`.
  */
 import { ROL_VALUES, type Rol } from "./rol.enum";
 

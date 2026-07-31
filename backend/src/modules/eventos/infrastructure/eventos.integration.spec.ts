@@ -16,12 +16,7 @@ import { EventoFirestoreAdapter } from "./evento-firestore.adapter";
 import { SolicitudesService } from "../../solicitudes/application/solicitudes.service";
 import { SolicitudesFirestoreAdapter } from "../../solicitudes/infrastructure/solicitudes-firestore.adapter";
 import { EventoApprovalHandlerImpl } from "../application/evento-approval.handler";
-import {
-  ConflictException,
-  ForbiddenException,
-  NotFoundException,
-  UnprocessableEntityException,
-} from "@nestjs/common";
+import { ForbiddenException, NotFoundException } from "@nestjs/common";
 
 // ---------------------------------------------------------------------------
 // Mock Firebase factory
@@ -316,7 +311,7 @@ describe("Eventos Integration (Service → Adapter)", () => {
         "evento-1",
         { organizador: "Nuevo Organizador" },
         "user-abc",
-        "empresa",
+        "owner",
       );
 
       // Verify solicitud was created (not in-place update)
@@ -496,7 +491,7 @@ describe("Eventos Integration (Service → Adapter)", () => {
   });
 
   // =========================================================================
-  // Flow 5: 403 on delete with pending solicitudes
+  // Flow 5: Authorization and conflict errors
   // =========================================================================
   describe("Flow 5: Authorization and conflict errors", () => {
     it("returns 403 when non-owner tries to update", async () => {
@@ -516,9 +511,52 @@ describe("Eventos Integration (Service → Adapter)", () => {
           "evento-1",
           { nombre: "Hacked" },
           "user-abc",
-          "empresa",
+          "owner",
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("admin can update another's evento (rol 'admin' bypasses ownership)", async () => {
+      jest.clearAllMocks();
+      mockFirebase.getDocument.mockImplementation(
+        (collection: string, id: string) => {
+          if (collection === "eventos" && id === "evento-1") {
+            // First call before update, second after update
+            const beforeUpdate =
+              mockFirebase.updateDocument.mock.calls.length === 0;
+            return Promise.resolve({
+              exists: true,
+              id: "evento-1",
+              data: () =>
+                makeEventoFirestoreDoc({
+                  status: "pendiente",
+                  usuarioId: "other-user",
+                  ...(beforeUpdate ? {} : { organizador: "Nuevo Organizador" }),
+                }),
+            });
+          }
+          return Promise.resolve({
+            exists: false,
+            id,
+            data: () => null,
+          });
+        },
+      );
+      mockFirebase.updateDocument.mockResolvedValue(undefined);
+
+      const result = await eventosService.update(
+        "evento-1",
+        { organizador: "Nuevo Organizador" },
+        "admin-1",
+        "admin",
+      );
+
+      expect(result.organizador).toBe("Nuevo Organizador");
+      expect(mockFirebase.updateDocument).toHaveBeenCalledWith(
+        "eventos",
+        "evento-1",
+        expect.objectContaining({ organizador: "Nuevo Organizador" }),
+      );
     });
 
     it("returns 404 for non-existent evento", async () => {
