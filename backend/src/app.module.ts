@@ -12,13 +12,12 @@ import { ValidationConfig } from "@/config/validation.config";
 import { PlacesModule } from "@/modules/places/places.module";
 import { EventosModule } from "@/modules/eventos/eventos.module";
 import { SolicitudesModule } from "@/modules/solicitudes/solicitudes.module";
+import { UsuariosModule } from "@/modules/usuarios/usuarios.module";
 // import { CategoriasModule } from '@/modules/categorias/categorias.module';
 // import { BarriosModule } from '@/modules/barrios/barrios.module';
-// import { UsuariosModule } from '@/modules/usuarios/usuarios.module';
-// import { SolicitudesModule } from '@/modules/solicitudes/solicitudes.module';
 
 // Módulos de autenticación
-// import { AuthModule } from '@/modules/auth/auth.module';
+import { AuthModule } from "@/modules/auth/auth.module";
 
 // Módulos de monetización
 // import { PlanesModule } from '@/modules/planes/planes.module';
@@ -89,11 +88,10 @@ import { AppService } from "./app.service";
     SolicitudesModule,
     // CategoriasModule,
     // BarriosModule,
-    // UsuariosModule,
-    // SolicitudesModule,
+    UsuariosModule,
 
-    // Autenticación
-    // AuthModule,
+    // Autenticación (depends on FirebaseModule above)
+    AuthModule,
 
     // Monetización
     // PlanesModule,

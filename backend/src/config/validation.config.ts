@@ -56,7 +56,10 @@ export const ValidationConfig = registerAs("validation", () => ({
    * (`@MinLength`, `@MaxLength`, `@IsEnum`, `@IsUrl`, `@ArrayMaxSize`,
    * etc.) declared on each DTO class — see `create-place.dto.ts`,
    * `create-evento.dto.ts`, etc. The `Rol` enum has its canonical home
-   * at `backend/src/modules/usuarios/domain/rol.enum.ts`.
+   * at `backend/src/modules/auth/domain/rol.enum.ts` (relocated by the
+   * `auth-usuarios` change — originally at
+   * `backend/src/modules/usuarios/domain/rol.enum.ts` from the
+   * `roles-rename` change).
    *
    * If a future change reintroduces a `dtoValidation.*` block (e.g., a
    * future `auth + usuarios` change that needs runtime-configurable

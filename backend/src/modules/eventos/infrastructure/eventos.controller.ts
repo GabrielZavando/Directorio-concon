@@ -11,16 +11,20 @@ import {
   Param,
   Body,
   Query,
-  Headers,
   HttpCode,
   HttpStatus,
-  UnauthorizedException,
+  UseGuards,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { EventosService } from "../application/eventos.service";
 import { CreateEventoDto } from "./dto/create-evento.dto";
 import { UpdateEventoDto } from "./dto/update-evento.dto";
 import { QueryEventoDto } from "./dto/query-evento.dto";
+import { JwtAuthGuard } from "../../auth/application/jwt-auth.guard";
+import { RolesGuard } from "../../auth/application/roles.guard";
+import { Roles } from "../../auth/application/roles.decorator";
+import { CurrentUser } from "../../auth/application/current-user.decorator";
+import type { AuthContext } from "../../auth/domain/auth-context.interface";
 
 @ApiTags("eventos")
 @Controller("eventos")
@@ -32,6 +36,8 @@ export class EventosController {
   // -------------------------------------------------------------------------
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
   @ApiOperation({
     summary: "Create a new evento (generates solicitud automatically)",
   })
@@ -40,16 +46,11 @@ export class EventosController {
     description: "Evento created with status pendiente",
   })
   @ApiResponse({ status: 400, description: "Validation error" })
-  @ApiResponse({ status: 401, description: "Missing auth header" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 403, description: "Forbidden (not owner/admin)" })
   @ApiResponse({ status: 409, description: "Slug duplicado" })
-  async create(
-    @Body() dto: CreateEventoDto,
-    @Headers("x-usuario-id") usuarioId?: string,
-  ) {
-    if (!usuarioId) {
-      throw new UnauthorizedException("x-usuario-id header is required");
-    }
-    return this.eventosService.create(dto, usuarioId);
+  async create(@Body() dto: CreateEventoDto, @CurrentUser() user: AuthContext) {
+    return this.eventosService.create(dto, user.uid);
   }
 
   // -------------------------------------------------------------------------
@@ -116,22 +117,20 @@ export class EventosController {
   // PUT /eventos/:id
   // -------------------------------------------------------------------------
   @Put(":id")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
   @ApiOperation({ summary: "Update an evento (partial)" })
   @ApiResponse({ status: 200, description: "Evento updated" })
-  @ApiResponse({ status: 401, description: "Missing auth header" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
   @ApiResponse({ status: 403, description: "Forbidden" })
   @ApiResponse({ status: 404, description: "Evento not found" })
   @ApiResponse({ status: 409, description: "Slug duplicado on rename" })
   async update(
     @Param("id") id: string,
     @Body() dto: UpdateEventoDto,
-    @Headers("x-usuario-id") usuarioId?: string,
-    @Headers("x-rol") rol?: string,
+    @CurrentUser() user: AuthContext,
   ) {
-    if (!usuarioId) {
-      throw new UnauthorizedException("x-usuario-id header is required");
-    }
-    return this.eventosService.update(id, dto, usuarioId, rol ?? "empresa");
+    return this.eventosService.update(id, dto, user.uid, user.rol);
   }
 
   // -------------------------------------------------------------------------
@@ -139,23 +138,18 @@ export class EventosController {
   // -------------------------------------------------------------------------
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
   @ApiOperation({
     summary: "Delete an evento (blocked if solicitudes exist)",
   })
   @ApiResponse({ status: 200, description: "Evento deleted" })
-  @ApiResponse({ status: 401, description: "Missing auth header" })
+  @ApiResponse({ status: 401, description: "Missing or invalid token" })
   @ApiResponse({ status: 403, description: "Forbidden" })
   @ApiResponse({ status: 404, description: "Evento not found" })
   @ApiResponse({ status: 409, description: "Cannot delete: solicitudes exist" })
-  async remove(
-    @Param("id") id: string,
-    @Headers("x-usuario-id") usuarioId?: string,
-    @Headers("x-rol") rol?: string,
-  ) {
-    if (!usuarioId) {
-      throw new UnauthorizedException("x-usuario-id header is required");
-    }
-    await this.eventosService.remove(id, usuarioId, rol ?? "empresa");
+  async remove(@Param("id") id: string, @CurrentUser() user: AuthContext) {
+    await this.eventosService.remove(id, user.uid, user.rol);
     return { deleted: true, id };
   }
 }

@@ -18,6 +18,7 @@ import type {
 import { FirebaseService } from "@/common/services/firebase.service";
 import { PlaceApprovalHandlerImpl } from "./application/place-approval.handler";
 import { PLACE_APPROVAL_HANDLER } from "../solicitudes/application/approval-handlers";
+import { AuthModule } from "../auth/auth.module";
 
 /**
  * Minimal Solicitudes repository stub.
@@ -36,6 +37,7 @@ class StubSolicitudesRepository implements SolicitudesRepositoryInterface {
 }
 
 @Module({
+  imports: [AuthModule],
   controllers: [PlacesController],
   providers: [
     PlacesService,

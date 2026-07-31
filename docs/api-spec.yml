@@ -732,6 +732,140 @@ components:
         destacado:
           type: boolean
 
+    # — auth + usuarios schemas (change auth-usuarios) —
+
+    Rol:
+      type: string
+      enum: [admin, owner, member]
+      description: |
+        Closed `Rol` enum, defined at
+        `backend/src/modules/usuarios/domain/rol.enum.ts`. The legacy values
+        `'admin' | 'empresa' | 'usuario'` (roles-rename) were renamed to
+        `'admin' | 'owner' | 'member'`. Default `'member'` on registration.
+
+    AuthContext:
+      type: object
+      description: |
+        The authenticated principal travelling on `request.user` after
+        `JwtAuthGuard` verifies the Firebase Auth `idToken`. Constructed by
+        `AuthService.buildContext(decodedToken)`. Read-only — never accepted
+        in request bodies.
+      properties:
+        uid:
+          type: string
+          description: Verified Firebase Auth UID of the caller.
+        email:
+          type: string
+          format: email
+        rol:
+          $ref: '#/components/schemas/Rol'
+        placeId:
+          type: string
+          nullable: true
+          description: |
+            Reference to the `places` document the user owns. Present when
+            `rol === 'owner'`; MUST be `null`/omitted for `'admin'` and
+            `'member'`.
+
+    Usuario:
+      type: object
+      description: Document in the Firestore `usuarios` collection.
+      properties:
+        id:
+          type: string
+          description: Firebase Auth UID (PK).
+        email:
+          type: string
+          format: email
+          description: UNIQUE email. Validated server-side on create.
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Display name.
+        rol:
+          $ref: '#/components/schemas/Rol'
+        placeId:
+          type: string
+          nullable: true
+          description: |
+            Reference to the `places` document the user owns. Set when and
+            only when `rol === 'owner'`.
+        telefono:
+          type: string
+          nullable: true
+          description: Chilean-format phone (free string).
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateUsuario:
+      type: object
+      description: |
+        Admin-only request to provision a `usuarios` document for an existing
+        Firebase Auth user. Self-registration is deferred (see change
+        `usuarios-self-signup`).
+      required: [email, nombre]
+      properties:
+        email:
+          type: string
+          format: email
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 100
+        rol:
+          $ref: '#/components/schemas/Rol'
+          default: member
+        placeId:
+          type: string
+          nullable: true
+        telefono:
+          type: string
+          nullable: true
+
+    UpdatePerfil:
+      type: object
+      description: |
+        Self-service update for the authenticated user's profile. `rol` and
+        `placeId` are NOT accepted — they are admin-only (`UpdateRol` /
+        admin provisioning). The global `ValidationPipe` with
+        `forbidNonWhitelisted: true` rejects any other field with `400`.
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 100
+        telefono:
+          type: string
+          nullable: true
+
+    UpdateRol:
+      type: object
+      description: |
+        Admin-only mutation of a user's `rol`. Validated against the closed
+        `Rol` enum server-side; any value outside `[admin, owner, member]`
+        receives `400` with message `rol must be one of: admin, owner, member`.
+      required: [rol]
+      properties:
+        rol:
+          $ref: '#/components/schemas/Rol'
+
+    SolicitudApproveRejectBody:
+      type: object
+      description: |
+        Optional body for `POST /solicitudes/{id}/approve|reject`. `comentarios`
+        is the admin's free-text rejection/approval note (only meaningful for
+        `reject`). Approve silently ignores `comentarios` when sent. Any other
+        property receives `400` `property X should not exist`.
+      properties:
+        comentarios:
+          type: string
+          maxLength: 500
+
 security:
   - bearerAuth: []
 
@@ -755,6 +889,7 @@ paths:
   /places:
     get:
       summary: Listar places (paginado, filtros)
+      security: []
       parameters:
         - name: page
           in: query
@@ -792,6 +927,13 @@ paths:
           $ref: '#/components/schemas/Error'
     post:
       summary: Crear place
+      security:
+        - bearerAuth: []
+      description: |
+        Authenticated route. The caller MUST have `rol === 'owner'` (enforced
+        by `RolesGuard`), and `places.usuarioId` is sourced from the verified
+        JWT `uid` (via `@CurrentUser()`). The body MUST NOT include
+        `usuarioId` (forbidNonWhitelisted — `400` if present).
       requestBody:
         required: true
         content:
@@ -800,7 +942,7 @@ paths:
               $ref: '#/components/schemas/CreatePlace'
       responses:
         "201":
-          description: Place creado
+          description: Place creado — `usuarioId` set from the verified JWT uid
           content:
             application/json:
               schema:
@@ -809,6 +951,9 @@ paths:
           $ref: '#/components/schemas/Error'
         "401":
           $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'owner'` (e.g., `'member'`)
+          $ref: '#/components/schemas/Error'
         "409":
           description: Slug duplicado
           $ref: '#/components/schemas/Error'
@@ -816,6 +961,7 @@ paths:
   /places/{id}:
     get:
       summary: Obtener place por id
+      security: []
       parameters:
         - name: id
           in: path
@@ -832,6 +978,15 @@ paths:
           $ref: '#/components/schemas/Error'
     put:
       summary: Actualizar place
+      security:
+        - bearerAuth: []
+      description: |
+        Authenticated. In MVP returns `200` for the owner or admin; the
+        fine-grained `owner`/`admin` guards for `PUT /places/{id}` and
+        `DELETE /places/{id}` are introduced by a future
+        `places-clean-arch-refactor` change (out of scope for
+        `auth-usuarios`). This change only updates the `POST /places`
+        protection (see above).
       parameters:
         - name: id
           in: path
@@ -850,10 +1005,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Place'
+        "401":
+          $ref: '#/components/schemas/Error'
         "404":
           $ref: '#/components/schemas/Error'
     delete:
       summary: Eliminar place
+      security:
+        - bearerAuth: []
+      description: Same MVP caveat as `PUT /places/{id}` — auth introduced here, fine-grained guards deferred.
       parameters:
         - name: id
           in: path
@@ -871,6 +1031,8 @@ paths:
                     type: boolean
                   id:
                     type: string
+        "401":
+          $ref: '#/components/schemas/Error'
         "404":
           $ref: '#/components/schemas/Error'
         "409":
@@ -880,6 +1042,7 @@ paths:
   /places/slug/{slug}:
     get:
       summary: Obtener place por slug
+      security: []
       parameters:
         - name: slug
           in: path
@@ -898,6 +1061,7 @@ paths:
   /places/map-data:
     get:
       summary: Obtener datos ligeros para mapa interactivo
+      security: []
       responses:
         "200":
           description: Array de places con coordenadas para marcadores
@@ -907,12 +1071,11 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/MapDataItem'
-        "401":
-          $ref: '#/components/schemas/Error'
 
   /places/{id}/abierto-ahora:
     get:
       summary: Verificar si el place está abierto ahora (zona horaria America/Santiago)
+      security: []
       parameters:
         - name: id
           in: path
@@ -931,6 +1094,7 @@ paths:
   /eventos:
     get:
       summary: Listar eventos (paginado, filtros, solo status aprobado)
+      security: []
       parameters:
         - name: page
           in: query
@@ -979,10 +1143,17 @@ paths:
                       $ref: '#/components/schemas/Evento'
                   meta:
                     $ref: '#/components/schemas/Pagination'
-        "401":
-          $ref: '#/components/schemas/Error'
     post:
       summary: Crear evento
+      security:
+        - bearerAuth: []
+      description: |
+        Authenticated. `rol === 'owner'` or `rol === 'admin'` (enforced by
+        `RolesGuard`). `eventos.usuarioId` is sourced from the verified JWT
+        `uid` (via `@CurrentUser()`). The provisional `x-usuario-id` header
+        (auth debt from `roles-rename`) is removed by the `auth-usuarios`
+        change — any such header is silently ignored. Body MUST NOT include
+        `usuarioId` (forbidNonWhitelisted — `400`).
       requestBody:
         required: true
         content:
@@ -991,7 +1162,7 @@ paths:
               $ref: '#/components/schemas/CreateEvento'
       responses:
         "201":
-          description: Evento creado
+          description: Evento creado — `usuarioId` set from the verified JWT uid
           content:
             application/json:
               schema:
@@ -1000,6 +1171,9 @@ paths:
           $ref: '#/components/schemas/Error'
         "401":
           $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is `'member'` (create is owner/admin-only)
+          $ref: '#/components/schemas/Error'
         "409":
           description: Slug duplicado
           $ref: '#/components/schemas/Error'
@@ -1007,6 +1181,7 @@ paths:
   /eventos/map-data:
     get:
       summary: Obtener datos ligeros de eventos para mapa interactivo
+      security: []
       responses:
         "200":
           description: Array de eventos con coordenadas para marcadores
@@ -1016,12 +1191,11 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/EventoMapDataItem'
-        "401":
-          $ref: '#/components/schemas/Error'
 
   /eventos/{id}:
     get:
       summary: Obtener evento por id (solo status aprobado para público)
+      security: []
       parameters:
         - name: id
           in: path
@@ -1038,6 +1212,14 @@ paths:
           $ref: '#/components/schemas/Error'
     put:
       summary: Actualizar evento
+      security:
+        - bearerAuth: []
+      description: |
+        Authenticated. `rol === 'owner'` or `rol === 'admin'` (enforced by
+        `RolesGuard`). Owner can only update their own eventos
+        (`evento.usuarioId === verified JWT uid`); otherwise `403`. Admin
+        can update any evento. `usuarioId` is sourced from the JWT (via
+        `@CurrentUser()`) — the `x-usuario-id` header is removed.
       parameters:
         - name: id
           in: path
@@ -1066,6 +1248,16 @@ paths:
           $ref: '#/components/schemas/Error'
     delete:
       summary: Eliminar evento
+      security:
+        - bearerAuth: []
+      description: |
+        Authenticated. `rol === 'owner'` or `rol === 'admin'` (enforced by
+        `RolesGuard`). Owner can only delete their own eventos; otherwise
+        `403`. Admin can delete any evento.
+
+        **BREAKING (change `auth-usuarios`)**: the `x-usuario-id` and `x-rol`
+        request headers from the original `eventos-crud` implementation are
+        removed; callers MUST send `Authorization: Bearer <idToken>`.
       parameters:
         - name: id
           in: path
@@ -1096,6 +1288,7 @@ paths:
   /eventos/slug/{slug}:
     get:
       summary: Obtener evento por slug (solo status aprobado para público)
+      security: []
       parameters:
         - name: slug
           in: path
@@ -1109,4 +1302,303 @@ paths:
               schema:
                 $ref: '#/components/schemas/Evento'
         "404":
+          $ref: '#/components/schemas/Error'
+
+  # — auth + usuarios paths (change auth-usuarios) —
+
+  /usuarios/me:
+    get:
+      summary: Get the authenticated user's own profile
+      security:
+        - bearerAuth: []
+      description: |
+        Returns the `usuarios` document matching the verified JWT `uid`. Any
+        authenticated role (`'admin'`, `'owner'`, `'member'`) can access
+        their own profile — no `@Roles` enforcement.
+      responses:
+        "200":
+          description: The caller's `Usuario` document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: |
+            The verified Firebase Auth UID has no matching `usuarios`
+            document (orphan — needs admin provisioning before accessing
+            any authenticated endpoint).
+          $ref: '#/components/schemas/Error'
+    put:
+      summary: Update the authenticated user's own profile (self-service)
+      security:
+        - bearerAuth: []
+      description: |
+        Self-service update of `nombre` and `telefono`. The body accepts
+        ONLY `{ nombre?, telefono? }`. `rol` and `placeId` are NOT accepted
+        — they are admin-only. The global `ValidationPipe` with
+        `forbidNonWhitelisted: true` rejects any other field with `400`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePerfil'
+      responses:
+        "200":
+          description: Updated `Usuario` document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        "400":
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Orphan user (no `usuarios` document).
+          $ref: '#/components/schemas/Error'
+
+  /usuarios:
+    get:
+      summary: List all usuarios (admin-only)
+      security:
+        - bearerAuth: []
+      description: |
+        Admin-only. Returns all `usuarios` documents. `@Roles('admin')`
+        enforces the role; non-admins receive `403`.
+      parameters:
+        - name: rol
+          in: query
+          schema: { $ref: '#/components/schemas/Rol' }
+          description: Optional filter by rol.
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: List of usuarios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Usuario'
+                  meta:
+                    $ref: '#/components/schemas/Pagination'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`.
+          $ref: '#/components/schemas/Error'
+    post:
+      summary: Provision a new usuarios document (admin-only)
+      security:
+        - bearerAuth: []
+      description: |
+        Admin-only. Provisions a `usuarios` document for an existing
+        Firebase Auth user (the Firebase Auth signup happens client-side;
+        this endpoint writes the matching `usuarios` row). Default
+        `rol: 'member'` if omitted. Email uniqueness is enforced server-side
+        (`ConflictException`/`409`). Self-registration is deferred to a
+        future `usuarios-self-signup` change.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUsuario'
+      responses:
+        "201":
+          description: Usuario created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        "400":
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`.
+          $ref: '#/components/schemas/Error'
+        "409":
+          description: A `usuarios` document with that `email` already exists.
+          $ref: '#/components/schemas/Error'
+
+  /usuarios/{uid}:
+    get:
+      summary: Get a usuarios document by UID (admin-only)
+      security:
+        - bearerAuth: []
+      description: Admin-only. `@Roles('admin')` enforces; non-admins receive `403`.
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Usuario document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`.
+          $ref: '#/components/schemas/Error'
+        "404":
+          $ref: '#/components/schemas/Error'
+
+  /usuarios/{uid}/rol:
+    put:
+      summary: Update a user's rol (admin-only, validates closed enum)
+      security:
+        - bearerAuth: []
+      description: |
+        Admin-only. Body MUST be `{ rol: 'admin'|'owner'|'member' }`.
+        Validated against `ROL_VALUES` `@IsEnum` — any other value
+        receives `400` with message `rol must be one of: admin, owner, member`.
+        Non-admins receive `403`.
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRol'
+      responses:
+        "200":
+          description: Updated `Usuario` document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        "400":
+          description: Body's `rol` is not in `[admin, owner, member]`.
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`.
+          $ref: '#/components/schemas/Error'
+        "404":
+          $ref: '#/components/schemas/Error'
+
+  # — solicitudes approve/reject paths (change auth-usuarios) —
+
+  /solicitudes/{id}/approve:
+    post:
+      summary: Aprobar una solicitud (admin-only)
+      security:
+        - bearerAuth: []
+      description: |
+        Admin-only. `@Roles('admin')` enforced by `RolesGuard`. The solicitud
+        transitions to `status: 'aprobado'`, `revisadoPor: <caller uid>`
+        (from `@CurrentUser()`), `revisadoAt: <now>`. The side-effect
+        propagates to the linked `places`/`eventos` document via the
+        existing `SolicitudesService.approve` handler. Returns `409` if the
+        solicitud is not `'pendiente'`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Solicitud aprobada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [aprobado]
+                  revisadoPor:
+                    type: string
+                  revisadoAt:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`.
+          $ref: '#/components/schemas/Error'
+        "404":
+          $ref: '#/components/schemas/Error'
+        "409":
+          description: Solicitud is not `'pendiente'`.
+          $ref: '#/components/schemas/Error'
+
+  /solicitudes/{id}/reject:
+    post:
+      summary: Rechazar una solicitud (admin-only)
+      security:
+        - bearerAuth: []
+      description: |
+        Admin-only. `@Roles('admin')` enforced by `RolesGuard`. Body accepts
+        `{ comentarios?: string }` (admin's free-text rejection note;
+        max 500 chars). Any other body property receives `400`
+        (`forbidNonWhitelisted`). The solicitud transitions to
+        `status: 'rechazado'`, `revisadoPor: <caller uid>`,
+        `revisadoAt: <now>`, `comentarios: <body>`. Returns `409` if not `'pendiente'`.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SolicitudApproveRejectBody'
+      responses:
+        "200":
+          description: Solicitud rechazada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+                    enum: [rechazado]
+                  revisadoPor:
+                    type: string
+                  revisadoAt:
+                    type: string
+                    format: date-time
+                  comentarios:
+                    type: string
+                    nullable: true
+        "400":
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`.
+          $ref: '#/components/schemas/Error'
+        "404":
+          $ref: '#/components/schemas/Error'
+        "409":
+          description: Solicitud is not `'pendiente'`.
           $ref: '#/components/schemas/Error'
