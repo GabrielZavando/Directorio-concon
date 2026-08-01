@@ -144,4 +144,4 @@ No hay migración de datos. Sin frontend vivo.
 
 - [x] Validar cobertura total + lint verde + todos los checkboxes completados.
 - [x] Correr `/archive places-auth-fix` (custom command) — archiva `openspec/changes/places-auth-fix/` y fusiona deltas a `openspec/specs/`.
-- [ ] Commit conventional: `feat(places): enforce owner/admin guards on PUT/DELETE + real solicitudes wiring + XOR validation` (o commits lógicos separados siguiendo precedente `auth-usuarios`).
+- [x] Commit conventional: `feat(places): enforce owner/admin guards on PUT/DELETE + real solicitudes wiring + XOR validation` (o commits lógicos separados siguiendo precedente `auth-usuarios`).
