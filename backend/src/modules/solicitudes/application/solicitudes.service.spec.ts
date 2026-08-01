@@ -152,6 +152,43 @@ describe("SolicitudesService", () => {
   });
 
   // =========================================================================
+  // XOR constraint (placeId ⊕ eventoId) — enforced at the application boundary
+  // =========================================================================
+  const XOR_MSG =
+    "Una solicitud debe referenciar exactamente un placeId o eventoId (XOR)";
+  const baseInput = {
+    usuarioId: "user-abc",
+    status: "pendiente" as const,
+    createdAt: new Date("2026-01-01"),
+  };
+  const bothReg = { placeId: "p1", eventoId: "e1", tipo: "registro" } as const;
+  const bothEv = {
+    placeId: "p1",
+    eventoId: "e1",
+    tipo: "registro-evento",
+  } as const;
+
+  it.each([
+    ["both", bothReg],
+    ["both-evento", bothEv],
+    ["none", { tipo: "registro" }],
+    ["mismatch", { placeId: "p1", tipo: "registro-evento" }],
+  ] as const)("create %s (400)", async (_label, refs) => {
+    const call = service.create({ ...baseInput, ...refs });
+    await expect(call).rejects.toThrow(XOR_MSG);
+    expect(mockRepo.create).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["both", bothEv],
+    ["none", { tipo: "registro-evento" }],
+  ] as const)("createEvento %s (400)", async (_label, refs) => {
+    const call = service.createEventoSolicitud({ ...baseInput, ...refs });
+    await expect(call).rejects.toThrow(XOR_MSG);
+    expect(mockRepo.create).not.toHaveBeenCalled();
+  });
+
+  // =========================================================================
   // existsPendingByEventoId
   // =========================================================================
   describe("existsPendingByEventoId", () => {

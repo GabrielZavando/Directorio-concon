@@ -7,8 +7,10 @@
  * RolesGuard)` + `@Roles('owner')` — `usuarioId` is extracted from
  * `@CurrentUser().uid` (replaces the legacy `"anonymous"` hardcode).
  * GET endpoints stay unauthenticated (anonymous discovery Flujo 2).
- * PUT/DELETE remain with `"anonymous"` for now (deferred to
- * `places-clean-arch-refactor`).
+ * places-auth-fix (Task 2): `PUT /places/:id` and `DELETE /places/:id` now use
+ * `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner', 'admin')` and pass
+ * the full `AuthContext` to the service (ownership enforced in `PlacesService`).
+ * The legacy `"anonymous"` hardcode is gone.
  *
  * Guards run for real so authorization contracts (401/403) are verified.
  * `AuthService.buildContext` is replaced with a per-test mock so Firebase
@@ -17,6 +19,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import {
   ConflictException,
+  ForbiddenException,
   INestApplication,
   NotFoundException,
   ValidationPipe,
@@ -130,6 +133,22 @@ describe("PlacesController (HTTP)", () => {
     const ctx = makeContext(rol);
     mockAuthService.buildContext.mockResolvedValue(ctx);
     return ctx;
+  }
+
+  // Sends an authenticated (or anonymous) request to /places/place-1.
+  function sendAuthed(
+    method: "put" | "delete",
+    rol: Rol | null,
+    body?: object,
+  ) {
+    const req = request(app.getHttpServer())[method]("/places/place-1");
+    if (rol) {
+      req.set("Authorization", "Bearer fake-token");
+    }
+    if (body !== undefined) {
+      req.send(body);
+    }
+    return req;
   }
 
   // =========================================================================
@@ -346,34 +365,88 @@ describe("PlacesController (HTTP)", () => {
   });
 
   // =========================================================================
-  // PUT /places/:id — NOT touched by this change (deferred to places-clean-arch-refactor)
+  // PUT /places/:id and DELETE /places/:id
+  // (auth: @Roles('owner','admin') + service ownership in PlacesService)
   // =========================================================================
-  describe("PUT /places/:id", () => {
-    it("returns 200 (usuarioId still comes from legacy anonymous)", async () => {
+  function serviceFor(method: "put" | "delete") {
+    return method === "put"
+      ? mockPlacesService.update
+      : mockPlacesService.delete;
+  }
+
+  describe.each([
+    ["PUT /places/:id", "put", { nombre: "Nuevo" }] as const,
+    ["DELETE /places/:id", "delete", undefined] as const,
+  ])("%s", (_label, method, body) => {
+    it("owner (own place) → 200, passes ctx to service", async () => {
+      const ctx = givenUser("owner");
       mockPlacesService.update.mockResolvedValue(makePlace());
+      mockPlacesService.delete.mockResolvedValue(undefined);
 
-      await request(app.getHttpServer())
-        .put("/places/place-1")
-        .send({ nombre: "Nuevo" })
-        .expect(200);
+      await sendAuthed(method, "owner", body).expect(200);
+
+      const expectedArgs =
+        method === "put"
+          ? [
+              "place-1",
+              expect.any(Object),
+              expect.objectContaining({ uid: ctx.uid, rol: "owner" }),
+            ]
+          : [
+              "place-1",
+              expect.objectContaining({ uid: ctx.uid, rol: "owner" }),
+            ];
+      expect(serviceFor(method)).toHaveBeenCalledWith(...expectedArgs);
     });
-  });
 
-  // =========================================================================
-  // DELETE /places/:id — NOT touched by this change
-  // =========================================================================
-  describe("DELETE /places/:id", () => {
-    it("returns 200", async () => {
-      mockPlacesService.delete.mockResolvedValue({
-        deleted: true,
-        id: "place-1",
-      });
+    it("owner (foreign place) → 403 (service ownership)", async () => {
+      givenUser("owner");
+      serviceFor(method).mockRejectedValue(
+        method === "put"
+          ? new ForbiddenException(
+              "No tienes permiso para modificar este lugar",
+            )
+          : new ForbiddenException(
+              "No tienes permiso para eliminar este lugar",
+            ),
+      );
 
-      const response = await request(app.getHttpServer())
-        .delete("/places/place-1")
-        .expect(200);
+      await sendAuthed(method, "owner", body).expect(403);
+    });
 
-      expect(response.body.deleted).toBe(true);
+    it("admin (any place) → 200, passes ctx to service", async () => {
+      const ctx = givenUser("admin");
+      mockPlacesService.update.mockResolvedValue(makePlace());
+      mockPlacesService.delete.mockResolvedValue(undefined);
+
+      await sendAuthed(method, "admin", body).expect(200);
+
+      const expectedArgs =
+        method === "put"
+          ? [
+              "place-1",
+              expect.any(Object),
+              expect.objectContaining({ uid: ctx.uid, rol: "admin" }),
+            ]
+          : [
+              "place-1",
+              expect.objectContaining({ uid: ctx.uid, rol: "admin" }),
+            ];
+      expect(serviceFor(method)).toHaveBeenCalledWith(...expectedArgs);
+    });
+
+    it("member → 403 (RolesGuard)", async () => {
+      givenUser("member");
+
+      await sendAuthed(method, "member", body).expect(403);
+
+      expect(serviceFor(method)).not.toHaveBeenCalled();
+    });
+
+    it("anónimo (no token) → 401 (JwtAuthGuard)", async () => {
+      await sendAuthed(method, null, body).expect(401);
+
+      expect(serviceFor(method)).not.toHaveBeenCalled();
     });
   });
 });

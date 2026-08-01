@@ -249,27 +249,70 @@
 
 ## Índices Firestore requeridos
 
+> Fuente canónica: `firestore.indexes.json` (raíz del repo). Este cambio
+> (`places-auth-fix`) declara los índices marcados **[+]**: se crean ANTES del
+> deploy de las queries que los requieren (deploy-time requirement).
+> Los índices sin marcador ya existen en `firestore.indexes.json` o son
+> auto-indexed por Firestore (single-field, sin declaración compuesta).
+
+### Auto-indexed (single-field — Firestore los crea automáticamente)
+
 ```
 places: categoriaId (ASC)
 places: barrioId (ASC)
-places: status (ASC) + destacado (DESC) + createdAt (DESC)
 places: slug (ASC) — único
 categorias: slug (ASC) — único
-categorias: activa (ASC) + orden (ASC)
 barrios: slug (ASC) — único
+categorias: activa (ASC)
 barrios: tipo (ASC)
-usuarios: email (ASC) — único
-usuarios: rol (ASC)
-solicitudes: placeId (ASC) + status (ASC)
-solicitudes: eventoId (ASC) + status (ASC)
+usuarios: email (ASC) — único (fieldOverride en firestore.indexes.json)
+usuarios: rol (ASC) (fieldOverride en firestore.indexes.json)
+```
+
+### Composite indexes — declarados en `firestore.indexes.json`
+
+```
+# places (existentes)
+places: status (ASC) + destacado (DESC) + createdAt (DESC)
+places: status (ASC) + categoriaId (ASC) + destacado (DESC) + createdAt (DESC)
+places: status (ASC) + barrioId (ASC) + destacado (DESC) + createdAt (DESC)
+places: status (ASC) + categoriaId (ASC) + barrioId (ASC) + destacado (DESC) + createdAt (DESC)
+
+# eventos (existentes)
 eventos: categoriaId (ASC) + fechaInicio (ASC)
 eventos: barrioId (ASC) + fechaInicio (ASC)
+eventos: subcategoriaId (ASC) + fechaInicio (ASC)
 eventos: status (ASC) + destacado (DESC) + fechaInicio (ASC)
 eventos: slug (ASC) — único
 eventos: usuarioId (ASC) + createdAt (DESC)
 eventos: fechaInicio (ASC) + estado (ASC)
-eventos: subcategoriaId (ASC) + fechaInicio (ASC)
+
+# solicitudes (existentes)
+solicitudes: eventoId (ASC) + status (ASC) — pendientes por evento, `DELETE /eventos/{id}`
+
+# solicitudes [+] — declarados por places-auth-fix
+solicitudes: placeId (ASC) + status (ASC) — pendientes por place, `DELETE /places/{id}`
+solicitudes: status (ASC) + createdAt (DESC) — futura cola de revisión admin
+
+# eventos [+] — declarados por places-auth-fix
+eventos: status (ASC) + estado (ASC) + fechaInicio (ASC) — público `findAllPublic`
+eventos: status (ASC) + estado (ASC) + subcategoriaId (ASC) + fechaInicio (ASC)
+eventos: status (ASC) + estado (ASC) + barrioId (ASC) + fechaInicio (ASC)
+eventos: status (ASC) + estado (ASC) + precioTipo (ASC) + fechaInicio (ASC)
+eventos: categoriaId (ASC) + createdAt (DESC) — admin `findAllAdmin`
+eventos: subcategoriaId (ASC) + createdAt (DESC) — admin
+eventos: barrioId (ASC) + createdAt (DESC) — admin
+eventos: estado (ASC) + createdAt (DESC) — admin
+
+# categorias/barrios [+] — forward-declared (módulos backend comentados en MVP)
+categorias: activa (ASC) + orden (ASC)
+barrios: tipo (ASC)
 ```
+
+> **Nota deuda (YAGNI)**: `findAllPublic` soporta combinaciones de filtros
+> (categoriaId/subcategoriaId/barrioId/precioTipo) cuyo cross-product de índices
+> no se declara. Las queries multi-filtro no cubiertas por los índices anteriores
+> requieren añadir su índice antes de activarlas en el frontend.
 
 ## Convenciones de nombres
 

@@ -2,7 +2,11 @@
  * Unit tests for PlacesService.
  * TDD RED phase — these tests will fail until the service is implemented.
  */
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common";
 import { PlacesService } from "./places.service";
 import type {
   PlaceRepositoryInterface,
@@ -13,6 +17,7 @@ import type {
   Solicitud,
 } from "../domain/solicitudes-repository.interface";
 import type { Place } from "../domain/place.entity";
+import type { AuthContext } from "../../auth/domain/auth-context.interface";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,6 +40,7 @@ function makePlace(overrides: Partial<Place> = {}): Place {
     status: "aprobado",
     verificado: false,
     destacado: false,
+    usuarioId: "user-1",
     createdAt: new Date("2025-01-01"),
     updatedAt: new Date("2025-01-01"),
     ...overrides,
@@ -217,11 +223,27 @@ describe("PlacesService", () => {
   });
 
   // =========================================================================
-  // update
+  // update (auth: actor ownership — owner only own place, admin any)
   // =========================================================================
   describe("update", () => {
-    it("regenerates slug when nombre changes", async () => {
-      const existing = makePlace();
+    const ownerActor: AuthContext = {
+      uid: "user-1",
+      email: "owner@example.com",
+      rol: "owner",
+    };
+    const foreignOwnerActor: AuthContext = {
+      uid: "user-2",
+      email: "owner2@example.com",
+      rol: "owner",
+    };
+    const adminActor: AuthContext = {
+      uid: "admin-1",
+      email: "admin@example.com",
+      rol: "admin",
+    };
+
+    it("regenerates slug when nombre changes (owner own place)", async () => {
+      const existing = makePlace({ usuarioId: ownerActor.uid });
       mockPlaceRepo.findById.mockResolvedValue(existing);
       mockPlaceRepo.findBySlug.mockResolvedValue(null);
       mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
@@ -231,7 +253,7 @@ describe("PlacesService", () => {
       const result = await service.update(
         "place-1",
         { nombre: "Nuevo Nombre" },
-        "user-1",
+        ownerActor,
       );
 
       expect(result.slug).toBe("nuevo-nombre");
@@ -242,8 +264,8 @@ describe("PlacesService", () => {
       );
     });
 
-    it("does not change slug when nombre is not provided", async () => {
-      const existing = makePlace();
+    it("does not change slug when nombre is not provided (owner own place)", async () => {
+      const existing = makePlace({ usuarioId: ownerActor.uid });
       mockPlaceRepo.findById.mockResolvedValue(existing);
       mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
         makePlace({ ...existing, ...patch } as Partial<Place>),
@@ -252,7 +274,7 @@ describe("PlacesService", () => {
       const result = await service.update(
         "place-1",
         { telefono: "+56912345678" },
-        "user-1",
+        ownerActor,
       );
 
       expect(result.slug).toBe("restaurante-el-marino");
@@ -260,7 +282,7 @@ describe("PlacesService", () => {
     });
 
     it("throws ConflictException on duplicate slug during rename", async () => {
-      const existing = makePlace();
+      const existing = makePlace({ usuarioId: ownerActor.uid });
       mockPlaceRepo.findById.mockResolvedValue(existing);
       // Another place already owns this slug
       mockPlaceRepo.findBySlug.mockResolvedValue(
@@ -268,7 +290,7 @@ describe("PlacesService", () => {
       );
 
       await expect(
-        service.update("place-1", { nombre: "Otro Lugar" }, "user-1"),
+        service.update("place-1", { nombre: "Otro Lugar" }, ownerActor),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -276,30 +298,122 @@ describe("PlacesService", () => {
       mockPlaceRepo.findById.mockResolvedValue(null);
 
       await expect(
-        service.update("non-existent", { nombre: "Test" }, "user-1"),
+        service.update("non-existent", { nombre: "Test" }, ownerActor),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it("owner updating own place → applies patch", async () => {
+      const existing = makePlace({ usuarioId: ownerActor.uid });
+      mockPlaceRepo.findById.mockResolvedValue(existing);
+      mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+        makePlace({ ...existing, ...patch } as Partial<Place>),
+      );
+
+      const result = await service.update(
+        "place-1",
+        { telefono: "+56911111111" },
+        ownerActor,
+      );
+
+      expect(result.telefono).toBe("+56911111111");
+      expect(mockPlaceRepo.update).toHaveBeenCalledTimes(1);
+    });
+
+    it("owner updating a foreign place → ForbiddenException, no update", async () => {
+      const existing = makePlace({ usuarioId: ownerActor.uid });
+      mockPlaceRepo.findById.mockResolvedValue(existing);
+
+      await expect(
+        service.update(
+          "place-1",
+          { telefono: "+56999999999" },
+          foreignOwnerActor,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPlaceRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("admin updating any place → applies patch", async () => {
+      const existing = makePlace({ usuarioId: ownerActor.uid });
+      mockPlaceRepo.findById.mockResolvedValue(existing);
+      mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+        makePlace({ ...existing, ...patch } as Partial<Place>),
+      );
+
+      const result = await service.update(
+        "place-1",
+        { telefono: "+56955555555" },
+        adminActor,
+      );
+
+      expect(result.telefono).toBe("+56955555555");
+      expect(mockPlaceRepo.update).toHaveBeenCalledTimes(1);
     });
   });
 
   // =========================================================================
-  // delete
+  // delete (auth: actor ownership — owner only own place, admin any)
   // =========================================================================
   describe("delete", () => {
-    it("deletes place when no solicitudes exist", async () => {
-      mockPlaceRepo.findById.mockResolvedValue(makePlace());
+    const ownerActor: AuthContext = {
+      uid: "user-1",
+      email: "owner@example.com",
+      rol: "owner",
+    };
+    const foreignOwnerActor: AuthContext = {
+      uid: "user-2",
+      email: "owner2@example.com",
+      rol: "owner",
+    };
+    const adminActor: AuthContext = {
+      uid: "admin-1",
+      email: "admin@example.com",
+      rol: "admin",
+    };
+
+    it("owner deletes own place when no solicitudes exist", async () => {
+      mockPlaceRepo.findById.mockResolvedValue(
+        makePlace({ usuarioId: ownerActor.uid }),
+      );
       mockSolicitudRepo.existsByPlaceId.mockResolvedValue(false);
       mockPlaceRepo.delete.mockResolvedValue(undefined);
 
-      await service.delete("place-1");
+      await service.delete("place-1", ownerActor);
+
+      expect(mockPlaceRepo.delete).toHaveBeenCalledWith("place-1");
+    });
+
+    it("owner deleting a foreign place → ForbiddenException, no delete", async () => {
+      mockPlaceRepo.findById.mockResolvedValue(
+        makePlace({ usuarioId: ownerActor.uid }),
+      );
+
+      await expect(
+        service.delete("place-1", foreignOwnerActor),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPlaceRepo.delete).not.toHaveBeenCalled();
+      expect(mockSolicitudRepo.existsByPlaceId).not.toHaveBeenCalled();
+    });
+
+    it("admin deleting any place → proceeds (solicitudes guard applies)", async () => {
+      mockPlaceRepo.findById.mockResolvedValue(
+        makePlace({ usuarioId: ownerActor.uid }),
+      );
+      mockSolicitudRepo.existsByPlaceId.mockResolvedValue(false);
+      mockPlaceRepo.delete.mockResolvedValue(undefined);
+
+      await service.delete("place-1", adminActor);
 
       expect(mockPlaceRepo.delete).toHaveBeenCalledWith("place-1");
     });
 
     it("throws ConflictException when solicitudes exist", async () => {
-      mockPlaceRepo.findById.mockResolvedValue(makePlace());
+      mockPlaceRepo.findById.mockResolvedValue(
+        makePlace({ usuarioId: ownerActor.uid }),
+      );
       mockSolicitudRepo.existsByPlaceId.mockResolvedValue(true);
 
-      await expect(service.delete("place-1")).rejects.toThrow(
+      await expect(service.delete("place-1", ownerActor)).rejects.toThrow(
         ConflictException,
       );
       expect(mockPlaceRepo.delete).not.toHaveBeenCalled();
@@ -308,7 +422,7 @@ describe("PlacesService", () => {
     it("throws NotFoundException when place does not exist", async () => {
       mockPlaceRepo.findById.mockResolvedValue(null);
 
-      await expect(service.delete("non-existent")).rejects.toThrow(
+      await expect(service.delete("non-existent", ownerActor)).rejects.toThrow(
         NotFoundException,
       );
     });

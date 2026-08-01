@@ -1,8 +1,7 @@
-# solicitudes Specification
+# solicitudes Specification (delta — places-auth-fix)
 
-## Purpose
-TBD - created by archiving change roles-rename. Update Purpose after archive.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: Solicitud entity schema
 The system SHALL persist a `Solicitud` document in the Firestore collection `solicitudes` with the following fields:
 
@@ -106,4 +105,3 @@ The enforcement is live (see `auth-usuarios` change): `SolicitudesController` ex
 - **WHEN** an admin calls `POST /api/v1/solicitudes/<id>/reject` with `{ comentarios: '...', unexpectedField: true }`
 - **THEN** the response is `400` with error: `property unexpectedField should not exist`
 - **AND** nothing is mutated (the global `ValidationPipe` with `forbidNonWhitelisted` enforces the contract)
-

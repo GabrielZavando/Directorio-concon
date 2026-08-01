@@ -269,4 +269,145 @@ describe("Auth canonical scenarios (e2e, real AppModule)", () => {
       );
     });
   });
+
+  // =========================================================================
+  // Scenario D — F-01: member cannot update a place → 403 (RolesGuard)
+  // =========================================================================
+  describe("D. F-01 — member cannot update places → 403", () => {
+    it("PUT /places/:id with member Bearer → 403 before PlacesService.update", async () => {
+      firebase.verifyIdToken.mockResolvedValue({
+        uid: "member-uid-e2e",
+        email: "member@example.com",
+        rol: "member",
+      } as never);
+
+      const response = await request(app.getHttpServer())
+        .put("/places/place-e2e-1")
+        .set("Authorization", "Bearer fake-idToken-member")
+        .send({ descripcionCorta: "Mariscos frescos y ceviche" })
+        .expect(403);
+
+      // RolesGuard rejects the member explicitly before the handler runs.
+      expect(response.body.message).toContain("member");
+      expect(firebase.updateDocument).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // Scenario E — F-01: anonymous cannot delete a place → 401 (JwtAuthGuard)
+  // =========================================================================
+  describe("E. F-01 — anonymous cannot delete places → 401", () => {
+    it("DELETE /places/:id without Authorization → 401 before RolesGuard", async () => {
+      const response = await request(app.getHttpServer())
+        .delete("/places/place-e2e-1")
+        .expect(401);
+
+      expect(response.body.message).toBeDefined();
+      expect(firebase.deleteDocument).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // Scenario F — F-01 ownership: owner cannot update a foreign place → 403
+  // =========================================================================
+  describe("F. F-01 ownership — owner cannot update a foreign place → 403", () => {
+    it("PUT /places/:id with foreign owner Bearer → 403 from service, nothing persisted", async () => {
+      firebase.verifyIdToken.mockResolvedValue({
+        uid: "foreign-owner-uid-e2e",
+        email: "foreign@example.com",
+        rol: "owner",
+      } as never);
+
+      // The place belongs to a DIFFERENT owner (owner-uid-e2e).
+      firebase.getDocument.mockImplementation(
+        (collection: string, id: string) => {
+          if (collection === "places" && id === "place-e2e-1") {
+            return Promise.resolve({
+              exists: true,
+              id,
+              data: () => ({
+                nombre: "Restaurante El Marino",
+                slug: "restaurante-el-marino",
+                descripcionCorta: "Mariscos frescos",
+                descripcion: "Restaurante familiar especializado en mariscos",
+                categoriaId: "gastronomia",
+                barrioId: "higuerillas",
+                direccion: "Av. Borgoño 123",
+                planId: "gratuito",
+                abierto24x7: false,
+                status: "aprobado",
+                verificado: false,
+                destacado: false,
+                usuarioId: "owner-uid-e2e",
+                createdAt: { toDate: () => new Date("2026-01-01") },
+                updatedAt: { toDate: () => new Date("2026-01-01") },
+              }),
+            });
+          }
+          return Promise.resolve({ exists: false, id, data: () => null });
+        },
+      );
+
+      const response = await request(app.getHttpServer())
+        .put("/places/place-e2e-1")
+        .set("Authorization", "Bearer fake-idToken-foreign-owner")
+        .send({ descripcionCorta: "Mariscos frescos y ceviche" })
+        .expect(403);
+
+      expect(response.body.message).toBe(
+        "No tienes permiso para modificar este lugar",
+      );
+      expect(firebase.updateDocument).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // Scenario G — F-02: place solicitud persisted via the real repo (not stub)
+  // =========================================================================
+  describe("G. F-02 — owner creates place → solicitud persisted (real repo)", () => {
+    it("POST /places with owner Bearer → 201, solicitud document created with real id", async () => {
+      firebase.verifyIdToken.mockResolvedValue({
+        uid: "owner-uid-e2e",
+        email: "owner@example.com",
+        rol: "owner",
+      } as never);
+
+      // Slug uniqueness check: no existing place with that slug.
+      firebase.getDocuments.mockResolvedValue({
+        empty: true,
+        docs: [],
+      } as never);
+      // Default document reads → not found (falls back to created payloads).
+      firebase.getDocument.mockImplementation(
+        (collection: string, id: string) =>
+          Promise.resolve({ exists: false, id, data: () => null }),
+      );
+      // 1st createDocument → the place, 2nd → the auto-generated solicitud.
+      firebase.createDocument
+        .mockResolvedValueOnce({ id: "place-e2e-1" } as never)
+        .mockResolvedValueOnce({ id: "sol-e2e-1" } as never);
+
+      const response = await request(app.getHttpServer())
+        .post("/places")
+        .set("Authorization", "Bearer fake-idToken-owner")
+        .send(validCreatePlaceBody)
+        .expect(201);
+
+      // The place persisted with the verified token uid (no "anonymous" stub).
+      expect(response.body.id).toBe("place-e2e-1");
+      expect(response.body.usuarioId).toBe("owner-uid-e2e");
+      // The solicitud is persisted via the real repo on the 'solicitudes'
+      // collection, linked to the new place (no StubSolicitudesRepository).
+      expect(firebase.createDocument).toHaveBeenNthCalledWith(
+        2,
+        "solicitudes",
+        expect.objectContaining({
+          placeId: "place-e2e-1",
+          usuarioId: "owner-uid-e2e",
+          tipo: "registro",
+          status: "pendiente",
+        }),
+      );
+    });
+  });
 });

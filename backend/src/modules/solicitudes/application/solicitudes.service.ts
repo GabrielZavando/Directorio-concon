@@ -5,6 +5,7 @@
  * Uses injected approval handlers (DIP) for updating associated entities.
  */
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -26,6 +27,10 @@ import {
   PLACE_APPROVAL_HANDLER,
 } from "./approval-handlers";
 
+/** Domain message for the XOR invariant (placeId ⊕ eventoId, exactly one). */
+const XOR_REFERENCE_MESSAGE =
+  "Una solicitud debe referenciar exactamente un placeId o eventoId (XOR)";
+
 @Injectable()
 export class SolicitudesService implements SolicitudesServiceInterface {
   private readonly logger = new Logger(SolicitudesService.name);
@@ -41,18 +46,40 @@ export class SolicitudesService implements SolicitudesServiceInterface {
     private readonly placeHandler?: PlaceApprovalHandler,
   ) {}
 
+  /**
+   * Enforce the XOR invariant at the application boundary: exactly one of
+   * placeId / eventoId must be present, and it must match the tipo.
+   * Throws 400 before anything is persisted on violation.
+   */
+  private assertXorConstraint(input: {
+    placeId?: string;
+    eventoId?: string;
+    tipo: Solicitud["tipo"];
+  }): void {
+    const hasPlaceId = input.placeId !== undefined;
+    const hasEventoId = input.eventoId !== undefined;
+    const isEventoTipo = input.tipo.endsWith("-evento");
+    const exactlyOneReference = hasPlaceId !== hasEventoId;
+    const referenceMatchesTipo = hasPlaceId === !isEventoTipo;
+    if (!exactlyOneReference || !referenceMatchesTipo) {
+      throw new BadRequestException(XOR_REFERENCE_MESSAGE);
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Create (used by places service — via SolicitudesRepositoryInterface)
   // -------------------------------------------------------------------------
 
   /** Create a solicitud for a place (tipo: 'registro' | 'actualizacion'). */
   async create(input: {
-    placeId: string;
+    placeId?: string;
+    eventoId?: string;
     usuarioId: string;
-    tipo: "registro" | "actualizacion";
+    tipo: Solicitud["tipo"];
     status: "pendiente";
     createdAt: Date;
   }): Promise<Solicitud> {
+    this.assertXorConstraint(input);
     return this.repo.create(input);
   }
 
@@ -69,6 +96,7 @@ export class SolicitudesService implements SolicitudesServiceInterface {
   async createEventoSolicitud(
     input: CreateEventoSolicitudInput,
   ): Promise<{ id: string }> {
+    this.assertXorConstraint(input);
     const solicitud = await this.repo.create(input);
     return { id: solicitud.id };
   }

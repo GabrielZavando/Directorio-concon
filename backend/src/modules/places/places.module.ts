@@ -4,40 +4,26 @@
  * - Domain: pure types and interfaces (no imports from infrastructure)
  * - Application: PlacesService + PlaceApprovalHandler (depends on domain interfaces only)
  * - Infrastructure: controller + Firestore adapter (concrete implementations)
+ *
+ * places-auth-fix (Task 3): `SOLICITUDES_REPOSITORY` resolves to the real
+ * `SolicitudesFirestoreAdapter` exported by `SolicitudesModule` (replaces the
+ * legacy `StubSolicitudesRepository`). No `forwardRef` is needed: the module
+ * graph has no circular dependency (`SolicitudesModule` does not import
+ * `PlacesModule`).
  */
 import { Module } from "@nestjs/common";
 import { PlacesController } from "./infrastructure/places.controller";
 import { PlacesService } from "./application/places.service";
 import { PlaceFirestoreAdapter } from "./infrastructure/place-firestore.adapter";
 import { PLACE_REPOSITORY } from "./domain/place-repository.token";
-import { SOLICITUDES_REPOSITORY } from "./domain/solicitudes-repository.token";
-import type {
-  SolicitudesRepositoryInterface,
-  CreateSolicitudInput,
-} from "./domain/solicitudes-repository.interface";
 import { FirebaseService } from "@/common/services/firebase.service";
 import { PlaceApprovalHandlerImpl } from "./application/place-approval.handler";
 import { PLACE_APPROVAL_HANDLER } from "../solicitudes/application/approval-handlers";
 import { AuthModule } from "../auth/auth.module";
-
-/**
- * Minimal Solicitudes repository stub.
- * The full solicitudes module wiring will replace this in a future refactor.
- */
-class StubSolicitudesRepository implements SolicitudesRepositoryInterface {
-  async create(input: CreateSolicitudInput) {
-    return {
-      id: "stub",
-      ...input,
-    };
-  }
-  async existsByPlaceId(_placeId: string): Promise<boolean> {
-    return false;
-  }
-}
+import { SolicitudesModule } from "../solicitudes/solicitudes.module";
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, SolicitudesModule],
   controllers: [PlacesController],
   providers: [
     PlacesService,
@@ -51,10 +37,6 @@ class StubSolicitudesRepository implements SolicitudesRepositoryInterface {
     {
       provide: PLACE_REPOSITORY,
       useExisting: PlaceFirestoreAdapter,
-    },
-    {
-      provide: SOLICITUDES_REPOSITORY,
-      useClass: StubSolicitudesRepository,
     },
     {
       provide: PLACE_APPROVAL_HANDLER,

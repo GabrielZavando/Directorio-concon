@@ -5,7 +5,8 @@
  * to avoid circular module dependencies. The SolicitudesService implements this.
  */
 export interface CreateEventoSolicitudInput {
-  eventoId: string;
+  /** Optional so the XOR constraint is expressible at the service boundary (enforced in SolicitudesService). */
+  eventoId?: string;
   usuarioId: string;
   tipo: "registro-evento" | "actualizacion-evento";
   status: "pendiente";

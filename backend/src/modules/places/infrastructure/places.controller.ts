@@ -127,14 +127,20 @@ export class PlacesController {
   // PUT /places/:id
   // -------------------------------------------------------------------------
   @Put(":id")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
   @ApiOperation({ summary: "Update a place (partial)" })
   @ApiResponse({ status: 200, description: "Place updated" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({ status: 403, description: "Role or ownership forbidden" })
   @ApiResponse({ status: 404, description: "Place not found" })
   @ApiResponse({ status: 409, description: "Slug duplicado on rename" })
-  async update(@Param("id") id: string, @Body() dto: UpdatePlaceDto) {
-    // TODO: extract usuarioId from JWT guard
-    const usuarioId = "anonymous";
-    return this.placesService.update(id, dto, usuarioId);
+  async update(
+    @Param("id") id: string,
+    @Body() dto: UpdatePlaceDto,
+    @CurrentUser() user: AuthContext,
+  ) {
+    return this.placesService.update(id, dto, user);
   }
 
   // -------------------------------------------------------------------------
@@ -142,12 +148,16 @@ export class PlacesController {
   // -------------------------------------------------------------------------
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner", "admin")
   @ApiOperation({ summary: "Delete a place (blocked if solicitudes exist)" })
   @ApiResponse({ status: 200, description: "Place deleted" })
+  @ApiResponse({ status: 401, description: "Unauthorized" })
+  @ApiResponse({ status: 403, description: "Role or ownership forbidden" })
   @ApiResponse({ status: 404, description: "Place not found" })
   @ApiResponse({ status: 409, description: "Cannot delete: solicitudes exist" })
-  async remove(@Param("id") id: string) {
-    await this.placesService.delete(id);
+  async remove(@Param("id") id: string, @CurrentUser() user: AuthContext) {
+    await this.placesService.delete(id, user);
     return { deleted: true, id };
   }
 }
