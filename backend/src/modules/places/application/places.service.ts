@@ -6,6 +6,7 @@
  */
 import {
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -19,6 +20,12 @@ import type { HorarioDia, Turno } from "../domain/horario-dia.vo";
 import type { RedSocial } from "../domain/red-social.vo";
 import { SOLICITUDES_REPOSITORY } from "../domain/solicitudes-repository.token";
 import { PLACE_REPOSITORY } from "../domain/place-repository.token";
+import type { AuthContext } from "../../auth/domain/auth-context.interface";
+import {
+  findMatchingTurno,
+  getDiaSemana,
+  getSantiagoDateParts,
+} from "./horario-timezone";
 
 // ---------------------------------------------------------------------------
 // DTO types (mirrors what the controller will receive after validation)
@@ -197,12 +204,14 @@ export class PlacesService {
   async update(
     id: string,
     dto: UpdatePlaceDto,
-    usuarioId: string,
+    actor: AuthContext,
   ): Promise<Place> {
     const existing = await this.placeRepo.findById(id);
     if (!existing) {
       throw new NotFoundException(`Place ${id} no encontrado`);
     }
+
+    this.assertOwnership(existing, actor, "modificar este lugar");
 
     // Gallery limit per plan (use updated planId or fall back to existing)
     const effectivePlanId = dto.planId ?? existing.planId;
@@ -243,11 +252,13 @@ export class PlacesService {
   // Delete
   // -------------------------------------------------------------------------
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, actor: AuthContext): Promise<void> {
     const existing = await this.placeRepo.findById(id);
     if (!existing) {
       throw new NotFoundException(`Place ${id} no encontrado`);
     }
+
+    this.assertOwnership(existing, actor, "eliminar este lugar");
 
     const hasSolicitudes = await this.solicitudRepo.existsByPlaceId(id);
     if (hasSolicitudes) {
@@ -323,6 +334,16 @@ export class PlacesService {
     }
   }
 
+  private assertOwnership(
+    place: Place,
+    actor: AuthContext,
+    action: string,
+  ): void {
+    if (actor.rol !== "admin" && place.usuarioId !== actor.uid) {
+      throw new ForbiddenException(`No tienes permiso para ${action}`);
+    }
+  }
+
   // Converts class-validator DTO instances to plain objects for Firestore
   private toPlain<T>(value: T | undefined): T | undefined {
     if (value === undefined || value === null) return value;
@@ -334,88 +355,4 @@ export class PlacesService {
     if (!value) return value;
     return JSON.parse(JSON.stringify(value));
   }
-}
-
-// ---------------------------------------------------------------------------
-// Santiago timezone helpers
-// ---------------------------------------------------------------------------
-
-const SANTIAGO_TZ = "America/Santiago";
-
-interface SantiagoDateParts {
-  year: number;
-  month: number;
-  day: number;
-  dayOfWeek: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
-  hour: number;
-  minute: number;
-}
-
-function getSantiagoDateParts(date: Date): SantiagoDateParts {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: SANTIAGO_TZ,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    weekday: "short",
-    hour: "numeric",
-    minute: "numeric",
-    hour12: false,
-  });
-
-  const parts = formatter.formatToParts(date);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-
-  return {
-    year: Number(get("year")),
-    month: Number(get("month")),
-    day: Number(get("day")),
-    dayOfWeek: weekdayToNumber(get("weekday")),
-    hour: Number(get("hour")),
-    minute: Number(get("minute")),
-  };
-}
-
-function weekdayToNumber(weekday: string): number {
-  const map: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  };
-  return map[weekday] ?? 0;
-}
-
-const DIA_SEMANA_MAP: Record<number, string> = {
-  0: "domingo",
-  1: "lunes",
-  2: "martes",
-  3: "miercoles",
-  4: "jueves",
-  5: "viernes",
-  6: "sabado",
-};
-
-function getDiaSemana(dayOfWeek: number): string {
-  return DIA_SEMANA_MAP[dayOfWeek] ?? "lunes";
-}
-
-function timeToMinutes(time: string): number {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function findMatchingTurno(
-  turnos: Turno[],
-  currentTime: string,
-): Turno | undefined {
-  const currentMin = timeToMinutes(currentTime);
-  return turnos.find((t) => {
-    const start = timeToMinutes(t.apertura);
-    const end = timeToMinutes(t.cierre);
-    return currentMin >= start && currentMin < end;
-  });
 }
