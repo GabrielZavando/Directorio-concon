@@ -981,12 +981,12 @@ paths:
       security:
         - bearerAuth: []
       description: |
-        Authenticated. In MVP returns `200` for the owner or admin; the
-        fine-grained `owner`/`admin` guards for `PUT /places/{id}` and
-        `DELETE /places/{id}` are introduced by a future
-        `places-clean-arch-refactor` change (out of scope for
-        `auth-usuarios`). This change only updates the `POST /places`
-        protection (see above).
+        Authenticated. The caller MUST have `rol === 'owner'` or
+        `rol === 'admin'` (enforced by `RolesGuard`). Ownership rule
+        (enforced by `PlacesService`): an `owner` can only update a place
+        where `places.usuarioId === token.uid` (`403` otherwise); an
+        `admin` can update any place. The body MUST NOT include
+        `usuarioId` (forbidNonWhitelisted — `400` if present).
       parameters:
         - name: id
           in: path
@@ -1005,15 +1005,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Place'
+        "400":
+          $ref: '#/components/schemas/Error'
         "401":
           $ref: '#/components/schemas/Error'
+        "403":
+          description: "Caller's `rol` is `member`, or `owner` updating a place not owned"
+          $ref: '#/components/schemas/Error'
         "404":
+          $ref: '#/components/schemas/Error'
+        "409":
+          description: Slug duplicado on rename
           $ref: '#/components/schemas/Error'
     delete:
       summary: Eliminar place
       security:
         - bearerAuth: []
-      description: Same MVP caveat as `PUT /places/{id}` — auth introduced here, fine-grained guards deferred.
+      description: |
+        Authenticated. The caller MUST have `rol === 'owner'` or
+        `rol === 'admin'` (enforced by `RolesGuard`). Ownership rule
+        (enforced by `PlacesService`): an `owner` can only delete a place
+        where `places.usuarioId === token.uid` (`403` otherwise); an
+        `admin` can delete any place. Deleting is blocked (`409`) while
+        pending `solicitudes` exist for the place.
       parameters:
         - name: id
           in: path
@@ -1032,6 +1046,9 @@ paths:
                   id:
                     type: string
         "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: "Caller's `rol` is `member`, or `owner` deleting a place not owned"
           $ref: '#/components/schemas/Error'
         "404":
           $ref: '#/components/schemas/Error'
