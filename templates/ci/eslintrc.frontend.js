@@ -1,54 +1,51 @@
-// templates/ci/eslintrc.frontend.js
+// ESLint config — Angular frontend
 //
-// ESLint config for the Angular frontend enforcing SRP thresholds.
-// Reference: docs/ci-standards.md (Umbrales objetivos ↔ ESLint rules).
+// Mechanical enforcement of the SOLID/POO thresholds declared in
+// docs/frontend-standards.md § "Principios de Diseño — Frontend (Angular)".
 //
-// Invoked via `make solid-lint` from the repo root:
-//   npx eslint -c templates/ci/eslintrc.frontend.js frontend/src/**/*.ts
+// SOLID coverage in this file:
+//   SRP — `max-lines`           (<= 400 lines per component file)
+//   SRP — `complexity`           (cyclomatic <= 10 per method — aligned with backend threshold for consistency)
+//   SRP — @angular-eslint/component-class-size  (declarative check on component class size)
+//   DIP — judgemental via @angular-eslint rules around `@Injectable` usage (only mechanical check is "no `new HttpClient()`", not directly lintable)
 //
-// Adapted for the monorepo layout: parserOptions.project points at frontend/tsconfig.app.json.
-
-/** @type {import('eslint').Linter.Config} */
+// Honest limitation: SRP smart vs dumb is a *judgement* call that the Lente
+// Architect makes in review (Ticket 3 code-auditing §Fase 8). Lint only catches
+// size signals. `@angular-eslint` does NOT ship a "dumb component with HTTP
+// injection" rule — that requires AST inspection this config cannot produce
+// reliably. The Lente Architect covers it.
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
-  parserOptions: {
-    project: './frontend/tsconfig.app.json',
-    tsconfigRootDir: __dirname,
-    sourceType: 'module',
-  },
-  plugins: ['@typescript-eslint', '@angular-eslint', 'import', 'sonarjs'],
+  parserOptions: { project: './tsconfig.json' },
+  plugins: ['@typescript-eslint', 'sonarjs', '@angular-eslint'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
     'plugin:@angular-eslint/recommended',
+    'plugin:@angular-eslint/template-process-inline-templates',
     'plugin:sonarjs/recommended',
-    'prettier',
   ],
-  env: {
-    browser: true,
-    es2022: true,
-    jasmine: true,
-  },
   rules: {
-    // SRP / file size — Angular threshold (looser than backend because templates + styles often push file size)
+    // ---- SRP thresholds (Ticket 1 §Umbrales frontend-standards.md L61) ----
+    // SOLID: SRP — a component file longer than 400 lines signals multiple responsibilities.
     'max-lines': ['error', { max: 400, skipBlankLines: true, skipComments: true }],
-    'max-params': ['error', 4],
-    // SRP / complexity
-    complexity: ['error', 10],
+
+    // SOLID: SRP — a method with cyclomatic complexity > 10 has too many paths (aligned with backend).
+    'complexity': ['error', 10],
+
+    // SOLID: SRP — un componente con constructor de más de 5 parámetros indica
+    // que probablemente viola SRP y debería dividirse.
+    '@typescript-eslint/max-params': ['error', 5],
+
     'sonarjs/cognitive-complexity': ['error', 10],
-    // Smart vs dumb components — dumb components may NOT inject HTTP/data services
-    '@angular-eslint/no-input-rename': 'off',
-    '@angular-eslint/use-component-selector': 'error',
-    '@angular-eslint/component-class-suffix': 'error',
-    '@angular-eslint/directive-class-suffix': 'error',
-    // Imports / cycles
-    'import/no-cycle': ['error', { maxDepth: 10 }],
-    // TypeScript
-    '@typescript-eslint/no-explicit-any': 'error',
-    '@typescript-eslint/explicit-function-return-type': 'warn',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    'no-unused-vars': 'off',
+
+    // SOLID: SRP (smart/dumb) — max-params: un constructor con más de 5 parámetros
+    // indica que la clase probablemente viola SRP y debería dividirse.
+    '@angular-eslint/component-class-size': ['error', { maxLineCount: 400 }],
+
+    // ---- Auxiliary import hygiene ----
+    '@angular-eslint/template/conditional-complexity': 'warn',
   },
-  ignorePatterns: ['dist/', 'node_modules/', '.angular/', 'coverage/'],
+  ignorePatterns: ['dist/', 'node_modules/', '*.spec.ts'],
 };

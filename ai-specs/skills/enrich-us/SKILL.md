@@ -58,7 +58,19 @@ Format:
 **So that** [benefit/value]
 ```
 
-### Step 4: Add Acceptance Criteria (Gherkin)
+### Step 4: Draft Class/Component Design
+
+Generate the design declaration that the implementation agents will be held to during `/apply`. This section is produced **before** the acceptance criteria (Step 5) so that the design is fixed before `/plan-change` generates implementation tasks.
+
+```markdown
+## Diseño de Clases/Componentes
+
+- [Nombre de clase/componente]: responsabilidad única = "..."
+  - Depende de: [interfaz/abstracción], NO de [implementación concreta]
+  - Capa: domain | application | infrastructure (o smart | dumb para Angular)
+```
+
+### Step 5: Add Acceptance Criteria (Gherkin)
 
 ```markdown
 ### Acceptance Criteria
@@ -74,7 +86,7 @@ Format:
 - Then [error handling]
 ```
 
-### Step 5: Identify Edge Cases
+### Step 6: Identify Edge Cases
 
 ```markdown
 ### Edge Cases
@@ -84,7 +96,7 @@ Format:
 | [Edge case] | [How system handles it] |
 ```
 
-### Step 6: Add Technical Considerations
+### Step 7: Add Technical Considerations
 
 ```markdown
 ### Technical Considerations
@@ -95,7 +107,7 @@ Format:
 - [Third-party integrations]
 ```
 
-### Step 7: Define Done (DoD)
+### Step 8: Define Done (DoD)
 
 ```markdown
 ### Definition of Done
@@ -108,7 +120,7 @@ Format:
 - [ ] Data model reflects changes (if applicable)
 ```
 
-### Step 8: Confirm with User
+### Step 9: Confirm with User
 
 Show the enriched story and ask for confirmation before proceeding to `/plan-change`.
 
@@ -126,6 +138,12 @@ Show the enriched story and ask for confirmation before proceeding to `/plan-cha
 ### Context
 
 [Background and motivation]
+
+### Diseño de Clases/Componentes
+
+- [Nombre de clase/componente]: responsabilidad única = "..."
+  - Depende de: [interfaz/abstracción], NO de [implementación concreta]
+  - Capa: domain | application | infrastructure (o smart | dumb para Angular)
 
 ### Acceptance Criteria
 
@@ -164,86 +182,4 @@ Show the enriched story and ask for confirmation before proceeding to `/plan-cha
 
 ## Example: Enriching a Vague Ticket
 
-### Before (Original Ticket)
-
-> "User wants to reset password"
-
-### After (Enriched)
-
-```markdown
-## User Story enriched: AUTH-042
-
-**As a** registered user
-**I want** to reset my password if I forgot it
-**So that** I can regain access to my account
-
-### Context
-
-Users frequently forget passwords. We need a secure, user-friendly password reset flow that:
-- Works even if user can't access their email (via support)
-- Prevents account takeover via email hijacking
-- Completes within reasonable time (< 5 minutes)
-
-### Acceptance Criteria
-
-**Scenario 1: Successful password reset request**
-- Given I am on the login page
-- When I click "Forgot password" and enter my registered email
-- Then I receive an email with a reset link within 2 minutes
-- And I see "Check your email for reset instructions" message
-
-**Scenario 2: Password reset with valid token**
-- Given I received a reset email with a valid token
-- When I visit the reset link and enter a new password
-- Then my password is updated
-- And I am redirected to login page
-- And I can log in with the new password
-
-**Scenario 3: Reset with expired token**
-- Given I have a reset token that expired (24 hours)
-- When I try to use it
-- Then I see "This link has expired"
-- And I am offered to request a new one
-
-### Edge Cases
-
-| Edge Case | Expected Behavior |
-|-----------|-------------------|
-| Email not registered | Show same "email sent" message (don't reveal which emails exist) |
-| User already logged in | Redirect to profile, no reset needed |
-| Token used twice | Show error "This link has already been used" |
-| Password same as old | Reject with "New password must be different" |
-
-### Technical Considerations
-
-- Token: 32 bytes, base64url, hashed in DB
-- Token expiry: 24 hours
-- Email provider: Resend (already in stack)
-- Rate limit: 3 reset requests per email per hour
-- Log password reset requests (without new password) for audit
-
-### Definition of Done
-
-- [ ] User can request password reset via email
-- [ ] User receives email with reset link
-- [ ] User can set new password via link
-- [ ] Expired/invalid tokens handled gracefully
-- [ ] Rate limiting prevents abuse
-- [ ] Audit log entries created
-- [ ] `api-spec.yml` updated
-- [ ] `data-model.md` updated (if needed)
-```
-
----
-
-## Tips
-
-1. **Don't over-engineer:** Focus on MVP criteria first
-2. **Edge cases are features:** List them explicitly, don't assume
-3. **Technical constraints matter:** Note DB, API, or third-party limitations upfront
-4. **Validation is bidirectional:** Client-side AND server-side
-5. **Don't block on perfection:** Get 80% of criteria, refine in review
-
-## Model Required
-
-Execute with the model configured in the plan agent. Check `opencode.json` before starting.
+El ejemplo completo con todos los escenarios Gherkin, consideraciones de diseño y cases de borde se encuentra externalizado en `ai-specs/examples/enrich-us-auth-reset.md` para mantener los skills ligeros y la documentación de ejemplos como single source of truth.

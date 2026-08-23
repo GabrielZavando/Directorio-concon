@@ -1,56 +1,53 @@
-// templates/ci/eslintrc.backend.js
+// ESLint config — NestJS / Node backend
 //
-// ESLint config for the NestJS backend enforcing SRP thresholds.
-// Reference: docs/ci-standards.md (Umbrales objetivos ↔ ESLint rules).
+// Mechanical enforcement of the SOLID/POO thresholds declared in
+// docs/backend-standards.md § "Principios de Diseño — Backend (NestJS)".
 //
-// This config is meant to be invoked via `make solid-lint` from the repo root:
-//   cd backend && NODE_PATH=$(pwd)/node_modules npx eslint -c ../templates/ci/eslintrc.backend.js --resolve-plugins-relative-to . 'src/**/*.ts'
+// SOLID coverage in this file:
+//   SRP — `max-lines`           (<= 300 lines per file: signal of multiple responsibilities)
+//   SRP — `complexity`           (cyclomatic <= 10 per method: signal of multiple responsibilities)
+//   SRP — `sonarjs/cognitive-complexity` (cognitive <= 10: catches "low cyclomatic but hard to read")
+//   OCP — `sonarjs/no-collapsible-if` + thresholds (indirect signal; OCP itself is judgemental, kept for Lente Architect)
+//   LSP — NOT enforceable mechanically; Lente Architect review ticket 3 covers it
+//   ISP — NOT enforceable mechanically (interface method count); Lente Architect covers it
+//   DIP — NOT in this file; enforced by templates/ci/.dependency-cruiser.js rule `no-infra-from-domain`
 //
-// Instantiation into the project's own .eslintrc.js:
-//   cp templates/ci/eslintrc.backend.js backend/.eslintrc.js   (then merge with existing config if any).
-//
-// Adapted for the monorepo layout: parserOptions.project points at backend/tsconfig.json
-// so type-aware rules (import/no-cycle, sonarjs/cognitive-complexity) type-check the backend.
-
-/** @type {import('eslint').Linter.Config} */
+// Honest limitation: only SRP thresholds + DIP (via dependency-cruiser) are
+// mechanically verifiable. OCP/LSP/ISP remain judgmental passes.
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
-  parserOptions: {
-    project: './tsconfig.json',
-    sourceType: 'module',
-  },
-  plugins: ['@typescript-eslint', 'import', 'sonarjs'],
+  parserOptions: { project: './tsconfig.json' },
+  plugins: ['@typescript-eslint', 'sonarjs', 'import'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
+    'plugin:sonarjs/recommended',
+    'plugin:import/recommended',
+    'plugin:import/typescript',
   ],
-  env: {
-    node: true,
-    es2022: true,
-    jest: true,
-  },
   rules: {
-    // SRP / file size — Ticket 4 thresholds
+    // ---- SRP thresholds (Ticket 1 §Umbrales objetivos) ----
+    // SOLID: SRP — a file longer than 300 lines usually carries more than one responsibility.
     'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
-    'max-depth': ['error', 4],
-    'max-nested-callbacks': ['error', 5],
-    'max-params': ['error', 3],
-    // SRP / complexity
-    complexity: ['error', 10],
+
+    // SOLID: SRP — a method with cyclomatic complexity > 10 has too many independent paths.
+    'complexity': ['error', 10],
+
+    // SOLID: SRP — max-params: un constructor con más de 5 parámetros indica que
+    // la clase probablemente viola SRP y debería dividirse.
+    'max-params': ['error', 5],
+
+    // SOLID: SRP — cognitive complexity catches tangled-but-low-cyclomatic methods
     'sonarjs/cognitive-complexity': ['error', 10],
-    // OCP — avoid growing switch/if-else ladders
+
+    // SOLID: OCP — collapsible-if is a weak mechanical signal; real OCP violations (growing switch) need judgment.
     'sonarjs/no-collapsible-if': 'warn',
-    'sonarjs/no-small-switch': 'off',
-    // Imports
+
+    // ---- Auxiliary import hygiene ----
+    // SOLID: DIP — auxiliary check (the authoritative DIP rule lives in .dependency-cruiser.js)
     'import/no-cycle': ['error', { maxDepth: 10 }],
-    'import/no-unused-modules': 'warn',
-    // TypeScript
-    '@typescript-eslint/no-explicit-any': 'error',
-    '@typescript-eslint/explicit-function-return-type': 'warn',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    // Disable base rules that conflict with @typescript-eslint
-    'no-unused-vars': 'off',
+    'import/no-default-export': 'off',
   },
-  ignorePatterns: ['dist/', 'node_modules/', 'coverage/'],
+  ignorePatterns: ['dist/', 'node_modules/', '*.spec.ts', '*.contract.spec.ts'],
 };

@@ -1,13 +1,19 @@
 {
-  "tsConfig": "frontend/tsconfig.app.json",
-  "rootDir": "frontend/src",
-  "extensions": [".ts", ".js"],
-  "circular": true,
-  "exclude": "(^|/)node_modules($|/)|^frontend/src/main\\.ts$|^frontend/src/environments/",
-  "output": "text",
-  "detectiveOptions": {
+  "_comment": "madge config — Angular circular-dependency detection (auxiliary check). Optional per Ticket 4 §2.",
+  "_solid_coverage": "DIP (auxiliary) — circular deps break layered architecture; SRP indirectly (easier to detect tangled responsibilities when modules form cycles).",
+  "detective": {
     "ts": {
-      "skipTypeImports": false
+      "extensions": [".ts"],
+      "parseType": "module"
     }
-  }
+  },
+  "fileExtensions": ["ts"],
+  "excludeRegExp": [
+    "\\.spec\\.ts$",
+    "\\.contract\\.spec\\.ts$",
+    "/node_modules/",
+    "/dist/"
+  ],
+  "circular": true,
+  "summary": false
 }

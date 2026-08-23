@@ -10,9 +10,8 @@
 .PHONY: help install lint test build audit commitlint refs solid-lint
 
 # Detect the active stack from its manifest file.
-# This is a monorepo: the Node app lives in backend/, so check there first.
 STACK := $(shell \
-  if [ -f backend/package.json ] || [ -f package.json ]; then echo node; \
+  if [ -f package.json ]; then echo node; \
   elif [ -f composer.json ]; then echo php; \
   elif [ -f pyproject.toml ] || [ -f requirements.txt ]; then echo python; \
   elif [ -f go.mod ]; then echo go; \
@@ -24,7 +23,7 @@ help: ## Show available targets
 
 install: ## Install dependencies (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend ci ;; \
+	  node)   npm ci ;; \
 	  php)    composer install --no-interaction ;; \
 	  python) pip install -r requirements.txt ;; \
 	  go)     go mod download ;; \
@@ -34,7 +33,7 @@ install: ## Install dependencies (stack-specific)
 
 lint: ## Lint and static analysis (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend run lint ;; \
+	  node)   npm run lint ;; \
 	  php)    composer lint ;; \
 	  python) ruff check . ;; \
 	  go)     go vet ./... ;; \
@@ -45,7 +44,7 @@ lint: ## Lint and static analysis (stack-specific)
 
 test: ## Run the test suite (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend test -- --passWithNoTests ;; \
+	  node)   npm test ;; \
 	  php)    composer test ;; \
 	  python) pytest ;; \
 	  go)     go test ./... ;; \
@@ -56,7 +55,7 @@ test: ## Run the test suite (stack-specific)
 
 build: ## Build the project (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend run build ;; \
+	  node)   npm run build ;; \
 	  php)    composer install --no-dev --optimize-autoloader ;; \
 	  python) pip install -e . ;; \
 	  go)     go build ./... ;; \
@@ -66,7 +65,7 @@ build: ## Build the project (stack-specific)
 
 audit: ## Security audit (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend audit --audit-level=high ;; \
+	  node)   npm audit --audit-level=high ;; \
 	  php)    composer audit ;; \
 	  python) pip-audit ;; \
 	  go)     go list -m -u ;; \
@@ -76,6 +75,9 @@ audit: ## Security audit (stack-specific)
 
 commitlint: ## Lint commit messages (stack-independent)
 	npx -p @commitlint/cli -p @commitlint/config-conventional commitlint --from HEAD~1 --to HEAD --verbose
+
+refs: ## Check referential integrity of {file:...} references
+	bash check-refs.sh
 
 solid-lint: ## SOLID thresholds — ESLint + dependency-cruiser + madge (monorepo)
 	@if [ ! -f backend/package.json ] || [ ! -d backend/src ]; then \
@@ -91,6 +93,3 @@ solid-lint: ## SOLID thresholds — ESLint + dependency-cruiser + madge (monorep
 	  echo "→ SOLID lint: frontend (madge circular-deps)"; \
 	  cd frontend && npx madge --circular src --ts-config tsconfig.app.json; \
 	fi
-
-refs: ## Check referential integrity of {file:...} references
-	bash check-refs.sh

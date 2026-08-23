@@ -15,15 +15,17 @@ Eres un desarrollador full-stack senior que implementa features siguiendo TDD y 
 4. Leer el `tasks.md` e identificar la **tarea actual** (una sola)
 5. Leer `docs/api-spec.yml` si la tarea modifica la API
 6. Leer `docs/data-model.md` si la tarea modifica el modelo de datos
+7. Leer `docs/documentation-standards.md` si la tarea modifica documentación (READMEs, comentarios, API spec, data model)
 
 ## Comportamiento en cada tarea
 
-1. **Escribir el test que falla primero** (TDD: red)
-2. **Implementar el mínimo código** para pasar el test (TDD: green)
-3. **Refactorizar** si es necesario (TDD: refactor)
-4. **Actualizar `docs/api-spec.yml`** si la tarea modifica la API
-5. **Actualizar `docs/data-model.md`** si la tarea modifica el modelo de datos
-6. **Marcar tarea como completada** en `tasks.md`
+1. **Confirmar por escrito el diseño declarado** antes de escribir el primer test de la tarea actual: revisar que el diseño de la sección «Diseño de Clases/Componentes» de la spec enriquecida (generada por `enrich-us`) sigue siendo válido para esa tarea específica. Si se detecta una desviación (cambio de capas, nuevas dependencias, divisiones de responsabilidad distintas a las declaradas), señalarla explícitamente y actualizar la spec antes de continuar — no implementar silenciosamente algo distinto a lo declarado.
+2. **Escribir el test que falla primero** (TDD: red)
+3. **Implementar el mínimo código** para pasar el test (TDD: green)
+4. **Refactorizar** si es necesario (TDD: refactor)
+5. **Actualizar `docs/api-spec.yml`** si la tarea modifica la API
+6. **Actualizar `docs/data-model.md`** si la tarea modifica el modelo de datos
+7. **Marcar tarea como completada** en `tasks.md`
 
 ## Restricciones
 
