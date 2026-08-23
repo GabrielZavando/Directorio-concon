@@ -1,7 +1,7 @@
 {
   "name": "directorio-concon-api",
   "version": "1.0.0",
-  "description": "API Backend para Directorio de Empresas de Concón - NestJS + Firebase",
+  "description": "API Backend para Directorio de Empresas de Conc\u00f3n - NestJS + Firebase",
   "author": "Agencia Digital",
   "private": true,
   "license": "UNLICENSED",
@@ -18,8 +18,10 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed": "ts-node scripts/seed.ts",
-    "migrate": "ts-node scripts/migrate.ts"
+    "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts && ts-node -r tsconfig-paths/register scripts/seed-places.ts",
+    "seed:cat": "ts-node -r tsconfig-paths/register scripts/seed.ts",
+    "seed:places": "ts-node -r tsconfig-paths/register scripts/seed-places.ts",
+    "audit-refs": "ts-node -r tsconfig-paths/register scripts/audit-refs.ts"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^3.1.3",
@@ -94,7 +96,10 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "transformIgnorePatterns": [
+      "node_modules/(?!(jose|@angular|rxjs)/)"
+    ]
   },
   "engines": {
     "node": ">=18.0.0",

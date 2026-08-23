@@ -38,6 +38,9 @@ export const ValidationConfig = registerAs("validation", () => ({
     // URLs
     FRONTEND_URL: Joi.string().uri().default("http://localhost:4200"),
     BACKEND_URL: Joi.string().uri().default("http://localhost:3000"),
+
+    // Catalog cross-validation (categorias/barrios) — see catalog-validation.config.ts
+    CATALOG_VALIDATION_ENABLED: Joi.boolean().default(false),
   }),
 
   /**

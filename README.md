@@ -52,6 +52,8 @@ Documentación canónica: `docs/base-standards.md`, `docs/backend-standards.md`,
 cd backend
 npm install
 cp .env.example .env            # completar credenciales Firebase
+npm run seed                    # poblar catálogo (categorias/barrios) + datos mock (places/eventos)
+npm run audit-refs              # verificar que places/eventos referencien catálogo válido
 npm run start:dev               # http://localhost:3000/api/v1  (docs: /api/docs)
 ```
 

@@ -119,13 +119,22 @@ Cada feature en `src/modules/<nombre>/`:
 - `infrastructure/` (`<nombre>.firestore.adapter.ts`, `dto/`)
 - Tests: `<nombre>.service.spec.ts`, `<nombre>.controller.spec.ts`
 
+Inventario actual (MVP):
+- `places`, `eventos`, `categorias`, `barrios`, `usuarios`, `auth`, `solicitudes`
+- Los módulos `categorias` y `barrios` (change `categorias-barrios-crud`) son la
+  referencia canónica de la plantilla Clean Architecture por feature:
+  repositorios separados en `CategoriaReadRepository`/`CategoriaWriteRepository`
+  (ISP ≤5 métodos), entidades puras sin imports de framework en `domain/`,
+  y un `CatalogValidator` compartido en `application/` que re-exportan para
+  que `places`/`eventos` validen referencias cross-catálogo (DIP).
+
 ### Firebase / Firestore
 
 - Siempre verificar existencia de documentos antes de acceder.
 - Usar transacciones para operaciones atómicas.
 - Paginación con cursors (no offset).
 - Crear índices compuestos ANTES de deployar queries (ver `.github/instructions/database-instructions.md`).
-- Índices requeridos: places(categoriaId), places(barrioId), places(status+destacado+createdAt), places(slug único), categorias(slug único), barrios(slug único), usuarios(email único).
+- Índices requeridos: places(categoriaId), places(barrioId), places(status+destacado+createdAt), places(slug único), categorias(activo+orden), barrios(activo+tipo), usuarios(email único).
 
 ### Autenticación y roles
 

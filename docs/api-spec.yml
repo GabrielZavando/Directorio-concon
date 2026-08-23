@@ -866,6 +866,227 @@ components:
           type: string
           maxLength: 500
 
+    Subcategoria:
+      type: object
+      required: [slug, nombre]
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          example: restaurantes
+        nombre:
+          type: string
+          example: Restaurantes
+        activo:
+          type: boolean
+          description: Solo visible en modo admin. El público no recibe este flag.
+
+    Categoria:
+      type: object
+      required: [id, nombre, slug, icono, orden]
+      properties:
+        id:
+          type: string
+          description: Firestore document id (= slug)
+        nombre:
+          type: string
+          example: Gastronomía
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        descripcion:
+          type: string
+          nullable: true
+        icono:
+          type: string
+          enum: [utensils, store, tent, briefcase, car, heart-pulse, graduation-cap, building-2, party-popper]
+        color:
+          type: string
+          nullable: true
+        orden:
+          type: integer
+          minimum: 1
+          maximum: 99
+        activo:
+          type: boolean
+          description: Solo visible en modo admin. El público no recibe este flag.
+        subcategorias:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subcategoria'
+
+    CreateCategoria:
+      type: object
+      description: |
+        Body para `POST /api/v1/categorias` (admin). `id` y `activo` se
+        rechazan con `400` (`property X should not exist`); el id del doc se
+        deriva del slug.
+      required: [nombre, slug, icono, orden]
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 80
+          example: Gastronomía
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          maxLength: 80
+          example: gastronomia
+        icono:
+          type: string
+          enum: [utensils, store, tent, briefcase, car, heart-pulse, graduation-cap, building-2, party-popper]
+        orden:
+          type: integer
+          minimum: 1
+          maximum: 99
+        descripcion:
+          type: string
+          maxLength: 500
+        color:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+
+    UpdateCategoria:
+      type: object
+      description: |
+        Body para `PATCH /api/v1/categorias/:id` (admin). Todos los campos
+        opcionales; `slug` e `id` no se renombran post-create. `orden` con
+        duplicado recibe `409`.
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 80
+        descripcion:
+          type: string
+          maxLength: 500
+        color:
+          type: string
+          pattern: '^#[0-9a-fA-F]{6}$'
+        icono:
+          type: string
+          enum: [utensils, store, tent, briefcase, car, heart-pulse, graduation-cap, building-2, party-popper]
+        orden:
+          type: integer
+          minimum: 1
+          maximum: 99
+        activo:
+          type: boolean
+
+    CreateSubcategoria:
+      type: object
+      description: |
+        Body para `POST /api/v1/categorias/:id/subcategorias` (admin).
+        `activo` es opcional (default `true`); los toggles van por endpoints
+        dedicados.
+      required: [slug, nombre]
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          minLength: 2
+          maxLength: 60
+          example: restaurantes
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 80
+          example: Restaurantes
+        activo:
+          type: boolean
+
+    Barrio:
+      type: object
+      required: [id, nombre, slug, tipo]
+      properties:
+        id:
+          type: string
+          description: Firestore document id (= slug)
+        nombre:
+          type: string
+          example: Higuerillas
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        tipo:
+          type: string
+          enum: [urbano, rural]
+        descripcion:
+          type: string
+          nullable: true
+        territorio:
+          type: string
+          nullable: true
+        codigo:
+          type: string
+          nullable: true
+        coordenadas:
+          allOf:
+            - $ref: '#/components/schemas/Coordenadas'
+          nullable: true
+        activo:
+          type: boolean
+          description: Solo visible en modo admin. El público no recibe este flag.
+
+    CreateBarrio:
+      type: object
+      description: |
+        Body para `POST /api/v1/barrios` (admin). `id` y `activo` se rechazan
+        con `400` (`property X should not exist`).
+      required: [nombre, slug, tipo]
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 80
+          example: Higuerillas
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          maxLength: 80
+          example: higuerillas
+        tipo:
+          type: string
+          enum: [urbano, rural]
+        descripcion:
+          type: string
+          maxLength: 500
+        territorio:
+          type: string
+          maxLength: 200
+        codigo:
+          type: string
+        coordenadas:
+          type: string
+          description: String `"lat,lng"` (se parsea en el service).
+          pattern: '^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$'
+
+    UpdateBarrio:
+      type: object
+      description: |
+        Body para `PATCH /api/v1/barrios/:id` (admin). Todos los campos
+        opcionales; `slug` no se modifica.
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 80
+        tipo:
+          type: string
+          enum: [urbano, rural]
+        descripcion:
+          type: string
+          maxLength: 500
+        territorio:
+          type: string
+          maxLength: 200
+        codigo:
+          type: string
+        coordenadas:
+          type: string
+          description: String `"lat,lng"` (se parsea en el service).
+
 security:
   - bearerAuth: []
 
@@ -885,6 +1106,334 @@ paths:
                   status:
                     type: string
                     example: ok
+
+  /categorias:
+    get:
+      summary: Listar categorías
+      description: |
+        Sin query → modo admin (incluye inactivas con flag `activo`).
+        `?activa=true` → modo público: solo `activo: true` y sin flags
+        internos en categoría ni subcategorías.
+      security: []
+      parameters:
+        - name: activa
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Lista de categorías
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+    post:
+      summary: Crear categoría (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoria'
+      responses:
+        "201":
+          description: Categoría creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+        "400":
+          description: Validación DTO fallida (slug/icono/orden inválidos o propiedad no whitelisted)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "409":
+          description: Slug u orden duplicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /categorias/{id}:
+    patch:
+      summary: Actualizar categoría (admin)
+      description: "`slug` e `id` no se renombran post-create. `orden` con duplicado → 409."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoria'
+      responses:
+        "200":
+          description: Categoría actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+        "400":
+          description: Validación fallida
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "404":
+          description: Categoría no encontrada
+        "409":
+          description: Orden duplicado
+
+  /categorias/{id}/activar:
+    patch:
+      summary: Activar categoría (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Categoría activada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "404":
+          description: Categoría no encontrada
+
+  /categorias/{id}/desactivar:
+    patch:
+      summary: Desactivar categoría (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Categoría desactivada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "404":
+          description: Categoría no encontrada
+
+  /categorias/{id}/subcategorias:
+    post:
+      summary: Agregar subcategoría (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubcategoria'
+      responses:
+        "201":
+          description: Subcategoría agregada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+        "400":
+          description: Validación fallida
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "404":
+          description: Categoría no encontrada
+        "409":
+          description: Subcategoría duplicada en esta categoría
+
+  /categorias/{id}/subcategorias/{subId}/desactivar:
+    patch:
+      summary: Desactivar subcategoría (admin)
+      description: "`subId` es el slug de la subcategoría."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: subId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Subcategoría desactivada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Categoria'
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "404":
+          description: Categoría o subcategoría no encontrada
+
+  /barrios:
+    get:
+      summary: Listar barrios
+      description: |
+        Sin query → modo admin (incluye inactivos con flag `activo`).
+        `?activo=true` → modo público: solo `activo: true` y sin flag interno.
+      security: []
+      parameters:
+        - name: activo
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Lista de barrios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Barrio'
+    post:
+      summary: Crear barrio (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBarrio'
+      responses:
+        "201":
+          description: Barrio creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Barrio'
+        "400":
+          description: Validación DTO fallida (slug/tipo inválidos o propiedad no whitelisted)
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "409":
+          description: Slug duplicado
+
+  /barrios/{id}:
+    patch:
+      summary: Actualizar barrio (admin)
+      description: "`slug` no se modifica."
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBarrio'
+      responses:
+        "200":
+          description: Barrio actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Barrio'
+        "400":
+          description: Validación fallida
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "404":
+          description: Barrio no encontrado
+
+  /barrios/{id}/activar:
+    patch:
+      summary: Activar barrio (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Barrio activado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Barrio'
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "404":
+          description: Barrio no encontrado
+
+  /barrios/{id}/desactivar:
+    patch:
+      summary: Desactivar barrio (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Barrio desactivado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Barrio'
+        "401":
+          description: No autenticado
+        "403":
+          description: No admin
+        "404":
+          description: Barrio no encontrado
 
   /places:
     get:

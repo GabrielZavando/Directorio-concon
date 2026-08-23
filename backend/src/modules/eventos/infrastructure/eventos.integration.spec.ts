@@ -16,6 +16,7 @@ import { EventoFirestoreAdapter } from "./evento-firestore.adapter";
 import { SolicitudesService } from "../../solicitudes/application/solicitudes.service";
 import { SolicitudesFirestoreAdapter } from "../../solicitudes/infrastructure/solicitudes-firestore.adapter";
 import { EventoApprovalHandlerImpl } from "../application/evento-approval.handler";
+import type { CatalogValidator } from "../../categorias/application/catalog-validator.service";
 import { ForbiddenException, NotFoundException } from "@nestjs/common";
 
 // ---------------------------------------------------------------------------
@@ -113,6 +114,9 @@ describe("Eventos Integration (Service → Adapter)", () => {
       eventoAdapter as never,
       solicitudService as never,
       eventoValidator,
+      // Feature flag unset in tests → validation disabled. Stub keeps the
+      // integration flows focused on evento persistence, not catalogs.
+      { enabled: false } as unknown as CatalogValidator,
     );
   });
 

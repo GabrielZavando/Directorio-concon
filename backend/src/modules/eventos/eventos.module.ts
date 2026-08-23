@@ -17,9 +17,10 @@ import { SolicitudesService } from "../solicitudes/application/solicitudes.servi
 import { EventoApprovalHandlerImpl } from "./application/evento-approval.handler";
 import { EVENTO_APPROVAL_HANDLER } from "../solicitudes/application/approval-handlers";
 import { AuthModule } from "../auth/auth.module";
+import { CategoriasModule } from "../categorias/categorias.module";
 
 @Module({
-  imports: [SolicitudesModule, AuthModule],
+  imports: [SolicitudesModule, AuthModule, CategoriasModule],
   controllers: [EventosController],
   providers: [
     EventosService,

@@ -15,6 +15,7 @@
 - `make lint` y `make test` pasan (corren sobre `backend/`).
 - `make build` compila (`nest build`).
 - `npm audit --audit-level=high` sin vulnerabilidades críticas.
+- `npm --prefix backend run audit-refs` → exit `0` (0 referencias huérfanas en `places`/`eventos` contra el catálogo `categorias`/`barrios`). **Requerido antes de activar `CATALOG_VALIDATION_ENABLED=true`.**
 - Índices Firestore creados en el proyecto Firebase de producción.
 - Variables de entorno de producción cargadas en `.env` del VPS (nunca en git).
 
@@ -83,6 +84,7 @@
 | `FIREBASE_PRIVATE_KEY` | Clave privada service account (con `\n`) | `-----BEGIN...` |
 | `FIREBASE_CLIENT_EMAIL` | Email service account | `firebase-adminsdk@...` |
 | `FIREBASE_STORAGE_BUCKET` | Bucket Storage | `directorio-concon.appspot.com` |
+| `CATALOG_VALIDATION_ENABLED` | Valida `categoriaId`/`subcategoriaId`/`barrioId` en places/eventos contra el catálogo (default `false`). Activar solo tras `npm run seed` + `npm run audit-refs` OK | `true` |
 | `CORS_ORIGINS` | Orígenes permitidos (coma) | `https://directorio-concon.com` |
 | `REDIS_URL` | Cache (opcional) | `redis://redis:6379` |
 
