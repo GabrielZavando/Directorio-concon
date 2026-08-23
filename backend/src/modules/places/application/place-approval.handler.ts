@@ -16,10 +16,10 @@ export class PlaceApprovalHandlerImpl implements PlaceApprovalHandler {
     private readonly placeRepo: PlaceRepositoryInterface,
   ) {}
 
-  async approveRegistro(placeId: string, _adminUid: string): Promise<void> {
+  async approveRegistro(placeId: string, adminUid: string): Promise<void> {
     await this.placeRepo.update(placeId, {
       status: "aprobado" as never,
     });
-    this.logger.log(`Place ${placeId} approved via solicitud`);
+    this.logger.log(`Place ${placeId} approved via solicitud by ${adminUid}`);
   }
 }

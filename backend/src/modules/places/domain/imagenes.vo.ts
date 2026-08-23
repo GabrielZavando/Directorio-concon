@@ -20,6 +20,19 @@ function isValidUrl(value: string): boolean {
   }
 }
 
+function isOptionalUrl(value: unknown): boolean {
+  return (
+    value === undefined || (typeof value === "string" && isValidUrl(value))
+  );
+}
+
+function isValidGaleria(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((g) => typeof g === "string" && isValidUrl(g))
+  );
+}
+
 /**
  * Validates an Imagenes value object.
  * @param planId - 'gratuito' or 'premium', used to enforce galeria limits.
@@ -31,23 +44,12 @@ export function isValidImagenes(
   if (typeof value !== "object" || value === null) return false;
   const img = value as Record<string, unknown>;
 
-  if (img.logo !== undefined) {
-    if (typeof img.logo !== "string" || !isValidUrl(img.logo)) return false;
-  }
-
-  if (img.portada !== undefined) {
-    if (typeof img.portada !== "string" || !isValidUrl(img.portada))
-      return false;
-  }
-
-  if (!Array.isArray(img.galeria)) return false;
-  if (!img.galeria.every((g) => typeof g === "string" && isValidUrl(g)))
-    return false;
+  if (!isOptionalUrl(img.logo)) return false;
+  if (!isOptionalUrl(img.portada)) return false;
+  if (!isValidGaleria(img.galeria)) return false;
 
   const max = planId === "premium" ? MAX_GALERIA_PREMIUM : MAX_GALERIA_FREE;
-  if (img.galeria.length > max) return false;
-
-  return true;
+  return img.galeria.length <= max;
 }
 
 export const GALERIA_LIMITS = {

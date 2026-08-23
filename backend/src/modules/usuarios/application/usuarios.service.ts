@@ -110,11 +110,7 @@ export class UsuariosService implements UsuariosServiceInterface {
   }
 
   async findById(uid: string): Promise<Usuario> {
-    const found = await this.repo.findById(uid);
-    if (!found) {
-      throw new NotFoundException(`Usuario '${uid}' not found`);
-    }
-    return found;
+    return this.assertExists(uid);
   }
 
   async updateRol(uid: string, rol: Rol): Promise<Usuario> {

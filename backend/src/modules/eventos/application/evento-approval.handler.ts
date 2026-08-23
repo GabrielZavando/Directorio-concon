@@ -16,12 +16,12 @@ export class EventoApprovalHandlerImpl implements EventoApprovalHandler {
     private readonly eventoRepo: EventoRepositoryInterface,
   ) {}
 
-  async approveRegistro(eventoId: string, _adminUid: string): Promise<void> {
+  async approveRegistro(eventoId: string, adminUid: string): Promise<void> {
     await this.eventoRepo.update(eventoId, {
       status: "aprobado",
       estado: "programado",
     } as never);
-    this.logger.log(`Evento ${eventoId} approved via solicitud`);
+    this.logger.log(`Evento ${eventoId} approved via solicitud by ${adminUid}`);
   }
 
   async applyProposal(
@@ -34,10 +34,10 @@ export class EventoApprovalHandlerImpl implements EventoApprovalHandler {
     );
   }
 
-  async rejectRegistro(eventoId: string, _adminUid: string): Promise<void> {
+  async rejectRegistro(eventoId: string, adminUid: string): Promise<void> {
     await this.eventoRepo.update(eventoId, {
       status: "rechazado",
     } as never);
-    this.logger.log(`Evento ${eventoId} rejected via solicitud`);
+    this.logger.log(`Evento ${eventoId} rejected via solicitud by ${adminUid}`);
   }
 }
