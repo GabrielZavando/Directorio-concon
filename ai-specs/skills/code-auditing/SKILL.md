@@ -2,9 +2,9 @@
 
 ## Descripción
 
-Auditoría sistemática de calidad de código en 8 fases. Usar antes de releases importantes, durante revisiones de deuda técnica, o como `/adversarial-review` en el flujo SDD.
+Auditoría sistemática de calidad de código. Usar antes de releases importantes, durante revisiones de deuda técnica, o como `/adversarial-review` en el flujo SDD.
 
-## Proceso — 8 fases
+## Proceso
 
 ### Fase 1: Seguridad
 
@@ -56,35 +56,41 @@ Auditoría sistemática de calidad de código en 8 fases. Usar antes de releases
 - El contrato en `docs/api-spec.yml` refleja los cambios reales
 - El modelo de datos en `docs/data-model.md` está sincronizado
 
-### Fase 8: SOLID / POO — Lente Architect
+### Fase 8: SOLID/POO — Lente Architect
 
-Inspeccionar el diff con lupa para violaciones de principios SOLID y Composition over Inheritance. Reportar **solo** lo que aplica al stack del proyecto.
+Chequeo explícito, ítem por ítem, contra el diff bajo revisión. Umbrales de referencia: `docs/backend-standards.md` sección _Principios de Diseño — Backend (NestJS)_, y `docs/frontend-standards.md` secciones _Principios de Diseño — Frontend (Angular)_ y _Principios de Diseño — Astro_.
 
 #### NestJS / Backend
 
-- **DIP**: imports de `firebase-admin`, `class-validator`, `@nestjs/axios`, `@nestjs/axios`, HTTP clients o SDKs concretos en `domain/` o `application/`. Deben importar solo interfaces definidas en `domain/`.
-- **SRP**: un `@Injectable()` que mezcla data access + business logic + formatting en un mismo archivo.
-- **OCP**: `if/else` o `switch` crecientes que deberían ser estrategias/polimorfismo.
-- **ISP**: interfaces de repositorio con más de 5 métodos.
-- **SRP (archivos)**: archivos >300 líneas o cyclomatic complexity >10.
+- ¿Algún archivo en `domain/` o `application/` importa un paquete de infraestructura (TypeORM, Prisma, HTTP client, SDK externo)? → violación de DIP.
+- ¿Algún `@Injectable()` mezcla acceso a datos + lógica de negocio + formateo de respuesta en la misma clase? → violación de SRP.
+- ¿Hay algún `new` de una dependencia dentro de un constructor en vez de recibirla inyectada? → violación de DIP.
+- ¿Se agregó una nueva rama `if/else`/`switch` a un método existente para soportar un nuevo caso, en vez de una Strategy/nueva implementación? → violación de OCP.
+- ¿Alguna interfaz de puerto tiene más de 5 métodos donde el consumidor solo usa 1-2? → violación de ISP.
+- ¿Alguna clase supera 300 líneas? → Esta violación **ahora es detectable automáticamente vía ESLint** (regla `max-lines` en `eslintrc.backend.js`). Si el lint reporta error, el agente debe validar el output y reportar el hallazgo; no es necesario estimar manualmente.
+- ¿Alguna función tiene más de 5 parámetros en su constructor? → Esta violación **ahora es detectable automáticamente vía ESLint** (regla `max-params` en `eslintrc.backend.js`). Si el lint reporta error, el agente debe validar el output y reportar el contexto; no es necesario contar parámetros manualmente.
 
-#### Angular / Frontend
+#### Angular
 
-- **SRP**: dumb component inyectando un data service (`HttpClient`, Firestore, store). Dumb components solo reciben inputs y emiten outputs.
-- **SRP (archivos)**: archivos >400 líneas o inline templates >60–80 líneas.
-- **DIP**: `new HttpClient()` en vez de `inject(HttpClient)`.
+- ¿Un componente "dumb" inyecta un servicio de datos o llama HTTP directamente? → violación de SRP/capas.
+- ¿Un componente mezcla lógica de presentación con lógica de negocio no trivial? → violación de SRP.
+- ¿Un componente supera 400 líneas? → Esta violación **ahora es detectable automáticamente vía ESLint** (regla `max-lines` en `eslintrc.frontend.js`). Si el lint reporta error, el agente debe validar el output y reportar el hallazgo; no es necesario estimar manualmente.
+- ¿Un constructor de componente tiene más de 5 parámetros? → Esta violación **ahora es detectable automáticamente vía ESLint** (regla `max-params` en `eslintrc.frontend.js`). Si el lint reporta error, el agente debe validar el output y reportar el contexto; no es necesario contar parámetros manualmente.
 
 #### Astro
 
-- **SRP**: frontmatter con lógica de negocio no trivial (debe ser solo fetch + props).
+- ¿El frontmatter contiene lógica de negocio no trivial que debería vivir en un módulo `.ts` separado y testeable? → violación de SRP.
 
-#### Output obligatorio de Fase 8
+#### Formato de salida obligatorio por hallazgo
+
+Cada hallazgo de esta fase debe reportarse en el formato accionable siguiente — no se acepta salida genérica tipo "viola SRP":
 
 ```
-[Principio violado] — [Archivo:línea] / Qué se observa / Por qué viola / Refactor sugerido
+[Principio violado] — [Archivo:línea]
+Qué se observa: [descripción concreta de lo que hace el código]
+Por qué viola el principio: [explicación en 1 línea]
+Refactor sugerido: [acción concreta, ej. "extraer el bloque de acceso a datos a un UserRepository inyectado vía IUserRepository"]
 ```
-
-Si no hay violaciones SOLID/POO en el diff, reportar: "Fase 8: sin violaciones SOLID/POO detectadas en este cambio."
 
 ## Output esperado
 
@@ -99,9 +105,6 @@ Si no hay violaciones SOLID/POO en el diff, reportar: "Fase 8: sin violaciones S
 
 ### Sugerencias (mejora de calidad)
 - [ ] [descripción de sugerencia]
-
-### Fase 8 — SOLID / POO
-- [violationes o "sin violaciones detectadas"]
 
 ### Cobertura actual: X%
 ```

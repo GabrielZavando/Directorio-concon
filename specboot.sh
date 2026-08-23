@@ -59,7 +59,6 @@ REQUIRED_FILES=(
   "docs/api-spec.yml"
   "docs/data-model.md"
   "docs/deploy-standards.md"
-  "docs/DESIGN.md"
   "ai-specs/README.md"
   "ai-specs/agents/backend-developer.md"
   "ai-specs/agents/frontend-developer.md"
@@ -102,15 +101,6 @@ EXAMPLE_FILES=(
   "ai-specs/examples/requirements-example.md"
   "ai-specs/examples/ticket-ejemplo.md"
   "ai-specs/examples/tasks.md"
-  # Per-screen Stitch exports (warn if missing — reference grade, not strictly required)
-  "docs/home/code.html"
-  "docs/home/screen.jpg"
-  "docs/login/code.html"
-  "docs/login/screen.jpg"
-  "docs/mapa/code.html"
-  "docs/mapa/screen.jpg"
-  "docs/perfil/code.html"
-  "docs/perfil/screen.jpg"
 )
 
 DEFAULT_MODEL="deepseek-v4-flash-free"
@@ -149,14 +139,10 @@ check_opencode_json() {
   if command -v node &> /dev/null; then
     if node -e "JSON.parse(require('fs').readFileSync('opencode.json'))" 2>/dev/null; then
       pass "opencode.json es JSON válido"
-      if grep -q '"model"' opencode.json 2>/dev/null; then
-        if grep -q "\"model\": \"$DEFAULT_MODEL\"" opencode.json 2>/dev/null; then
-          warn "opencode.json usa el model por defecto ($DEFAULT_MODEL)"
-        else
-          pass "Model personalizado configurado"
-        fi
+      if grep -q "\"model\": \"$DEFAULT_MODEL\"" opencode.json 2>/dev/null; then
+        warn "opencode.json usa el model por defecto ($DEFAULT_MODEL)"
       else
-        pass "Model agnóstico (no declarado en opencode.json)"
+        pass "Model personalizado configurado"
       fi
     else
       fail "opencode.json tiene errores de sintaxis"

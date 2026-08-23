@@ -73,7 +73,7 @@ else
   fail "backend max-lines 300 NOT found"
 fi
 
-if grep -qE "complexity:\s*\['error'" templates/ci/eslintrc.backend.js; then
+if grep -qE "'complexity':\s*\['error'" templates/ci/eslintrc.backend.js; then
   pass "backend complexity present"
 else
   fail "backend complexity NOT found"
@@ -124,11 +124,11 @@ else
   fail "frontend max-lines 400 NOT found"
 fi
 
-# 7. Check madge config points to frontend/tsconfig.app.json
-if grep -q 'frontend/tsconfig.app.json' templates/ci/.madge.config.json; then
-  pass "madge config points to frontend/tsconfig.app.json"
+# 7. Check madge config enables circular-dependency detection
+if grep -q '"circular":\s*true' templates/ci/.madge.config.json; then
+  pass "madge config enables circular-dependency detection"
 else
-  fail "madge config NOT pointing to frontend/tsconfig.app.json"
+  fail "madge config NOT enabling circular detection"
 fi
 
 # 8. Check README.md exists and mentions thresholds

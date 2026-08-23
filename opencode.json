@@ -1,6 +1,24 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": true,
+  "provider": {
+    "omniroute": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "OmniRoute",
+      "options": {
+        "baseURL": "http://localhost:20128/v1",
+        "apiKey": "sk-aad2f9f3f277f6d8-ce79b3-b14add23"
+      },
+      "models": {
+        "gemini/gemini-3.5-flash": {
+          "name": "Gemini 3.5 Flash Free"
+        },
+        "groq/qwen/qwen3.6-27b": {
+          "name": "Qwen 3.6 27B"
+        }
+      }
+    }
+  },
   "instructions": [
     "docs/base-standards.md",
     "docs/backend-standards.md",
@@ -56,8 +74,8 @@
       "agent": "plan"
     },
     "plan-change": {
-      "template": "Run 'openspec new change' for the given ticket ID (must be lowercase kebab-case).\n\n1. Verify the ticket ID is provided\n2. Normalize the ticket ID to lowercase kebab-case if needed (e.g. 'TICKET-123' -> 'ticket-123')\n3. Run: openspec new change {input}\n4. Review generated artifacts in .openspec/changes/<ticket-id>/\n5. Display the tasks.md for confirmation",
-      "description": "Generate OpenSpec specs and tasks from a ticket",
+      "template": "{file:ai-specs/skills/plan-change/SKILL.md}\n\nFollow the process above for the provided ticket.",
+      "description": "Generate OpenSpec specs and tasks from a ticket with descriptive brief name",
       "agent": "plan"
     },
     "apply": {

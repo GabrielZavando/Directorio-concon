@@ -1,101 +1,124 @@
-# CI Standards — SOLID/POO Mechanical Thresholds
+# CI Standards — Mechanical SOLID/POO Enforcement
 
-> This document maps the "Umbrales objetivos" declared in `docs/backend-standards.md`
-> and `docs/frontend-standards.md` to the concrete linter rules in `templates/ci/`.
+> Panóramico del Ticket 4. Define qué herramientas de análisis estático
+> implementan mecánicamente (sin intervención del LLM) los umbrales y
+> principios declarados en [`backend-standards.md`](backend-standards.md) y
+> [`frontend-standards.md`](frontend-standards.md).
 
-## Purpose
+## 1. Por qué este doc existe
 
-When `make solid-lint` (or the `solid-lint` job in CI) runs, it enforces the SOLID
-thresholds mechanically. This file documents the mapping so reviewers can verify
-that the configs implement the intended rules.
+Los Tickets 1-3 dependen de que el propio agente IA (o un revisor humano) aplique
+las reglas SOLID con criterio. Esta es la **única capa que NO depende del buen
+comportamiento del LLM**: rendimiento mecánico comprobado en CI que falla el
+pipeline si se violan los umbrales numéricos del Ticket 1.
 
-## Backend (NestJS) — `docs/backend-standards.md` → `templates/ci/eslintrc.backend.js`
+Para que CI corra Errcheck contra NestJS/ Angular / Astro, los proyectos
+instanciados desde este template copian los templates de configuración de
+`templates/ci/` y los integran a su `package.json` y `.github/workflows/`.
 
-| Umbral (docs/backend-standards.md) | Regla ESLint (templates/ci/eslintrc.backend.js) | Valor |
+## 2. Cobertura mecánica por principio SOLID
+
+| Principio | Mecánicamente verificable? | Herramienta | Archivo de configuración |
+|---|---|---|---|
+| **DIP** | ✅ Sí, regla directa | `dependency-cruiser` | `templates/ci/.dependency-cruiser.js` rule `no-infra-from-domain`, `no-orm-or-http-from-domain` |
+| **SRP** (umbrales) | ✅ Sí, vía tamaño + complejidad | ESLint + `eslint-plugin-sonarjs` | `templates/ci/eslintrc.backend.js`, `eslintrc.frontend.js`, `eslintrc.astro.js` |
+| **OCP** | ⚠️ No directamente | — | Lente Architect (Ticket 3 §Fase 8) |
+| **LSP** | ⚠️ No directamente | — | Lente Architect (Ticket 3 §Fase 8) |
+| **ISP** | ⚠️ No directamente | — | Lente Architect (Ticket 3 §Fase 8) |
+
+**Honest limitation:** la verificación estática solo puede medir **DIP** (regla
+mecánica directa via dependency-cruiser) y **umbrales numéricos** de SRP
+(líneas / complejidad). OCP/LSP/ISP son juicios arquitectónicos que el Lente
+Architect del Ticket 3 debe hacer en code review. **Lint no sustituye al review.**
+
+## 3. Mapeo de umbrales — Ticket 1 ↔ configs
+
+| Umbral | Fuente (Ticket 1) | Config Ticket 4 |
 |---|---|---|
-| max 300 líneas/archivo | `max-lines` | `300` (error, skipBlankLines/skipComments) |
-| complejidad ciclomática ≤ 10 | `complexity` | `10` (error) |
-| complejidad cognitiva ≤ 10 | `sonarjs/cognitive-complexity` | `10` (error) |
-| max 3 parámetros en constructor | `max-params` | `3` (error) |
-| profundidad herencia ≤ 2 | (no hay regla ESLint directa; se valida vía `dependency-cruiser` y revisión manual) | — |
-| DIP: no imports de infra en domain/application | `dependency-cruiser` rules `no-infra-from-domain`, `no-orm-or-http-from-domain`, `no-application-importing-concrete-repository` | — |
+| Backend: máx **300 líneas** por archivo de clase | `backend-standards.md` §_Umbrales objetivos_ | `eslintrc.backend.js` → `max-lines: ["error", 300]` |
+| Backend: complejidad ciclomática máx **10 por método** | `backend-standards.md` §_Umbrales objetivos_ | `eslintrc.backend.js` → `complexity: ["error", 10]` |
+| Backend: complejidad cognitiva máx **10** | *(medida adicional, alineada al ticket)* | `eslintrc.backend.js` → `sonarjs/cognitive-complexity: ["error", 10]` |
+| Backend: DIP — `domain/`/`application/` → no importan infraestructura / ORM / HTTP | `backend-standards.md` §_Estructura carpetas_ | `.dependency-cruiser.js` rules `no-infra-from-domain`, `no-orm-or-http-from-domain` |
+| Angular: máx **400 líneas** por archivo de componente (`.ts`) | `frontend-standards.md` §_Umbrales_ | `eslintrc.frontend.js` → `max-lines: ["error", 400]`, `@angular-eslint/component-class-size` |
+| Astro: máx líneas | *(no fijado en Ticket 1)* | `eslintrc.astro.js` → `max-lines: ["warn", 400]` → **flagged como `warn`** hasta que un ticket futuro fije el umbral en `frontend-standards.md` |
+| Backend: máx **3 parámetros por constructor** | `backend-standards.md` §_Umbrales objetivos_ | **No enforceable mechánicamente** — no existe un rule stable de ESLint para ello. Lente Architect lo cubre. |
 
-### Dependency-cruiser rules (templates/ci/.dependency-cruiser.js)
+## 4. Discrepancias con el Ticket 1 (honestas, sin invención)
 
-| Regla | Qué previene | From / To |
-|---|---|---|
-| `no-infra-from-domain` | domain/ importa firebase-admin, @nestjs/axios, class-validator, class-transformer | from `^backend/src/modules/[^/]+/domain/` → to `(firebase-admin|@nestjs/axios|class-validator|class-transformer|@google-cloud/)` |
-| `no-orm-or-http-from-domain` | domain/ importa ORM/HTTP/SDKs (typeorm, prisma, mongoose, reflect-metadata, rxjs) | from `^backend/src/modules/[^/]+/domain/` → to `(typeorm|@prisma/client|mongoose|@nestjs/mongoose|@nestjs/typeorm|@nestjs/prisma|reflect-metadata|rxjs)` |
-| `no-application-importing-concrete-repository` | application/ importa directamente infrastructure/ (debe usar puertos de domain/) | from `^backend/src/modules/[^/]+/application/` → to `^backend/src/modules/[^/]+/infrastructure/` |
-| `no-circular` | dependencias circulares entre módulos | global |
-| `no-orphan-domain-files` | archivos en domain/ que nadie importa (warn) | from `^backend/src/modules/[^/]+/domain/` con `orphan: true` |
+1. **Astro máx líneas**: el Ticket 1 no fija un número para `.astro`
+   (solo dice "extraer template inline > 60-80 líneas"). Uso `["warn", 400]` por
+   defecto alineado al umbral Angular, marcado `warn` (no `error`) hasta que se
+   documente explícitamente.
+2. **Cyclomatic vs cognitive complexity**: el ticket habla de "complejidad
+   ciclomática 10". ESLint `complexity` mide ciclomática;
+   `sonarjs/cognitive-complexity` mide complejidad cognitiva (concepto distinto
+   pero relacionado). Activamos **ambas** porque una función con ciclomática
+   baja puede tener cognitiva alta (if anidados en else if).
+3. **Máx 3 parámetros por constructor**: el Ticket 1 lo enumera pero no existe
+   un rule ESLint estable para cubrirlo a día de hoy. Lente Architect lo cubre
+   manualmente.
+4. **OCP, LSP, ISP**: no son medibles por lint estático. Solo DIP y umbrales lo
+   son. Esta limitación es estructural y se documenta aquí para no generar
+   falsas expectativas.
 
-### Instantiation into `backend/.eslintrc.js`
-
-The project already has a `backend/.eslintrc.js`. To inherit the SOLID thresholds,
-merge the rules from `templates/ci/eslintrc.backend.js` into it. The `make solid-lint`
-target runs ESLint directly against the template config, so it works even without
-copying. For local `npm run lint` to include them, copy or merge:
+## 5. Cómo instanciar en un proyecto real
 
 ```bash
-# Option A: replace
-cp templates/ci/eslintrc.backend.js backend/.eslintrc.js
+# Desde la raíz de tu proyecto Specboot-instanciado:
+cp templates/ci/eslintrc.backend.js     .eslintrc.backend.js
+cp templates/ci/eslintrc.frontend.js    .eslintrc.frontend.js
+cp templates/ci/eslintrc.astro.js       .eslintrc.astro.js
+cp templates/ci/.dependency-cruiser.js  .dependency-cruiser.js
+cp templates/ci/.madge.config.json      .madge.config.json
 
-# Option B: merge manually (recommended if you have custom rules)
-# Edit backend/.eslintrc.js and add the rules from the template.
+# Merge devDeps (ver templates/ci/package.ci.json para versiones):
+node -e "const p=require('./package.json'); p.devDependencies=require('./templates/ci/package.ci.json').devDependencies; require('fs').writeFileSync('./package.json', JSON.stringify(p,null,2))"
+
+npm install
 ```
 
-Also ensure `backend/package.json` has the required devDependencies (see `templates/ci/package.ci.json`).
+El workflow `.github/workflows/ci.yml` ya incluye un job `solid-lint` que corre
+estas herramientas **si y solo si existe un `package.json`** (protección via
+`if: hashFiles('package.json') != ''`). El template Metadoc (sin código) no lo
+dispara; un proyecto real con `package.json` lo corre automáticamente.
 
-## Frontend (Angular) — `docs/frontend-standards.md` → `templates/ci/eslintrc.frontend.js`
+## 6. Snippet del job CI
 
-| Umbral (docs/frontend-standards.md) | Regla ESLint (templates/ci/eslintrc.frontend.js) | Valor |
-|---|---|---|
-| max 400 líneas/archivo | `max-lines` | `400` (error, skipBlankLines/skipComments) |
-| max 4 parámetros | `max-params` | `4` (error) |
-| complejidad ciclomática ≤ 10 | `complexity` | `10` (error) |
-| complejidad cognitiva ≤ 10 | `sonarjs/cognitive-complexity` | `10` (error) |
-| dumb components no inyectan data services | `@angular-eslint/no-input-rename` off; revisión manual en Fase 8 | — |
-
-### Madge circular-dep detection (templates/ci/.madge.config.json)
-
-Runs `madge --circular frontend/src --ts-config frontend/tsconfig.app.json` as part of `make solid-lint`
-when `frontend/angular.json` exists.
-
-### Instantiation into `frontend/.eslintrc.js`
-
-The frontend may not have a `.eslintrc.js` yet. To enable local linting with SOLID thresholds:
-
-```bash
-cp templates/ci/eslintrc.frontend.js frontend/.eslintrc.js
+```yaml
+solid-lint:
+  name: SOLID / POO Static Analysis
+  runs-on: ubuntu-latest
+  if: hashFiles('package.json') != ''
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    - run: make install
+    - name: Backend ESLint (sonarjs + SRP thresholds)
+      run: make solid-lint
+    # NOTA DEFERIDA — Python/Django/LangChain:
+    # cuando se active el stack Python (ticket separado), agregar aquí un step:
+    #   - name: Python lint (ruff + import-linter)
+    #     run: |
+    #       pip install ruff import-linter
+    #       ruff check .
+    #       lint-imports
+    # import-linter debe prohibir que views.py importe directo del ORM saltándose
+    # la capa de services.py (ver docs/backend-standards.md nota diferida).
 ```
 
-Add the devDependencies from `templates/ci/package.ci.json` to `frontend/package.json`.
+## 7. Verificación local
 
-## How to run locally
+El test [`tests/solid-templates-test.sh`](../tests/solid-templates-test.sh)
+valida — **sin instalar npm ni ejecutar ESLint** (imposible en un repo sin
+código) — que los templates existen, contienen los números correctos de los
+umbrales del Ticket 1, llevan comentarios SOLID explícitos y que el job
+`solid-lint` está condicionado correctamente.
 
-```bash
-# From repo root
-make solid-lint
+## 8. Fuera de alcance
 
-# Or directly
-npx eslint -c templates/ci/eslintrc.backend.js backend/src/**/*.{ts,tsx}
-npx dependency-cruiser backend/src --config templates/ci/.dependency-cruiser.js
-# If Angular project exists:
-npx eslint -c templates/ci/eslintrc.frontend.js frontend/src/**/*.ts
-npx madge --circular frontend/src --ts-config frontend/tsconfig.app.json
-```
-
-## CI Integration
-
-The job `solid-lint` in `.github/workflows/ci.yml` runs `make solid-lint` on every push/PR.
-It is gated by `if: hashFiles('backend/package.json') != ''` so it only runs when the
-backend package exists (monorepo-aware).
-
-## Specboot Sync
-
-`templates/ci/` is part of `update.sh` `SYNC_ITEMS`. When a new Specboot release is
-published, running `bash update.sh --template /path/to/Specboot` will sync this folder
-to the latest upstream. **NOTE:** the upstream `Makefile` does not have the monorepo
-`npm --prefix backend` adaptation; after sync you must re-apply the monorepo adaptation
-to `Makefile` (the caveat is documented in `update.sh`).
+- Stack Python real (`ruff`/`pylint` + `import-linter`: solo nota YAML diferida).
+- Artefactos de Tickets 1-3 (docs de estándares, agents, code-auditing Fase 8):
+  este doc los referencia, no los modifica.
+- `opencode.json.instructions[]`: este doc se carga bajo demanda, no siempre.
