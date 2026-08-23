@@ -184,6 +184,30 @@ describe("TransformInterceptor", () => {
         limit: 20,
       });
     });
+
+    it("honors currentPage/pageSize aliases", async () => {
+      mockCallHandler = createCallHandler({
+        items: [{ id: "1" }],
+        total: 30,
+        currentPage: 3,
+        pageSize: 10,
+      });
+
+      const result = await lastValueFrom(
+        interceptor.intercept(
+          mockContext as ExecutionContext,
+          mockCallHandler as CallHandler,
+        ),
+      );
+
+      expect(result.data).toEqual([{ id: "1" }]);
+      expect(result.meta).toMatchObject({
+        total: 30,
+        page: 3,
+        limit: 10,
+        totalPages: 3,
+      });
+    });
   });
 
   describe("already-wrapped responses", () => {

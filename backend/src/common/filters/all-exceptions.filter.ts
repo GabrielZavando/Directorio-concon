@@ -8,143 +8,161 @@ import {
 } from "@nestjs/common";
 import { Request, Response } from "express";
 
+// SOLID: typed contract for the documented error response envelope
+// (mirrors docs/api-spec.yml `Error` schema).
+interface ApiErrorResponse {
+  success: false;
+  statusCode: number;
+  error: string;
+  message: string | object;
+  timestamp: string;
+  path: string;
+  method: string;
+  stack?: string;
+}
+
+// Shape of a NestJS HttpException object response.
+interface HttpExceptionResponse {
+  message?: string | string[];
+  error?: string;
+}
+
+interface ResolvedError {
+  status: number;
+  message: string | object;
+  error: string;
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
+  // SOLID: OCP — adding a new Firebase mapping is adding one tuple, not a new branch.
+  private static readonly FIREBASE_MESSAGE_MAP: ReadonlyArray<
+    [string, string]
+  > = [
+    ["auth/id-token-expired", "Token de autenticación expirado"],
+    ["auth/id-token-revoked", "Token de autenticación revocado"],
+    ["auth/invalid-id-token", "Token de autenticación inválido"],
+    ["auth/user-not-found", "Usuario no encontrado"],
+    ["permission-denied", "No tienes permisos para realizar esta acción"],
+    ["not-found", "Recurso no encontrado"],
+    ["already-exists", "El recurso ya existe"],
+    ["failed-precondition", "No se cumplieron las condiciones necesarias"],
+    ["resource-exhausted", "Se ha superado el límite de recursos disponibles"],
+    ["storage/object-not-found", "Archivo no encontrado"],
+    ["storage/unauthorized", "No tienes permisos para acceder a este archivo"],
+    ["storage/quota-exceeded", "Se ha superado la cuota de almacenamiento"],
+  ];
+
+  // SOLID: SRP — orchestration only; delegates resolution/logging/response building.
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
-    let status: number;
-    let message: string | object;
-    let error: string;
+    const resolved = this.resolveError(exception);
+    this.logIfNeeded(resolved.status, request, exception);
 
+    response
+      .status(resolved.status)
+      .json(this.buildErrorResponse(resolved, request, exception));
+  }
+
+  private resolveError(exception: unknown): ResolvedError {
     if (exception instanceof HttpException) {
-      // Excepciones HTTP de NestJS
-      status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
+      return this.resolveHttpException(exception);
+    }
+    if (exception instanceof Error) {
+      return {
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: this.mapFirebaseMessage(exception.message),
+        error: exception.constructor.name,
+      };
+    }
+    return {
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: "Error interno del servidor",
+      error: "InternalServerError",
+    };
+  }
 
-      if (typeof exceptionResponse === "string") {
-        message = exceptionResponse;
-        error = exception.constructor.name;
-      } else if (typeof exceptionResponse === "object") {
-        message = (exceptionResponse as any).message || exceptionResponse;
-        error = (exceptionResponse as any).error || exception.constructor.name;
-      }
-    } else if (exception instanceof Error) {
-      // Errores de Firebase u otros
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = this.getFirebaseErrorMessage(exception);
-      error = exception.constructor.name;
+  private resolveHttpException(exception: HttpException): ResolvedError {
+    const status = exception.getStatus();
+    const response = exception.getResponse();
 
-      // Log completo del error para debugging
-      this.logger.error(
-        `Error interno: ${exception.message}`,
-        exception.stack,
-        "AllExceptionsFilter",
-      );
-    } else {
-      // Errores desconocidos
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      message = "Error interno del servidor";
-      error = "InternalServerError";
-
-      this.logger.error(
-        `Error desconocido: ${JSON.stringify(exception)}`,
-        "AllExceptionsFilter",
-      );
+    if (typeof response === "string") {
+      return {
+        status,
+        message: response,
+        error: exception.constructor.name,
+      };
     }
 
-    // Estructura de respuesta consistente
-    const errorResponse = {
+    const typed = this.asHttpExceptionResponse(response);
+    return {
+      status,
+      message: typed.message ?? response,
+      error: typed.error ?? exception.constructor.name,
+    };
+  }
+
+  private asHttpExceptionResponse(response: unknown): HttpExceptionResponse {
+    if (
+      response !== null &&
+      typeof response === "object" &&
+      ("message" in response || "error" in response)
+    ) {
+      return response as HttpExceptionResponse;
+    }
+    return {};
+  }
+
+  private mapFirebaseMessage(message: string): string {
+    const match = AllExceptionsFilter.FIREBASE_MESSAGE_MAP.find(([key]) =>
+      message.includes(key),
+    );
+    return match ? match[1] : "Error interno del servidor";
+  }
+
+  private logIfNeeded(
+    status: number,
+    request: Request,
+    exception: unknown,
+  ): void {
+    const isServerError = status >= 500;
+    const isLoggableClientError =
+      status >= 400 && status < 500 && this.shouldLogClientError(status);
+    if (!isServerError && !isLoggableClientError) {
+      return;
+    }
+    this.logger.error(
+      `HTTP ${status} - ${request.method} ${request.url}`,
+      exception instanceof Error ? exception.stack : JSON.stringify(exception),
+    );
+  }
+
+  private shouldLogClientError(status: number): boolean {
+    const importantClientErrors = [401, 403, 429];
+    return importantClientErrors.includes(status);
+  }
+
+  private buildErrorResponse(
+    resolved: ResolvedError,
+    request: Request,
+    exception: unknown,
+  ): ApiErrorResponse {
+    const includeStack =
+      process.env.NODE_ENV === "development" && exception instanceof Error;
+    return {
       success: false,
-      statusCode: status,
-      error: error,
-      message: message,
+      statusCode: resolved.status,
+      error: resolved.error,
+      message: resolved.message,
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-      ...(process.env.NODE_ENV === "development" && {
-        stack: exception instanceof Error ? exception.stack : undefined,
-      }),
+      ...(includeStack ? { stack: (exception as Error).stack } : {}),
     };
-
-    // Log del error (excepto para errores 4xx comunes)
-    if (
-      status >= 500 ||
-      (status >= 400 && status < 500 && this.shouldLogClientError(status))
-    ) {
-      this.logger.error(
-        `HTTP ${status} - ${request.method} ${request.url}`,
-        exception instanceof Error
-          ? exception.stack
-          : JSON.stringify(exception),
-      );
-    }
-
-    response.status(status).json(errorResponse);
-  }
-
-  /**
-   * Convierte errores de Firebase en mensajes más amigables
-   */
-  private getFirebaseErrorMessage(error: Error): string {
-    const message = error.message;
-
-    // Errores de autenticación
-    if (message.includes("auth/id-token-expired")) {
-      return "Token de autenticación expirado";
-    }
-    if (message.includes("auth/id-token-revoked")) {
-      return "Token de autenticación revocado";
-    }
-    if (message.includes("auth/invalid-id-token")) {
-      return "Token de autenticación inválido";
-    }
-    if (message.includes("auth/user-not-found")) {
-      return "Usuario no encontrado";
-    }
-
-    // Errores de Firestore
-    if (message.includes("permission-denied")) {
-      return "No tienes permisos para realizar esta acción";
-    }
-    if (message.includes("not-found")) {
-      return "Recurso no encontrado";
-    }
-    if (message.includes("already-exists")) {
-      return "El recurso ya existe";
-    }
-    if (message.includes("failed-precondition")) {
-      return "No se cumplieron las condiciones necesarias";
-    }
-    if (message.includes("resource-exhausted")) {
-      return "Se ha superado el límite de recursos disponibles";
-    }
-
-    // Errores de Storage
-    if (message.includes("storage/object-not-found")) {
-      return "Archivo no encontrado";
-    }
-    if (message.includes("storage/unauthorized")) {
-      return "No tienes permisos para acceder a este archivo";
-    }
-    if (message.includes("storage/quota-exceeded")) {
-      return "Se ha superado la cuota de almacenamiento";
-    }
-
-    // Error genérico
-    return "Error interno del servidor";
-  }
-
-  /**
-   * Determina si se debe hacer log de errores 4xx
-   */
-  private shouldLogClientError(status: number): boolean {
-    // Log de errores importantes del cliente
-    const importantClientErrors = [401, 403, 429]; // Unauthorized, Forbidden, Too Many Requests
-    return importantClientErrors.includes(status);
   }
 }

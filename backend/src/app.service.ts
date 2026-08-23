@@ -11,7 +11,6 @@ export class AppService {
    */
   getApiInfo() {
     const nodeEnv = this.configService.get<string>("app.nodeEnv");
-    const port = this.configService.get<number>("app.port");
     const backendUrl = this.configService.get<string>("app.backendUrl");
 
     return {

@@ -2,6 +2,8 @@ import { registerAs } from "@nestjs/config";
 import * as fs from "fs";
 import * as path from "path";
 
+const FIREBASE_ADMIN_JSON = "firebase-admin.json";
+
 /**
  * Build a service-account credential from individual FIREBASE_* env vars.
  * Returns `undefined` when the required env vars are absent so the caller can
@@ -45,9 +47,9 @@ function resolveServiceAccount(): {
     candidates.push(path.resolve(explicitPath));
   }
   candidates.push(
-    path.resolve(process.cwd(), "firebase-admin.json"),
-    path.resolve(process.cwd(), "..", "firebase-admin.json"),
-    path.resolve(__dirname, "..", "..", "..", "firebase-admin.json"),
+    path.resolve(process.cwd(), FIREBASE_ADMIN_JSON),
+    path.resolve(process.cwd(), "..", FIREBASE_ADMIN_JSON),
+    path.resolve(__dirname, "..", "..", "..", FIREBASE_ADMIN_JSON),
   );
 
   for (const candidate of candidates) {
@@ -62,11 +64,7 @@ function resolveServiceAccount(): {
   }
 
   const envCreds = buildEnvServiceAccount();
-  if (envCreds) {
-    return { serviceAccountKey: envCreds };
-  }
-
-  return {};
+  return envCreds ? { serviceAccountKey: envCreds } : {};
 }
 
 export const FirebaseConfig = registerAs("firebase", () => {
@@ -88,7 +86,11 @@ export const FirebaseConfig = registerAs("firebase", () => {
     (serviceAccountKey?.project_id as string | undefined) ||
     process.env.FIREBASE_PROJECT_ID;
 
-  const firebaseConfig = {
+  // NOTE: the Firebase Admin app is NOT initialized here. FirebaseService does it
+  // lazily on module init, only when `enabled` is true. This avoids calling
+  // admin.firestore()/auth()/storage() (which require an initialized app) at config
+  // load time and prevents the bootstrap from crashing when Firebase is disabled.
+  return {
     enabled,
     serviceAccountKey,
 
@@ -129,10 +131,4 @@ export const FirebaseConfig = registerAs("firebase", () => {
       clockTolerance: 60, // Tolerancia de tiempo en segundos
     },
   };
-
-  // NOTE: the Firebase Admin app is NOT initialized here. FirebaseService does it
-  // lazily on module init, only when `enabled` is true. This avoids calling
-  // admin.firestore()/auth()/storage() (which require an initialized app) at config
-  // load time and prevents the bootstrap from crashing when Firebase is disabled.
-  return firebaseConfig;
 });
