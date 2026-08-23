@@ -22,6 +22,9 @@ import { EVENTO_REPOSITORY } from "../domain/evento-repository.token";
 import type { Evento } from "../domain/evento.entity";
 import type { SolicitudesServiceInterface } from "./solicitudes-service.interface";
 import { EventoValidator } from "./evento-validator";
+// Value import: CatalogValidator is used as a DI token, so it must be
+// present at runtime (a type-only import would erase it and break DI).
+import { CatalogValidator } from "../../categorias/application/catalog-validator.service";
 
 // ---------------------------------------------------------------------------
 // DTO types (mirrors what the controller receives after validation)
@@ -85,6 +88,7 @@ export class EventosService {
     @Inject(EventosService.SOLICITUDES_SERVICE)
     private readonly solicitudService: SolicitudesServiceInterface,
     private readonly eventoValidator: EventoValidator,
+    private readonly catalogValidator: CatalogValidator,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -107,6 +111,18 @@ export class EventosService {
     const existing = await this.eventoRepo.findBySlug(slug);
     if (existing) {
       throw new ConflictException("Slug duplicado");
+    }
+
+    // Cross-catalog validation (only when the feature flag is enabled).
+    // Eventos always live under the constant `eventos` categoria; the
+    // categoria check only fails if the seed did not run in this env.
+    if (this.catalogValidator.enabled) {
+      await this.catalogValidator.assertCategoriaActiva("eventos");
+      await this.catalogValidator.assertSubcategoriaActiva(
+        "eventos",
+        dto.subcategoriaId,
+      );
+      await this.catalogValidator.assertBarrioActivo(dto.barrioId);
     }
 
     const now = new Date();
@@ -236,6 +252,24 @@ export class EventosService {
       throw new ForbiddenException(
         "No tienes permiso para modificar este evento",
       );
+    }
+
+    // Cross-catalog validation — diff-aware: only validate fields being
+    // ADDED or CHANGED (skip when the DTO repeats the current value), and
+    // only when the feature flag is enabled. `categoriaId` is constant.
+    if (this.catalogValidator.enabled) {
+      if (
+        dto.subcategoriaId &&
+        dto.subcategoriaId !== existing.subcategoriaId
+      ) {
+        await this.catalogValidator.assertSubcategoriaActiva(
+          "eventos",
+          dto.subcategoriaId,
+        );
+      }
+      if (dto.barrioId && dto.barrioId !== existing.barrioId) {
+        await this.catalogValidator.assertBarrioActivo(dto.barrioId);
+      }
     }
 
     // If status is aprobado, create solicitud instead of applying in-place

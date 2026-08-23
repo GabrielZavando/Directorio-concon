@@ -7,14 +7,15 @@ import { CacheModule } from "@nestjs/cache-manager";
 import { AppConfig } from "@/config/app.config";
 import { FirebaseConfig } from "@/config/firebase.config";
 import { ValidationConfig } from "@/config/validation.config";
+import { CatalogValidationConfig } from "@/config/catalog-validation.config";
 
 // Módulos principales
 import { PlacesModule } from "@/modules/places/places.module";
 import { EventosModule } from "@/modules/eventos/eventos.module";
 import { SolicitudesModule } from "@/modules/solicitudes/solicitudes.module";
 import { UsuariosModule } from "@/modules/usuarios/usuarios.module";
-// import { CategoriasModule } from '@/modules/categorias/categorias.module';
-// import { BarriosModule } from '@/modules/barrios/barrios.module';
+import { CategoriasModule } from "@/modules/categorias/categorias.module";
+import { BarriosModule } from "@/modules/barrios/barrios.module";
 
 // Módulos de autenticación
 import { AuthModule } from "@/modules/auth/auth.module";
@@ -50,7 +51,7 @@ import { AppService } from "./app.service";
     // Configuración global
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [AppConfig, FirebaseConfig, ValidationConfig],
+      load: [AppConfig, FirebaseConfig, ValidationConfig, CatalogValidationConfig],
       envFilePath: [".env.local", ".env"],
     }),
 
@@ -82,12 +83,12 @@ import { AppService } from "./app.service";
     // Firebase (global — provides FirebaseService everywhere)
     FirebaseModule,
 
-    // Módulos principales (TODO: Descomentar cuando estén implementados)
+    // Módulos principales
     PlacesModule,
     EventosModule,
     SolicitudesModule,
-    // CategoriasModule,
-    // BarriosModule,
+    CategoriasModule,
+    BarriosModule,
     UsuariosModule,
 
     // Autenticación (depends on FirebaseModule above)

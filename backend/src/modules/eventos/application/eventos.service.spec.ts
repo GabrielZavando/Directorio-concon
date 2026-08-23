@@ -13,6 +13,8 @@ import type { EventoRepositoryInterface } from "../domain/evento-repository.inte
 import type { Evento } from "../domain/evento.entity";
 import type { SolicitudesServiceInterface } from "./solicitudes-service.interface";
 import { EventoValidator } from "./evento-validator";
+import { BadRequestException } from "@nestjs/common";
+import type { CatalogValidator } from "../../categorias/application/catalog-validator.service";
 
 // ---------------------------------------------------------------------------
 // Mock helpers
@@ -82,6 +84,22 @@ const mockSolicitudService: jest.Mocked<SolicitudesServiceInterface> = {
 
 const mockValidator = createMockValidator();
 
+// Mock CatalogValidator — `enabled` toggled per-test; assert* default to
+// resolving (valid catalog). Same shape as places.service.spec.ts (8.2/8.4).
+type CatalogValidatorMock = {
+  enabled: boolean;
+  assertCategoriaActiva: jest.Mock<Promise<void>, [string]>;
+  assertSubcategoriaActiva: jest.Mock<Promise<void>, [string, string]>;
+  assertBarrioActivo: jest.Mock<Promise<void>, [string]>;
+};
+
+const mockCatalogValidator: CatalogValidatorMock = {
+  enabled: true,
+  assertCategoriaActiva: jest.fn().mockResolvedValue(undefined),
+  assertSubcategoriaActiva: jest.fn().mockResolvedValue(undefined),
+  assertBarrioActivo: jest.fn().mockResolvedValue(undefined),
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -91,10 +109,16 @@ describe("EventosService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockValidator.validateCreate.mockImplementation(async () => []);
+    mockCatalogValidator.enabled = true;
+    // clearAllMocks() does NOT reset implementations — restore defaults.
+    mockCatalogValidator.assertCategoriaActiva.mockResolvedValue(undefined);
+    mockCatalogValidator.assertSubcategoriaActiva.mockResolvedValue(undefined);
+    mockCatalogValidator.assertBarrioActivo.mockResolvedValue(undefined);
     service = new EventosService(
       mockEventoRepo,
       mockSolicitudService as unknown as SolicitudesServiceInterface,
       mockValidator,
+      mockCatalogValidator as unknown as CatalogValidator,
     );
   });
 
@@ -184,6 +208,81 @@ describe("EventosService", () => {
         UnprocessableEntityException,
       );
       expect(mockEventoRepo.create).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // Catalog cross-validation (feature flag CATALOG_VALIDATION_ENABLED)
+    // -----------------------------------------------------------------------
+    describe("catalog cross-validation", () => {
+      it("create con categoria 'eventos' inexistente/inactiva → BadRequestException (flag activo)", async () => {
+        mockEventoRepo.findBySlug.mockResolvedValue(null);
+        mockCatalogValidator.assertCategoriaActiva.mockRejectedValue(
+          new BadRequestException("Categoría inválida o inactiva"),
+        );
+
+        await expect(service.create(createDto, "user-1")).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockEventoRepo.create).not.toHaveBeenCalled();
+        expect(mockCatalogValidator.assertCategoriaActiva).toHaveBeenCalledWith(
+          "eventos",
+        );
+      });
+
+      it("create con subcategoriaId inactivo → BadRequestException (flag activo)", async () => {
+        mockEventoRepo.findBySlug.mockResolvedValue(null);
+        mockCatalogValidator.assertSubcategoriaActiva.mockRejectedValue(
+          new BadRequestException("Subcategoría inválida o inactiva"),
+        );
+
+        await expect(service.create(createDto, "user-1")).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockEventoRepo.create).not.toHaveBeenCalled();
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).toHaveBeenCalledWith("eventos", "ferias-gastronomicas");
+      });
+
+      it("create con barrioId inactivo → BadRequestException (flag activo)", async () => {
+        mockEventoRepo.findBySlug.mockResolvedValue(null);
+        mockCatalogValidator.assertBarrioActivo.mockRejectedValue(
+          new BadRequestException("Barrio inválido o inactivo"),
+        );
+
+        await expect(service.create(createDto, "user-1")).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockEventoRepo.create).not.toHaveBeenCalled();
+      });
+
+      it("flag desactivado → no ejecuta validación de catálogo", async () => {
+        mockCatalogValidator.enabled = false;
+        mockEventoRepo.findBySlug.mockResolvedValue(null);
+        mockEventoRepo.create.mockImplementation(async (data) =>
+          makeEvento({
+            ...data,
+            id: "new-evento",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            fechaInicio: new Date(data.fechaInicio as unknown as string),
+            fechaFin: new Date(data.fechaFin as unknown as string),
+          } as unknown as Partial<Evento>),
+        );
+        mockSolicitudService.createEventoSolicitud.mockResolvedValue({
+          id: "sol-new",
+        });
+
+        await service.create(createDto, "user-1");
+
+        expect(
+          mockCatalogValidator.assertCategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
+      });
     });
 
     it("creates evento with all optional fields", async () => {
@@ -526,6 +625,132 @@ describe("EventosService", () => {
           "empresa",
         ),
       ).rejects.toThrow(ConflictException);
+    });
+
+    // -----------------------------------------------------------------------
+    // Catalog cross-validation — diff-aware (feature flag)
+    // -----------------------------------------------------------------------
+    describe("catalog cross-validation (diff-aware)", () => {
+      it("PUT cambiando subcategoriaId → valida contra categoria 'eventos'", async () => {
+        const existing = makeEvento({
+          status: "pendiente",
+          usuarioId: "user-1",
+          subcategoriaId: "ferias-gastronomicas",
+        });
+        mockEventoRepo.findById.mockResolvedValue(existing);
+        mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+        );
+
+        await service.update(
+          "evento-1",
+          { subcategoriaId: "conciertos" },
+          "user-1",
+          "empresa",
+        );
+
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).toHaveBeenCalledWith("eventos", "conciertos");
+      });
+
+      it("PUT tocando solo descripcion → NO valida catálogo", async () => {
+        const existing = makeEvento({
+          status: "pendiente",
+          usuarioId: "user-1",
+        });
+        mockEventoRepo.findById.mockResolvedValue(existing);
+        mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+        );
+
+        await service.update(
+          "evento-1",
+          { descripcion: "Nueva descripción" },
+          "user-1",
+          "empresa",
+        );
+
+        expect(
+          mockCatalogValidator.assertCategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
+      });
+
+      it("PUT repitiendo subcategoriaId actual → NO valida", async () => {
+        const existing = makeEvento({
+          status: "pendiente",
+          usuarioId: "user-1",
+          subcategoriaId: "ferias-gastronomicas",
+        });
+        mockEventoRepo.findById.mockResolvedValue(existing);
+        mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+        );
+
+        await service.update(
+          "evento-1",
+          { subcategoriaId: "ferias-gastronomicas" },
+          "user-1",
+          "empresa",
+        );
+
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).not.toHaveBeenCalled();
+      });
+
+      it("PUT cambiando barrioId → valida barrio", async () => {
+        const existing = makeEvento({
+          status: "pendiente",
+          usuarioId: "user-1",
+          barrioId: "centro",
+        });
+        mockEventoRepo.findById.mockResolvedValue(existing);
+        mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+        );
+
+        await service.update(
+          "evento-1",
+          { barrioId: "higuerillas" },
+          "user-1",
+          "empresa",
+        );
+
+        expect(mockCatalogValidator.assertBarrioActivo).toHaveBeenCalledWith(
+          "higuerillas",
+        );
+      });
+
+      it("flag desactivado → update NO ejecuta validación", async () => {
+        mockCatalogValidator.enabled = false;
+        const existing = makeEvento({
+          status: "pendiente",
+          usuarioId: "user-1",
+          subcategoriaId: "ferias-gastronomicas",
+          barrioId: "centro",
+        });
+        mockEventoRepo.findById.mockResolvedValue(existing);
+        mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+        );
+
+        await service.update(
+          "evento-1",
+          { subcategoriaId: "conciertos", barrioId: "higuerillas" },
+          "user-1",
+          "empresa",
+        );
+
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
+      });
     });
   });
 

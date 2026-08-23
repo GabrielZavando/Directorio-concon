@@ -3,6 +3,7 @@
  * TDD RED phase — these tests will fail until the service is implemented.
  */
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -18,6 +19,7 @@ import type {
 } from "../domain/solicitudes-repository.interface";
 import type { Place } from "../domain/place.entity";
 import type { AuthContext } from "../../auth/domain/auth-context.interface";
+import type { CatalogValidator } from "../../categorias/application/catalog-validator.service";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,6 +79,22 @@ const mockSolicitudRepo: jest.Mocked<SolicitudesRepositoryInterface> = {
   existsByPlaceId: jest.fn(),
 };
 
+// Mock CatalogValidator — the `enabled` flag is toggled per-test to exercise
+// both flag states (8.2). assert* methods default to resolving (valid catalog).
+type CatalogValidatorMock = {
+  enabled: boolean;
+  assertCategoriaActiva: jest.Mock<Promise<void>, [string]>;
+  assertSubcategoriaActiva: jest.Mock<Promise<void>, [string, string]>;
+  assertBarrioActivo: jest.Mock<Promise<void>, [string]>;
+};
+
+const mockCatalogValidator: CatalogValidatorMock = {
+  enabled: true,
+  assertCategoriaActiva: jest.fn().mockResolvedValue(undefined),
+  assertSubcategoriaActiva: jest.fn().mockResolvedValue(undefined),
+  assertBarrioActivo: jest.fn().mockResolvedValue(undefined),
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -85,7 +103,17 @@ describe("PlacesService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new PlacesService(mockPlaceRepo, mockSolicitudRepo);
+    mockCatalogValidator.enabled = true;
+    // clearAllMocks() does NOT reset implementations — restore defaults so a
+    // `mockRejectedValue`/`mockResolvedValue` from a previous test cannot leak.
+    mockCatalogValidator.assertCategoriaActiva.mockResolvedValue(undefined);
+    mockCatalogValidator.assertSubcategoriaActiva.mockResolvedValue(undefined);
+    mockCatalogValidator.assertBarrioActivo.mockResolvedValue(undefined);
+    service = new PlacesService(
+      mockPlaceRepo,
+      mockSolicitudRepo,
+      mockCatalogValidator as unknown as CatalogValidator,
+    );
   });
 
   // =========================================================================
@@ -148,6 +176,77 @@ describe("PlacesService", () => {
       );
       expect(mockPlaceRepo.save).not.toHaveBeenCalled();
       expect(mockSolicitudRepo.create).not.toHaveBeenCalled();
+    });
+
+    // -----------------------------------------------------------------------
+    // Catalog cross-validation (feature flag CATALOG_VALIDATION_ENABLED)
+    // -----------------------------------------------------------------------
+    describe("catalog cross-validation", () => {
+      it("create con categoriaId inactivo → BadRequestException (flag activo)", async () => {
+        mockPlaceRepo.findBySlug.mockResolvedValue(null);
+        mockCatalogValidator.assertCategoriaActiva.mockRejectedValue(
+          new BadRequestException("Categoría inválida o inactiva"),
+        );
+
+        await expect(service.createPlace(createDto, "user-1")).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockPlaceRepo.save).not.toHaveBeenCalled();
+        expect(mockSolicitudRepo.create).not.toHaveBeenCalled();
+      });
+
+      it("create con subcategoriaId inactivo → BadRequestException (flag activo)", async () => {
+        mockPlaceRepo.findBySlug.mockResolvedValue(null);
+        mockCatalogValidator.assertSubcategoriaActiva.mockRejectedValue(
+          new BadRequestException("Subcategoría inválida o inactiva"),
+        );
+
+        await expect(
+          service.createPlace(
+            { ...createDto, subcategoriaId: "restaurantes" },
+            "user-1",
+          ),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPlaceRepo.save).not.toHaveBeenCalled();
+      });
+
+      it("create con barrioId inactivo → BadRequestException (flag activo)", async () => {
+        mockPlaceRepo.findBySlug.mockResolvedValue(null);
+        mockCatalogValidator.assertBarrioActivo.mockRejectedValue(
+          new BadRequestException("Barrio inválido o inactivo"),
+        );
+
+        await expect(service.createPlace(createDto, "user-1")).rejects.toThrow(
+          BadRequestException,
+        );
+        expect(mockPlaceRepo.save).not.toHaveBeenCalled();
+      });
+
+      it("flag desactivado → no ejecuta validación de catálogo", async () => {
+        mockCatalogValidator.enabled = false;
+        mockPlaceRepo.findBySlug.mockResolvedValue(null);
+        mockPlaceRepo.save.mockImplementation(async (data) =>
+          makePlace({
+            ...data,
+            id: "new-id",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          } as Partial<Place>),
+        );
+        mockSolicitudRepo.create.mockImplementation(async (input) =>
+          makeSolicitud({ ...input, id: "sol-new" }),
+        );
+
+        await service.createPlace(createDto, "user-1");
+
+        expect(
+          mockCatalogValidator.assertCategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -348,6 +447,137 @@ describe("PlacesService", () => {
 
       expect(result.telefono).toBe("+56955555555");
       expect(mockPlaceRepo.update).toHaveBeenCalledTimes(1);
+    });
+
+    // -----------------------------------------------------------------------
+    // Catalog cross-validation — diff-aware (feature flag)
+    // -----------------------------------------------------------------------
+    describe("catalog cross-validation (diff-aware)", () => {
+      it("PUT cambiando categoriaId a inactivo → BadRequestException", async () => {
+        const existing = makePlace({
+          usuarioId: ownerActor.uid,
+          categoriaId: "gastronomia",
+        });
+        mockPlaceRepo.findById.mockResolvedValue(existing);
+        mockCatalogValidator.assertCategoriaActiva.mockRejectedValue(
+          new BadRequestException("Categoría inválida o inactiva"),
+        );
+
+        await expect(
+          service.update("place-1", { categoriaId: "comercio" }, ownerActor),
+        ).rejects.toThrow(BadRequestException);
+        expect(mockPlaceRepo.update).not.toHaveBeenCalled();
+      });
+
+      it("PUT tocando solo nombre → NO valida catálogo", async () => {
+        const existing = makePlace({
+          usuarioId: ownerActor.uid,
+          categoriaId: "gastronomia",
+          barrioId: "higuerillas",
+        });
+        mockPlaceRepo.findById.mockResolvedValue(existing);
+        mockPlaceRepo.findBySlug.mockResolvedValue(null);
+        mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+          makePlace({ ...existing, ...patch } as Partial<Place>),
+        );
+
+        await service.update("place-1", { nombre: "Nuevo Nombre" }, ownerActor);
+
+        expect(
+          mockCatalogValidator.assertCategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
+      });
+
+      it("PUT repitiendo categoriaId actual → NO valida", async () => {
+        const existing = makePlace({
+          usuarioId: ownerActor.uid,
+          categoriaId: "gastronomia",
+        });
+        mockPlaceRepo.findById.mockResolvedValue(existing);
+        mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+          makePlace({ ...existing, ...patch } as Partial<Place>),
+        );
+
+        await service.update(
+          "place-1",
+          { categoriaId: "gastronomia" },
+          ownerActor,
+        );
+
+        expect(
+          mockCatalogValidator.assertCategoriaActiva,
+        ).not.toHaveBeenCalled();
+      });
+
+      it("PUT cambiando barrioId → valida barrio", async () => {
+        const existing = makePlace({
+          usuarioId: ownerActor.uid,
+          barrioId: "higuerillas",
+        });
+        mockPlaceRepo.findById.mockResolvedValue(existing);
+        mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+          makePlace({ ...existing, ...patch } as Partial<Place>),
+        );
+
+        await service.update("place-1", { barrioId: "centro" }, ownerActor);
+
+        expect(mockCatalogValidator.assertBarrioActivo).toHaveBeenCalledWith(
+          "centro",
+        );
+      });
+
+      it("PUT cambiando categoriaId+subcategoriaId → valida ambos contra el nuevo categoriaId", async () => {
+        const existing = makePlace({
+          usuarioId: ownerActor.uid,
+          categoriaId: "gastronomia",
+          subcategoriaId: "restaurantes",
+        });
+        mockPlaceRepo.findById.mockResolvedValue(existing);
+        mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+          makePlace({ ...existing, ...patch } as Partial<Place>),
+        );
+
+        await service.update(
+          "place-1",
+          { categoriaId: "comercio", subcategoriaId: "retail" },
+          ownerActor,
+        );
+
+        expect(mockCatalogValidator.assertCategoriaActiva).toHaveBeenCalledWith(
+          "comercio",
+        );
+        expect(
+          mockCatalogValidator.assertSubcategoriaActiva,
+        ).toHaveBeenCalledWith("comercio", "retail");
+      });
+
+      it("flag desactivado → update NO ejecuta validación", async () => {
+        mockCatalogValidator.enabled = false;
+        const existing = makePlace({
+          usuarioId: ownerActor.uid,
+          categoriaId: "gastronomia",
+          barrioId: "higuerillas",
+        });
+        mockPlaceRepo.findById.mockResolvedValue(existing);
+        mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+          makePlace({ ...existing, ...patch } as Partial<Place>),
+        );
+
+        await service.update(
+          "place-1",
+          { categoriaId: "comercio", barrioId: "centro" },
+          ownerActor,
+        );
+
+        expect(
+          mockCatalogValidator.assertCategoriaActiva,
+        ).not.toHaveBeenCalled();
+        expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
+      });
     });
   });
 

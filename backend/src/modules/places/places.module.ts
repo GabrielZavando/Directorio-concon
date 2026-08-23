@@ -21,9 +21,10 @@ import { PlaceApprovalHandlerImpl } from "./application/place-approval.handler";
 import { PLACE_APPROVAL_HANDLER } from "../solicitudes/application/approval-handlers";
 import { AuthModule } from "../auth/auth.module";
 import { SolicitudesModule } from "../solicitudes/solicitudes.module";
+import { CategoriasModule } from "../categorias/categorias.module";
 
 @Module({
-  imports: [AuthModule, SolicitudesModule],
+  imports: [AuthModule, SolicitudesModule, CategoriasModule],
   controllers: [PlacesController],
   providers: [
     PlacesService,

@@ -21,6 +21,9 @@ import type { RedSocial } from "../domain/red-social.vo";
 import { SOLICITUDES_REPOSITORY } from "../domain/solicitudes-repository.token";
 import { PLACE_REPOSITORY } from "../domain/place-repository.token";
 import type { AuthContext } from "../../auth/domain/auth-context.interface";
+// Value import: CatalogValidator is used as a DI token, so it must be
+// present at runtime (a type-only import would erase it and break DI).
+import { CatalogValidator } from "../../categorias/application/catalog-validator.service";
 import {
   findMatchingTurno,
   getDiaSemana,
@@ -94,6 +97,7 @@ export class PlacesService {
     private readonly placeRepo: PlaceRepositoryInterface,
     @Inject(SOLICITUDES_REPOSITORY)
     private readonly solicitudRepo: SolicitudesRepositoryInterface,
+    private readonly catalogValidator: CatalogValidator,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -107,6 +111,18 @@ export class PlacesService {
     const existing = await this.placeRepo.findBySlug(slug);
     if (existing) {
       throw new ConflictException("Slug duplicado");
+    }
+
+    // Cross-catalog validation (only when the feature flag is enabled)
+    if (this.catalogValidator.enabled) {
+      await this.catalogValidator.assertCategoriaActiva(dto.categoriaId);
+      if (dto.subcategoriaId) {
+        await this.catalogValidator.assertSubcategoriaActiva(
+          dto.categoriaId,
+          dto.subcategoriaId,
+        );
+      }
+      await this.catalogValidator.assertBarrioActivo(dto.barrioId);
     }
 
     // Gallery limit per plan
@@ -212,6 +228,27 @@ export class PlacesService {
     }
 
     this.assertOwnership(existing, actor, "modificar este lugar");
+
+    // Cross-catalog validation — diff-aware: only validate fields that are
+    // being ADDED or CHANGED (skip when the DTO repeats the current value),
+    // and only when the feature flag is enabled.
+    if (this.catalogValidator.enabled) {
+      if (dto.categoriaId && dto.categoriaId !== existing.categoriaId) {
+        await this.catalogValidator.assertCategoriaActiva(dto.categoriaId);
+      }
+      if (
+        dto.subcategoriaId &&
+        dto.subcategoriaId !== existing.subcategoriaId
+      ) {
+        await this.catalogValidator.assertSubcategoriaActiva(
+          dto.categoriaId ?? existing.categoriaId,
+          dto.subcategoriaId,
+        );
+      }
+      if (dto.barrioId && dto.barrioId !== existing.barrioId) {
+        await this.catalogValidator.assertBarrioActivo(dto.barrioId);
+      }
+    }
 
     // Gallery limit per plan (use updated planId or fall back to existing)
     const effectivePlanId = dto.planId ?? existing.planId;
