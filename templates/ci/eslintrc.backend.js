@@ -26,6 +26,16 @@ module.exports = {
     'plugin:import/recommended',
     'plugin:import/typescript',
   ],
+  settings: {
+    // SOLID: DIP — auxiliary. Without this, `import/no-unresolved` false-positives
+    // on the project's `@/*` aliases declared in backend/tsconfig.json paths.
+    'import/resolver': {
+      typescript: {
+        project: './tsconfig.json',
+        alwaysTryTypes: true,
+      },
+    },
+  },
   rules: {
     // ---- SRP thresholds (Ticket 1 §Umbrales objetivos) ----
     // SOLID: SRP — a file longer than 300 lines usually carries more than one responsibility.
