@@ -252,8 +252,10 @@ npm run lint               # ESLint
 npm run format             # Prettier
 
 # Base de datos
-npm run seed               # Poblar datos iniciales
-npm run migrate            # Migrar datos desde Supabase
+npm run seed               # Poblar catálogo (categorias/barrios) + datos mock de places/eventos
+npm run seed:cat           # Solo catálogo: categorias + barrios
+npm run seed:places        # Solo datos mock: places + eventos
+npm run audit-refs         # Validar referencias de places/eventos contra el catálogo
 ```
 
 ## 🌍 Variables de Entorno

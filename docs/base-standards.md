@@ -171,12 +171,15 @@ Arquitectura BE: Clean Architecture por feature
 1. **`auth`** — Firebase Auth + guards JWT + roles (implementado por el change `auth-usuarios`): módulo `auth` NestJS con `JwtAuthGuard`, `RolesGuard`, `@Roles`, `@CurrentUser`, `AuthContext`; sourcing del `rol` desde Firebase custom claim + fallback a Firestore `usuarios`. Cierra las 3 debilidades de autenticación documentadas en `roles-rename` (ver `docs/data-model.md §usuarios` "Authentication debt — [CLOSED]").
 2. **`usuarios`** — CRUD de usuarios + vinculación con Auth (implementado por el change `auth-usuarios`): entity `Usuario`, `UsuariosRepository`, `UsuariosService`, `UsuariosController` con `GET /usuarios/me`, `PUT /usuarios/me`, `POST /usuarios` admin, `PUT /usuarios/:uid/rol` admin. El provisioning es admin-only en este change; self-registration via frontend queda para un change futuro `usuarios-self-signup`.
 
+#### MVP — Implementado (change `categorias-barrios-crud`)
+
+3. **`categorias`** — CRUD admin + seed fijo (implementado por el change `categorias-barrios-crud`): módulo NestJS Clean Architecture por feature (`domain/`, `application/`, `infrastructure/`), `CatalogValidator` compartido para validación cross-catálogo en `places`/`eventos` (flag `CATALOG_VALIDATION_ENABLED`), y `npm run seed` funcional que puebla Firestore desde `categorias.json`/`barrios.json` del frontend.
+4. **`barrios`** — CRUD admin + seed fijo (implementado por el change `categorias-barrios-crud`): repositorios `BarrioReadRepository`/`BarrioWriteRepository` (ISP ≤5 métodos), toggles activar/desactivar admin, lectura pública `GET /barrios?activo=true`.
+
 #### MVP — Pendiente (en este orden de implementación)
 
-1. **`categorias`** — CRUD admin + seed fijo (`npm run seed`).
-2. **`barrios`** — CRUD admin + seed fijo.
-3. **`solicitudes`** — Listado + aprobar/rechazar por admin (cierra el Flujo 1). El `SolicitudesService` ya existe (de `eventos-crud`); el `SolicitudesController` HTTP (endpoints `POST /solicitudes/:id/approve|reject` con `@Roles('admin')`) se introdujo en el change `auth-usuarios` para cerrar la deuda de `revisadoPor`. Pendiente: endpoints de listado/filtrado de solicitudes.
-4. **`frontend`** — 4 pantallas del design system "Dunas y Océano":
+1. **`solicitudes`** — Listado + aprobar/rechazar por admin (cierra el Flujo 1). El `SolicitudesService` ya existe (de `eventos-crud`); el `SolicitudesController` HTTP (endpoints `POST /solicitudes/:id/approve|reject` con `@Roles('admin')`) se introdujo en el change `auth-usuarios` para cerrar la deuda de `revisadoPor`. Pendiente: endpoints de listado/filtrado de solicitudes.
+2. **`frontend`** — 4 pantallas del design system "Dunas y Océano":
    - Home / landing → `docs/home/code.html`
    - Auth signup/login → `docs/login/code.html`
    - Vista mapa → `docs/mapa/code.html`

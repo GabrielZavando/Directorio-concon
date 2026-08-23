@@ -63,13 +63,16 @@
 | id | string (PK) | Firestore document id (slug, ej. `gastronomia`, `comercio`) |
 | nombre | string | Ej. "Gastronomía" |
 | slug | string UNIQUE | Slug |
-| descripcion | string | Descripción |
+| descripcion | string? | Descripción (opcional) |
 | icono | string | Icono Lucide kebab-case (`utensils`, `store`, `tent`, `briefcase`, `car`, `heart-pulse`, `graduation-cap`, `building-2`, `party-popper`) |
-| color | string? | Hex |
-| orden | number | Orden visual (1..9) |
-| activa | boolean | Activa |
-| subcategorias | Subcategoria[]? | Array de `{ slug, nombre, descripcion }` — preservadas en seed local; futuras subcategorías del backend |
+| color | string? | Hex (opcional) |
+| orden | number | Orden visual (1..99) |
+| activo | boolean | Activa (default `true`) |
+| subcategorias | Subcategoria[]? | Array de `{ slug, nombre, activo }` — embebidas en el doc de la categoría; cada una con `activo: boolean` |
 | createdAt | Timestamp | Creación |
+| updatedAt | Timestamp | Modificación |
+
+> **Fuentes canónicas:** `categorias.json` en `frontend/src/app/shared/data-access/local/data/` (JSON canónico del frontend) + colección Firestore poblada por `npm run seed` (`set(merge:true)` keyed by slug, `activo: true`). El seed materializa subcategorías con `activo: true` y normaliza slugs a ASCII (`/^[a-z0-9-]+$/`).
 
 ### barrios
 | Campo | Tipo | Descripción |
@@ -77,12 +80,16 @@
 | id | string (PK) | Firestore document id (slug, ej. `higuerillas`, `montemar`, `zona-rural`) |
 | nombre | string | Ej. "Higuerillas" |
 | slug | string UNIQUE | Slug |
-| codigo | string? | Código UV |
-| descripcion | string | Descripción (sin tilde en seed local) |
-| territorio | string? | Sectores que abarca el barrio (metadato) |
-| coordenadas | {lat, lng}? | Centro del barrio |
+| codigo | string? | Código UV (opcional) |
+| descripcion | string? | Descripción (opcional) |
+| territorio | string? | Sectores que abarca el barrio (metadato, opcional) |
+| coordenadas | {lat, lng}? | Centro del barrio (opcional) |
 | tipo | enum | `urbano` \| `rural` (12 urbanos + 1 rural `zona-rural`) |
+| activo | boolean | Activo (default `true`) |
 | createdAt | Timestamp | Creación |
+| updatedAt | Timestamp | Modificación |
+
+> **Fuentes canónicas:** `barrios.json` en `frontend/src/app/shared/data-access/local/data/` (JSON canónico del frontend) + colección Firestore poblada por `npm run seed` (`set(merge:true)` keyed by slug, `activo: true`).
 
 ### usuarios
 | Campo | Tipo | Descripción |
@@ -304,9 +311,9 @@ eventos: subcategoriaId (ASC) + createdAt (DESC) — admin
 eventos: barrioId (ASC) + createdAt (DESC) — admin
 eventos: estado (ASC) + createdAt (DESC) — admin
 
-# categorias/barrios [+] — forward-declared (módulos backend comentados en MVP)
-categorias: activa (ASC) + orden (ASC)
-barrios: tipo (ASC)
+# categorias/barrios (implementados — módulos backend activos)
+categorias: activo (ASC) + orden (ASC)
+barrios: activo (ASC) + tipo (ASC)
 ```
 
 > **Nota deuda (YAGNI)**: `findAllPublic` soporta combinaciones de filtros
@@ -393,10 +400,10 @@ barrios: tipo (ASC)
   "descripcion": "Restaurantes, cafeterías y locales de comida",
   "icono": "utensils",
   "orden": 1,
-  "activa": true,
+  "activo": true,
   "subcategorias": [
-    { "slug": "restaurantes", "nombre": "Restaurantes", "descripcion": "..." },
-    { "slug": "cafeterias", "nombre": "Cafeterías", "descripcion": "..." }
+    { "slug": "restaurantes", "nombre": "Restaurantes", "activo": true },
+    { "slug": "cafeterias", "nombre": "Cafeterías", "activo": true }
   ]
 }
 ```
@@ -409,6 +416,7 @@ barrios: tipo (ASC)
   "descripcion": "Zona costera al norte de Concón",
   "territorio": "Costa norte",
   "tipo": "urbano",
+  "activo": true,
   "coordenadas": null
 }
 ```
