@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsUrl,
-  IsOptional,
-  IsArray,
-  ArrayMaxSize,
-} from "class-validator";
+import { IsString, IsOptional, IsArray, ArrayMaxSize } from "class-validator";
 
 export class ImagenesDto {
   @IsOptional()

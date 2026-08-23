@@ -16,8 +16,10 @@ import {
 import type { SolicitudesRepositoryInterface } from "../domain/solicitudes-repository.interface";
 import { SOLICITUDES_REPOSITORY } from "../domain/solicitudes-repository.token";
 import type { Solicitud } from "../domain/solicitud.entity";
-import type { SolicitudesServiceInterface } from "./solicitudes-service.interface";
-import type { CreateEventoSolicitudInput } from "./solicitudes-service.interface";
+import type {
+  SolicitudesServiceInterface,
+  CreateEventoSolicitudInput,
+} from "./solicitudes-service.interface";
 import type {
   EventoApprovalHandler,
   PlaceApprovalHandler,
@@ -30,6 +32,8 @@ import {
 /** Domain message for the XOR invariant (placeId ⊕ eventoId, exactly one). */
 const XOR_REFERENCE_MESSAGE =
   "Una solicitud debe referenciar exactamente un placeId o eventoId (XOR)";
+
+const EVENTO_HANDLER_MISSING = "EventoApprovalHandler no está configurado";
 
 @Injectable()
 export class SolicitudesService implements SolicitudesServiceInterface {
@@ -126,18 +130,33 @@ export class SolicitudesService implements SolicitudesServiceInterface {
       throw new ConflictException(`Solicitud ${id} ya fue ${solicitud.status}`);
     }
 
-    const now = new Date();
+    await this.dispatchApproval(solicitud, adminUid);
 
+    const now = new Date();
+    const updated = await this.repo.update(id, {
+      status: "aprobado",
+      revisadoPor: adminUid,
+      revisadoAt: now,
+    });
+
+    this.logger.log(`Solicitud ${id} aprobada por ${adminUid}`);
+    return updated;
+  }
+
+  private async dispatchApproval(
+    solicitud: Solicitud,
+    adminUid: string,
+  ): Promise<void> {
     switch (solicitud.tipo) {
       case "registro-evento":
         if (!this.eventoHandler) {
-          throw new Error("EventoApprovalHandler no está configurado");
+          throw new Error(EVENTO_HANDLER_MISSING);
         }
         await this.eventoHandler.approveRegistro(solicitud.eventoId!, adminUid);
         break;
       case "actualizacion-evento":
         if (!this.eventoHandler) {
-          throw new Error("EventoApprovalHandler no está configurado");
+          throw new Error(EVENTO_HANDLER_MISSING);
         }
         await this.eventoHandler.applyProposal(
           solicitud.eventoId!,
@@ -153,19 +172,10 @@ export class SolicitudesService implements SolicitudesServiceInterface {
       case "actualizacion":
         // Place update approval — not yet implemented
         this.logger.warn(
-          `Aprobación de actualización de place no implementada (solicitud ${id})`,
+          `Aprobación de actualización de place no implementada (solicitud ${solicitud.id})`,
         );
         break;
     }
-
-    const updated = await this.repo.update(id, {
-      status: "aprobado",
-      revisadoPor: adminUid,
-      revisadoAt: now,
-    });
-
-    this.logger.log(`Solicitud ${id} aprobada por ${adminUid}`);
-    return updated;
   }
 
   /**
@@ -193,7 +203,7 @@ export class SolicitudesService implements SolicitudesServiceInterface {
     switch (solicitud.tipo) {
       case "registro-evento":
         if (!this.eventoHandler) {
-          throw new Error("EventoApprovalHandler no está configurado");
+          throw new Error(EVENTO_HANDLER_MISSING);
         }
         await this.eventoHandler.rejectRegistro(solicitud.eventoId!, adminUid);
         break;

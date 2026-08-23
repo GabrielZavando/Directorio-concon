@@ -5,6 +5,8 @@
 import { Categoria } from "../domain/categoria.entity";
 import { Subcategoria } from "../domain/subcategoria.vo";
 
+const MOCK_DATE = new Date("2026-01-01");
+
 export function createMockFirebase() {
   return {
     getFirestore: jest.fn(),
@@ -35,8 +37,8 @@ export function makeFirestoreDoc(overrides: Record<string, unknown> = {}) {
     subcategorias: [
       { slug: "restaurantes", nombre: "Restaurantes", activo: true },
     ],
-    createdAt: { toDate: () => new Date("2026-01-01") },
-    updatedAt: { toDate: () => new Date("2026-01-01") },
+    createdAt: { toDate: () => MOCK_DATE },
+    updatedAt: { toDate: () => MOCK_DATE },
     ...overrides,
   };
 }
@@ -91,7 +93,7 @@ export function makeCatEntity(
     subcategorias: (overrides.subcategorias ?? []).map(
       (s) => new Subcategoria(s),
     ),
-    createdAt: new Date("2026-01-01"),
-    updatedAt: new Date("2026-01-01"),
+    createdAt: MOCK_DATE,
+    updatedAt: MOCK_DATE,
   });
 }

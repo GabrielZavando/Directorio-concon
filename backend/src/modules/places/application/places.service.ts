@@ -6,12 +6,10 @@
  */
 import {
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
-  UnprocessableEntityException,
 } from "@nestjs/common";
 import type { PlaceRepositoryInterface } from "../domain/place-repository.interface";
 import type { SolicitudesRepositoryInterface } from "../domain/solicitudes-repository.interface";
@@ -25,10 +23,15 @@ import type { AuthContext } from "../../auth/domain/auth-context.interface";
 // present at runtime (a type-only import would erase it and break DI).
 import { CatalogValidator } from "../../categorias/application/catalog-validator.service";
 import {
-  findMatchingTurno,
-  getDiaSemana,
-  getSantiagoDateParts,
-} from "./horario-timezone";
+  assertGalleryLimit,
+  assertOwnership,
+  buildPlacePatch,
+  toPlain,
+  toPlainArray,
+  resolveAbiertoAhora,
+  validateCatalogReferences,
+  type AbiertoAhoraResponse,
+} from "./places-service.helpers";
 
 // ---------------------------------------------------------------------------
 // DTO types (mirrors what the controller will receive after validation)
@@ -63,11 +66,6 @@ export interface CreatePlaceDto {
 }
 
 export type UpdatePlaceDto = Partial<CreatePlaceDto>;
-
-export interface AbiertoAhoraResponse {
-  abierto: boolean;
-  turno?: { apertura: string; cierre: string };
-}
 
 // ---------------------------------------------------------------------------
 // Slug helper
@@ -126,7 +124,7 @@ export class PlacesService {
     }
 
     // Gallery limit per plan
-    this.assertGalleryLimit(dto.imagenes?.galeria, dto.planId);
+    assertGalleryLimit(dto.imagenes?.galeria, dto.planId);
 
     const now = new Date();
 
@@ -145,7 +143,7 @@ export class PlacesService {
       whatsapp: dto.whatsapp,
       email: dto.email,
       sitioWeb: dto.sitioWeb,
-      redesSociales: this.toPlain(dto.redesSociales),
+      redesSociales: toPlain(dto.redesSociales),
       imagenes: dto.imagenes
         ? {
             logo: dto.imagenes.logo,
@@ -154,8 +152,8 @@ export class PlacesService {
           }
         : { galeria: [] },
       planId: dto.planId,
-      horarios: this.toPlainArray(dto.horarios),
-      horariosEspeciales: this.toPlainArray(
+      horarios: toPlainArray(dto.horarios),
+      horariosEspeciales: toPlainArray(
         dto.horariosEspeciales as Place["horariosEspeciales"],
       ),
       abierto24x7: dto.abierto24x7 ?? false,
@@ -227,62 +225,41 @@ export class PlacesService {
       throw new NotFoundException(`Place ${id} no encontrado`);
     }
 
-    this.assertOwnership(existing, actor, "modificar este lugar");
+    assertOwnership(existing, actor, "modificar este lugar");
 
-    // Cross-catalog validation — diff-aware: only validate fields that are
-    // being ADDED or CHANGED (skip when the DTO repeats the current value),
-    // and only when the feature flag is enabled.
     if (this.catalogValidator.enabled) {
-      if (dto.categoriaId && dto.categoriaId !== existing.categoriaId) {
-        await this.catalogValidator.assertCategoriaActiva(dto.categoriaId);
-      }
-      if (
-        dto.subcategoriaId &&
-        dto.subcategoriaId !== existing.subcategoriaId
-      ) {
-        await this.catalogValidator.assertSubcategoriaActiva(
-          dto.categoriaId ?? existing.categoriaId,
-          dto.subcategoriaId,
-        );
-      }
-      if (dto.barrioId && dto.barrioId !== existing.barrioId) {
-        await this.catalogValidator.assertBarrioActivo(dto.barrioId);
-      }
+      await validateCatalogReferences(this.catalogValidator, dto, existing);
     }
 
-    // Gallery limit per plan (use updated planId or fall back to existing)
     const effectivePlanId = dto.planId ?? existing.planId;
     if (dto.imagenes?.galeria) {
-      this.assertGalleryLimit(dto.imagenes.galeria, effectivePlanId);
+      assertGalleryLimit(dto.imagenes.galeria, effectivePlanId);
     }
 
-    const patch = { ...dto } as unknown as Partial<Place>;
-
-    // Convert nested DTO instances to plain objects for Firestore
-    if (patch.imagenes) {
-      patch.imagenes = {
-        logo: patch.imagenes.logo,
-        portada: patch.imagenes.portada,
-        galeria: patch.imagenes.galeria ?? [],
-      };
-    }
-    patch.redesSociales = this.toPlain(patch.redesSociales);
-    patch.horarios = this.toPlainArray(patch.horarios);
-    patch.horariosEspeciales = this.toPlainArray(patch.horariosEspeciales);
-
-    // Regenerate slug if nombre changes
-    if (dto.nombre && dto.nombre !== existing.nombre) {
-      const newSlug = slugify(dto.nombre);
-      const slugOwner = await this.placeRepo.findBySlug(newSlug);
-      if (slugOwner && slugOwner.id !== id) {
-        throw new ConflictException("Slug duplicado");
-      }
+    const patch = buildPlacePatch(dto);
+    const newSlug = await this.resolveSlug(dto, existing, id);
+    if (newSlug) {
       patch.slug = newSlug;
     }
-
     patch.updatedAt = new Date();
 
     return this.placeRepo.update(id, patch);
+  }
+
+  private async resolveSlug(
+    dto: UpdatePlaceDto,
+    existing: Place,
+    id: string,
+  ): Promise<string | undefined> {
+    if (!dto.nombre || dto.nombre === existing.nombre) {
+      return undefined;
+    }
+    const newSlug = slugify(dto.nombre);
+    const slugOwner = await this.placeRepo.findBySlug(newSlug);
+    if (slugOwner && slugOwner.id !== id) {
+      throw new ConflictException("Slug duplicado");
+    }
+    return newSlug;
   }
 
   // -------------------------------------------------------------------------
@@ -295,7 +272,7 @@ export class PlacesService {
       throw new NotFoundException(`Place ${id} no encontrado`);
     }
 
-    this.assertOwnership(existing, actor, "eliminar este lugar");
+    assertOwnership(existing, actor, "eliminar este lugar");
 
     const hasSolicitudes = await this.solicitudRepo.existsByPlaceId(id);
     if (hasSolicitudes) {
@@ -320,76 +297,6 @@ export class PlacesService {
     if (!place) {
       throw new NotFoundException(`Place ${id} no encontrado`);
     }
-
-    // 24x7 always open
-    if (place.abierto24x7) {
-      return { abierto: true };
-    }
-
-    // Get current date parts in America/Santiago timezone
-    const santiagoDate = getSantiagoDateParts(now);
-    const diaSemana = getDiaSemana(santiagoDate.dayOfWeek);
-    const currentTime = `${String(santiagoDate.hour).padStart(2, "0")}:${String(santiagoDate.minute).padStart(2, "0")}`;
-
-    // Check horariosEspeciales first (overrides regular horario)
-    const fechaStr = `${santiagoDate.year}-${String(santiagoDate.month).padStart(2, "0")}-${String(santiagoDate.day).padStart(2, "0")}`;
-    const especial = place.horariosEspeciales?.find(
-      (h) => h.fecha === fechaStr,
-    );
-
-    if (especial) {
-      if (especial.turnos.length === 0) {
-        return { abierto: false };
-      }
-      const turno = findMatchingTurno(especial.turnos, currentTime);
-      return turno ? { abierto: true, turno } : { abierto: false };
-    }
-
-    // Regular horario
-    const horarioDia = place.horarios?.find((h) => h.dia === diaSemana);
-    if (!horarioDia || !horarioDia.abierto) {
-      return { abierto: false };
-    }
-
-    const turno = findMatchingTurno(horarioDia.turnos, currentTime);
-    return turno ? { abierto: true, turno } : { abierto: false };
-  }
-
-  // -------------------------------------------------------------------------
-  // Private helpers
-  // -------------------------------------------------------------------------
-
-  private assertGalleryLimit(
-    galeria: string[] | undefined,
-    planId: string,
-  ): void {
-    const max = planId === "premium" ? 10 : 3;
-    if (galeria && galeria.length > max) {
-      throw new UnprocessableEntityException(
-        `Plan ${planId} permite máximo ${max} imágenes en galería`,
-      );
-    }
-  }
-
-  private assertOwnership(
-    place: Place,
-    actor: AuthContext,
-    action: string,
-  ): void {
-    if (actor.rol !== "admin" && place.usuarioId !== actor.uid) {
-      throw new ForbiddenException(`No tienes permiso para ${action}`);
-    }
-  }
-
-  // Converts class-validator DTO instances to plain objects for Firestore
-  private toPlain<T>(value: T | undefined): T | undefined {
-    if (value === undefined || value === null) return value;
-    if (typeof value !== "object") return value;
-    return JSON.parse(JSON.stringify(value));
-  }
-
-  private toPlainArray<T>(value: T[] | undefined): T[] | undefined {
-    if (!value) return value;
-    return JSON.parse(JSON.stringify(value));
+    return resolveAbiertoAhora(place, now);
   }
 }

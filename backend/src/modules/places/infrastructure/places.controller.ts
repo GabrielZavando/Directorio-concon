@@ -14,11 +14,12 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
-  ConflictException,
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { PlacesService } from "../application/places.service";
+
+const PLACE_NOT_FOUND = "Place not found";
 import { CreatePlaceDto } from "./dto/create-place.dto";
 import { UpdatePlaceDto } from "./dto/update-place.dto";
 import { QueryPlaceDto } from "./dto/query-place.dto";
@@ -87,7 +88,7 @@ export class PlacesController {
   @Get("slug/:slug")
   @ApiOperation({ summary: "Get a place by its unique slug" })
   @ApiResponse({ status: 200, description: "Place found" })
-  @ApiResponse({ status: 404, description: "Place not found" })
+  @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
   async findBySlug(@Param("slug") slug: string) {
     const place = await this.placesService.findBySlug(slug);
     if (!place) {
@@ -102,7 +103,7 @@ export class PlacesController {
   @Get(":id")
   @ApiOperation({ summary: "Get a place by ID" })
   @ApiResponse({ status: 200, description: "Place found" })
-  @ApiResponse({ status: 404, description: "Place not found" })
+  @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
   async findById(@Param("id") id: string) {
     return this.placesService.findById(id);
   }
@@ -118,7 +119,7 @@ export class PlacesController {
     status: 200,
     description: "{ abierto: boolean, turno?: ... }",
   })
-  @ApiResponse({ status: 404, description: "Place not found" })
+  @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
   async abiertoAhora(@Param("id") id: string) {
     return this.placesService.abiertoAhora(id);
   }
@@ -133,7 +134,7 @@ export class PlacesController {
   @ApiResponse({ status: 200, description: "Place updated" })
   @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 403, description: "Role or ownership forbidden" })
-  @ApiResponse({ status: 404, description: "Place not found" })
+  @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
   @ApiResponse({ status: 409, description: "Slug duplicado on rename" })
   async update(
     @Param("id") id: string,
@@ -154,7 +155,7 @@ export class PlacesController {
   @ApiResponse({ status: 200, description: "Place deleted" })
   @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 403, description: "Role or ownership forbidden" })
-  @ApiResponse({ status: 404, description: "Place not found" })
+  @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
   @ApiResponse({ status: 409, description: "Cannot delete: solicitudes exist" })
   async remove(@Param("id") id: string, @CurrentUser() user: AuthContext) {
     await this.placesService.delete(id, user);

@@ -14,49 +14,13 @@ import type {
 } from "../domain/evento-repository.interface";
 import type { Evento } from "../domain/evento.entity";
 import type { Query, DocumentData } from "firebase-admin/firestore";
+import {
+  EventoFirestoreDoc,
+  toEventoDomain,
+  toEventoPersistence,
+} from "./evento.mapper";
 
 const COLLECTION = "eventos";
-
-// ---------------------------------------------------------------------------
-// Firestore document shape (all Date fields stored as Firestore Timestamp)
-// ---------------------------------------------------------------------------
-
-interface EventoFirestoreDoc {
-  id: string;
-  nombre: string;
-  slug: string;
-  descripcionCorta: string;
-  descripcion: string;
-  categoriaId: string;
-  subcategoriaId?: string;
-  barrioId: string;
-  organizador: string;
-  organizadorContacto?: string;
-  organizadorWeb?: string;
-  ubicacionNombre?: string;
-  ubicacionDireccion: string;
-  coordenadas: { lat: number; lng: number };
-  fechaInicio: unknown;
-  fechaFin: unknown;
-  precioTipo: string;
-  precioValor: number;
-  precioMoneda: string;
-  capacidadMaxima?: number;
-  publicoObjetivo: string[];
-  nivelRuido: string;
-  portada?: string;
-  accesibilidad?: string[];
-  status: string;
-  estado: string;
-  destacado: boolean;
-  verificado: boolean;
-  placeId?: string;
-  usuarioId: string;
-  vistasTotales: number;
-  createdAt: unknown;
-  updatedAt: unknown;
-  fechaPublicacion?: unknown;
-}
 
 @Injectable()
 export class EventoFirestoreAdapter
@@ -76,7 +40,11 @@ export class EventoFirestoreAdapter
   async findById(id: string): Promise<Evento | null> {
     const doc = await this.firebase.getDocument(COLLECTION, id);
     if (!doc.exists) return null;
-    return this.toDomain(doc.id, doc.data() as EventoFirestoreDoc);
+    return toEventoDomain(
+      this.firebase,
+      doc.id,
+      doc.data() as EventoFirestoreDoc,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -92,7 +60,11 @@ export class EventoFirestoreAdapter
     );
     if (snapshot.empty) return null;
     const doc = snapshot.docs[0];
-    return this.toDomain(doc.id, doc.data() as EventoFirestoreDoc);
+    return toEventoDomain(
+      this.firebase,
+      doc.id,
+      doc.data() as EventoFirestoreDoc,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -150,7 +122,7 @@ export class EventoFirestoreAdapter
     const docs = snapshot.docs.slice(0, limit);
 
     let data = docs.map((doc) =>
-      this.toDomain(doc.id, doc.data() as EventoFirestoreDoc),
+      toEventoDomain(this.firebase, doc.id, doc.data() as EventoFirestoreDoc),
     );
 
     // Text search filter (client-side for MVP)
@@ -224,7 +196,7 @@ export class EventoFirestoreAdapter
     const docs = snapshot.docs.slice(0, limit);
 
     const data = docs.map((doc) =>
-      this.toDomain(doc.id, doc.data() as EventoFirestoreDoc),
+      toEventoDomain(this.firebase, doc.id, doc.data() as EventoFirestoreDoc),
     );
 
     return {
@@ -243,13 +215,13 @@ export class EventoFirestoreAdapter
   ): Promise<Evento> {
     const now = this.firebase.getCurrentTimestamp();
     const data = {
-      ...this.toPersistence(evento as unknown as Evento),
+      ...toEventoPersistence(this.firebase, evento as unknown as Evento),
       createdAt: now,
       updatedAt: now,
     };
 
     const docRef = await this.firebase.createDocument(COLLECTION, data);
-    return this.toDomain(docRef.id, {
+    return toEventoDomain(this.firebase, docRef.id, {
       ...data,
       id: docRef.id,
     } as EventoFirestoreDoc);
@@ -263,7 +235,10 @@ export class EventoFirestoreAdapter
     const existing = await this.findById(id);
     if (!existing) throw new Error(`Evento ${id} not found`);
 
-    const persistencePatch = this.toPersistence(patch as Evento);
+    const persistencePatch = toEventoPersistence(
+      this.firebase,
+      patch as Evento,
+    );
     await this.firebase.updateDocument(COLLECTION, id, persistencePatch);
 
     const updated = await this.findById(id);
@@ -307,121 +282,5 @@ export class EventoFirestoreAdapter
         };
       })
       .filter((item) => item.coordenadas !== undefined);
-  }
-
-  // -------------------------------------------------------------------------
-  // Mapping helpers
-  // -------------------------------------------------------------------------
-
-  private toDomain(id: string, doc: EventoFirestoreDoc): Evento {
-    return {
-      id,
-      nombre: doc.nombre,
-      slug: doc.slug,
-      descripcionCorta: doc.descripcionCorta,
-      descripcion: doc.descripcion,
-      categoriaId: doc.categoriaId,
-      subcategoriaId: doc.subcategoriaId,
-      barrioId: doc.barrioId,
-      organizador: doc.organizador,
-      organizadorContacto: doc.organizadorContacto,
-      organizadorWeb: doc.organizadorWeb,
-      ubicacionNombre: doc.ubicacionNombre,
-      ubicacionDireccion: doc.ubicacionDireccion,
-      coordenadas: doc.coordenadas,
-      fechaInicio: this.firebase.timestampToDate(
-        doc.fechaInicio as FirebaseFirestore.Timestamp,
-      )!,
-      fechaFin: this.firebase.timestampToDate(
-        doc.fechaFin as FirebaseFirestore.Timestamp,
-      )!,
-      precioTipo: doc.precioTipo as Evento["precioTipo"],
-      precioValor: doc.precioValor,
-      precioMoneda: doc.precioMoneda as Evento["precioMoneda"],
-      capacidadMaxima: doc.capacidadMaxima,
-      publicoObjetivo: doc.publicoObjetivo as Evento["publicoObjetivo"],
-      nivelRuido: doc.nivelRuido as Evento["nivelRuido"],
-      portada: doc.portada,
-      accesibilidad: doc.accesibilidad as Evento["accesibilidad"],
-      status: doc.status as Evento["status"],
-      estado: doc.estado as Evento["estado"],
-      destacado: doc.destacado,
-      verificado: doc.verificado,
-      placeId: doc.placeId,
-      usuarioId: doc.usuarioId,
-      vistasTotales: doc.vistasTotales ?? 0,
-      createdAt: this.firebase.timestampToDate(
-        doc.createdAt as FirebaseFirestore.Timestamp,
-      )!,
-      updatedAt: this.firebase.timestampToDate(
-        doc.updatedAt as FirebaseFirestore.Timestamp,
-      )!,
-      fechaPublicacion: this.firebase.timestampToDate(
-        doc.fechaPublicacion as FirebaseFirestore.Timestamp,
-      ),
-    };
-  }
-
-  private toPersistence(evt: Partial<Evento>): Record<string, unknown> {
-    const result: Record<string, unknown> = {};
-
-    const fieldMap: Array<[keyof Evento, string]> = [
-      ["nombre", "nombre"],
-      ["slug", "slug"],
-      ["descripcionCorta", "descripcionCorta"],
-      ["descripcion", "descripcion"],
-      ["categoriaId", "categoriaId"],
-      ["subcategoriaId", "subcategoriaId"],
-      ["barrioId", "barrioId"],
-      ["organizador", "organizador"],
-      ["organizadorContacto", "organizadorContacto"],
-      ["organizadorWeb", "organizadorWeb"],
-      ["ubicacionNombre", "ubicacionNombre"],
-      ["ubicacionDireccion", "ubicacionDireccion"],
-      ["coordenadas", "coordenadas"],
-      ["precioTipo", "precioTipo"],
-      ["precioValor", "precioValor"],
-      ["precioMoneda", "precioMoneda"],
-      ["capacidadMaxima", "capacidadMaxima"],
-      ["publicoObjetivo", "publicoObjetivo"],
-      ["nivelRuido", "nivelRuido"],
-      ["portada", "portada"],
-      ["accesibilidad", "accesibilidad"],
-      ["status", "status"],
-      ["estado", "estado"],
-      ["destacado", "destacado"],
-      ["verificado", "verificado"],
-      ["placeId", "placeId"],
-      ["usuarioId", "usuarioId"],
-      ["vistasTotales", "vistasTotales"],
-    ];
-
-    for (const [domainKey, firestoreKey] of fieldMap) {
-      const value = evt[domainKey];
-      if (value !== undefined) {
-        result[firestoreKey] = value;
-      }
-    }
-
-    // Convert Date fields to Timestamps
-    if (evt.fechaInicio) {
-      result.fechaInicio = this.firebase.dateToTimestamp(evt.fechaInicio);
-    }
-    if (evt.fechaFin) {
-      result.fechaFin = this.firebase.dateToTimestamp(evt.fechaFin);
-    }
-    if (evt.fechaPublicacion) {
-      result.fechaPublicacion = this.firebase.dateToTimestamp(
-        evt.fechaPublicacion,
-      );
-    }
-    if (evt.createdAt) {
-      result.createdAt = this.firebase.dateToTimestamp(evt.createdAt);
-    }
-    if (evt.updatedAt) {
-      result.updatedAt = this.firebase.dateToTimestamp(evt.updatedAt);
-    }
-
-    return result;
   }
 }

@@ -194,7 +194,7 @@ export class FirebaseService implements OnModuleInit {
     filters?: Array<{
       field: string;
       operator: WhereFilterOp;
-      value: any;
+      value: unknown;
     }>,
     orderBy?: {
       field: string;
@@ -229,7 +229,7 @@ export class FirebaseService implements OnModuleInit {
    */
   async createDocument(
     collection: string,
-    data: any,
+    data: Record<string, unknown>,
     docId?: string,
   ): Promise<DocumentReference> {
     const docRef = docId
@@ -251,7 +251,7 @@ export class FirebaseService implements OnModuleInit {
   async updateDocument(
     collection: string,
     docId: string,
-    data: any,
+    data: Record<string, unknown>,
   ): Promise<void> {
     const docRef = this.firestore.collection(collection).doc(docId);
     await docRef.update({
@@ -298,7 +298,7 @@ export class FirebaseService implements OnModuleInit {
   async uploadFile(
     filePath: string,
     buffer: Buffer,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ): Promise<string> {
     const bucket = this.storage.bucket();
     const file = bucket.file(filePath);

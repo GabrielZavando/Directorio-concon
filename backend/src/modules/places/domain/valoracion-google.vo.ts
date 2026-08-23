@@ -12,9 +12,14 @@ export function isValidValoracionGoogle(
 ): value is ValoracionGoogle {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
-  if (typeof v.rating !== "number" || !Number.isFinite(v.rating)) return false;
-  if (v.rating < 0 || v.rating > 5) return false;
-  if (typeof v.reviewsCount !== "number" || v.reviewsCount < 0) return false;
-  if (typeof v.mapsLink !== "string" || v.mapsLink.length === 0) return false;
-  return true;
+  const isRatingValid =
+    typeof v.rating === "number" &&
+    Number.isFinite(v.rating) &&
+    v.rating >= 0 &&
+    v.rating <= 5;
+  const isReviewsValid =
+    typeof v.reviewsCount === "number" && v.reviewsCount >= 0;
+  const isMapsLinkValid =
+    typeof v.mapsLink === "string" && v.mapsLink.length > 0;
+  return isRatingValid && isReviewsValid && isMapsLinkValid;
 }

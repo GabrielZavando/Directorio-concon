@@ -17,6 +17,10 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { EventosService } from "../application/eventos.service";
+
+const MISSING_TOKEN_MSG = "Missing or invalid token";
+
+const EVENTO_NOT_FOUND = "Evento not found";
 import { CreateEventoDto } from "./dto/create-evento.dto";
 import { UpdateEventoDto } from "./dto/update-evento.dto";
 import { QueryEventoDto } from "./dto/query-evento.dto";
@@ -46,7 +50,7 @@ export class EventosController {
     description: "Evento created with status pendiente",
   })
   @ApiResponse({ status: 400, description: "Validation error" })
-  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 401, description: MISSING_TOKEN_MSG })
   @ApiResponse({ status: 403, description: "Forbidden (not owner/admin)" })
   @ApiResponse({ status: 409, description: "Slug duplicado" })
   async create(@Body() dto: CreateEventoDto, @CurrentUser() user: AuthContext) {
@@ -97,7 +101,7 @@ export class EventosController {
   @Get("slug/:slug")
   @ApiOperation({ summary: "Get an approved evento by its unique slug" })
   @ApiResponse({ status: 200, description: "Evento found" })
-  @ApiResponse({ status: 404, description: "Evento not found" })
+  @ApiResponse({ status: 404, description: EVENTO_NOT_FOUND })
   async findBySlug(@Param("slug") slug: string) {
     return this.eventosService.findBySlugPublic(slug);
   }
@@ -108,7 +112,7 @@ export class EventosController {
   @Get(":id")
   @ApiOperation({ summary: "Get an approved evento by ID" })
   @ApiResponse({ status: 200, description: "Evento found" })
-  @ApiResponse({ status: 404, description: "Evento not found" })
+  @ApiResponse({ status: 404, description: EVENTO_NOT_FOUND })
   async findById(@Param("id") id: string) {
     return this.eventosService.findOnePublic(id);
   }
@@ -121,9 +125,9 @@ export class EventosController {
   @Roles("owner", "admin")
   @ApiOperation({ summary: "Update an evento (partial)" })
   @ApiResponse({ status: 200, description: "Evento updated" })
-  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 401, description: MISSING_TOKEN_MSG })
   @ApiResponse({ status: 403, description: "Forbidden" })
-  @ApiResponse({ status: 404, description: "Evento not found" })
+  @ApiResponse({ status: 404, description: EVENTO_NOT_FOUND })
   @ApiResponse({ status: 409, description: "Slug duplicado on rename" })
   async update(
     @Param("id") id: string,
@@ -144,9 +148,9 @@ export class EventosController {
     summary: "Delete an evento (blocked if solicitudes exist)",
   })
   @ApiResponse({ status: 200, description: "Evento deleted" })
-  @ApiResponse({ status: 401, description: "Missing or invalid token" })
+  @ApiResponse({ status: 401, description: MISSING_TOKEN_MSG })
   @ApiResponse({ status: 403, description: "Forbidden" })
-  @ApiResponse({ status: 404, description: "Evento not found" })
+  @ApiResponse({ status: 404, description: EVENTO_NOT_FOUND })
   @ApiResponse({ status: 409, description: "Cannot delete: solicitudes exist" })
   async remove(@Param("id") id: string, @CurrentUser() user: AuthContext) {
     await this.eventosService.remove(id, user.uid, user.rol);

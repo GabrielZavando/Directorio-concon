@@ -1,5 +1,5 @@
 import { registerAs } from "@nestjs/config";
-import * as Joi from "joi";
+import Joi from "joi";
 
 export const ValidationConfig = registerAs("validation", () => ({
   // Esquema de validación para variables de entorno

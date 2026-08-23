@@ -25,51 +25,14 @@ import { EventoValidator } from "./evento-validator";
 // Value import: CatalogValidator is used as a DI token, so it must be
 // present at runtime (a type-only import would erase it and break DI).
 import { CatalogValidator } from "../../categorias/application/catalog-validator.service";
-
-// ---------------------------------------------------------------------------
-// DTO types (mirrors what the controller receives after validation)
-// ---------------------------------------------------------------------------
-
-export interface CreateEventoServiceDto {
-  nombre: string;
-  descripcionCorta: string;
-  descripcion: string;
-  subcategoriaId: string;
-  barrioId: string;
-  organizador: string;
-  organizadorContacto?: string;
-  organizadorWeb?: string;
-  ubicacionNombre?: string;
-  ubicacionDireccion: string;
-  coordenadas: { lat: number; lng: number };
-  fechaInicio: string;
-  fechaFin: string;
-  precioTipo: string;
-  precioValor: number;
-  precioMoneda?: string;
-  capacidadMaxima?: number;
-  publicoObjetivo: string[];
-  nivelRuido: string;
-  portada?: string;
-  accesibilidad?: string[];
-}
-
-export type UpdateEventoServiceDto = Partial<CreateEventoServiceDto>;
-
-// ---------------------------------------------------------------------------
-// Slug helper
-// ---------------------------------------------------------------------------
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
+import {
+  CreateEventoServiceDto,
+  UpdateEventoServiceDto,
+  slugify,
+  buildEventoPatch,
+  stageApprovedUpdate,
+  validateEventoCatalogReferences,
+} from "./eventos-service.helpers";
 
 // ---------------------------------------------------------------------------
 // Service
@@ -247,65 +210,31 @@ export class EventosService {
       throw new NotFoundException(`Evento ${id} no encontrado`);
     }
 
-    // Authorization: empresa owner or admin
     if (rol !== "admin" && existing.usuarioId !== usuarioId) {
       throw new ForbiddenException(
         "No tienes permiso para modificar este evento",
       );
     }
 
-    // Cross-catalog validation — diff-aware: only validate fields being
-    // ADDED or CHANGED (skip when the DTO repeats the current value), and
-    // only when the feature flag is enabled. `categoriaId` is constant.
     if (this.catalogValidator.enabled) {
-      if (
-        dto.subcategoriaId &&
-        dto.subcategoriaId !== existing.subcategoriaId
-      ) {
-        await this.catalogValidator.assertSubcategoriaActiva(
-          "eventos",
-          dto.subcategoriaId,
-        );
-      }
-      if (dto.barrioId && dto.barrioId !== existing.barrioId) {
-        await this.catalogValidator.assertBarrioActivo(dto.barrioId);
-      }
-    }
-
-    // If status is aprobado, create solicitud instead of applying in-place
-    if (existing.status === "aprobado") {
-      const now = new Date();
-      await this.solicitudService.createEventoSolicitud({
-        eventoId: id,
-        usuarioId,
-        tipo: "actualizacion-evento",
-        status: "pendiente",
-        proposal: dto as Record<string, unknown>,
-        createdAt: now,
-      });
-
-      this.logger.log(
-        `Evento update staged via solicitud: ${id} (${JSON.stringify(dto)})`,
+      await validateEventoCatalogReferences(
+        dto,
+        existing,
+        this.catalogValidator,
       );
-      return existing; // Return unchanged evento (patch staged for admin approval)
     }
 
-    // Otherwise (pendiente or rechazado), apply in-place
-    const patch: Partial<Evento> & { updatedAt: Date } = {
-      ...dto,
-      updatedAt: new Date(),
-    } as unknown as Partial<Evento> & { updatedAt: Date };
-
-    // Regenerate slug if nombre changes
-    if (dto.nombre && dto.nombre !== existing.nombre) {
-      const newSlug = slugify(dto.nombre);
-      const slugOwner = await this.eventoRepo.findBySlug(newSlug);
-      if (slugOwner && slugOwner.id !== id) {
-        throw new ConflictException("Slug duplicado");
-      }
-      patch.slug = newSlug;
+    // If already approved, stage the change as a solicitud instead of mutating.
+    if (existing.status === "aprobado") {
+      return stageApprovedUpdate(id, dto, usuarioId, existing, {
+        solicitudService: this.solicitudService,
+        logger: this.logger,
+      });
     }
 
+    const patch = await buildEventoPatch(dto, existing, id, (slug) =>
+      this.eventoRepo.findBySlug(slug),
+    );
     return this.eventoRepo.update(id, patch);
   }
 
