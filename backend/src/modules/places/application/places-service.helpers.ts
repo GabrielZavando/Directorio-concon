@@ -3,12 +3,8 @@
  * Extracted here to keep places.service.ts under the 300-line SOLID threshold
  * and isolate pure/side-effect-free logic (SRP).
  */
-import {
-  ForbiddenException,
-  UnprocessableEntityException,
-} from "@nestjs/common";
+import { UnprocessableEntityException } from "@nestjs/common";
 import type { Place } from "../domain/place.entity";
-import type { AuthContext } from "../../auth/domain/auth-context.interface";
 import type { CatalogValidator } from "../../categorias/application/catalog-validator.service";
 import type { UpdatePlaceDto } from "./places.service";
 import {
@@ -30,16 +26,6 @@ export function assertGalleryLimit(
     throw new UnprocessableEntityException(
       `Plan ${planId} permite máximo ${max} imágenes en galería`,
     );
-  }
-}
-
-export function assertOwnership(
-  place: Place,
-  actor: AuthContext,
-  action: string,
-): void {
-  if (actor.rol !== "admin" && place.usuarioId !== actor.uid) {
-    throw new ForbiddenException(`No tienes permiso para ${action}`);
   }
 }
 

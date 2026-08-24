@@ -124,7 +124,7 @@ describe("BarriosService", () => {
   it("updateById: missing → NotFoundException", async () => {
     readRepo.findById.mockResolvedValue(undefined);
     await expect(service.updateById("nope", { nombre: "x" })).rejects.toThrow(
-      "Barrio no encontrado",
+      "Barrio nope no esperado",
     );
   });
 
@@ -145,10 +145,10 @@ describe("BarriosService", () => {
   it("activate/deactivate missing → NotFoundException", async () => {
     readRepo.findById.mockResolvedValue(undefined);
     await expect(service.activate("nope")).rejects.toThrow(
-      "Barrio no encontrado",
+      "Barrio nope no encontrado",
     );
     await expect(service.deactivate("nope")).rejects.toThrow(
-      "Barrio no encontrado",
+      "Barrio nope no encontrado",
     );
   });
 
