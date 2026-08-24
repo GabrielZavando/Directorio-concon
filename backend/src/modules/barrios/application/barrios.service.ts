@@ -4,12 +4,12 @@
 import {
   Injectable,
   Inject,
-  NotFoundException,
   ConflictException,
 } from "@nestjs/common";
 import { Barrio } from "../domain/barrio.entity";
 import type { BarrioReadRepository } from "../domain/barrio-read-repository.interface";
 import type { BarrioWriteRepository } from "../domain/barrio-write-repository.interface";
+import { assertFound } from "@/common/utils/assertions";
 import { BARRIO_READ_REPOSITORY } from "../domain/barrio-read-repository.interface";
 import { BARRIO_WRITE_REPOSITORY } from "../domain/barrio-write-repository.interface";
 
@@ -67,7 +67,7 @@ export class BarriosService {
     }>,
   ): Promise<Barrio> {
     const existing = await this.readRepo.findById(id);
-    if (!existing) throw new NotFoundException(`Barrio no encontrado: ${id}`);
+    assertFound(existing, "Barrio", id);
 
     const { coordenadas, ...rest } = patch;
     const normalized: Partial<{
@@ -93,13 +93,13 @@ export class BarriosService {
 
   async activate(id: string): Promise<Barrio> {
     const existing = await this.readRepo.findById(id);
-    if (!existing) throw new NotFoundException(`Barrio no encontrado: ${id}`);
+    assertFound(existing, "Barrio", id);
     return this.writeRepo.activate(id);
   }
 
   async deactivate(id: string): Promise<Barrio> {
     const existing = await this.readRepo.findById(id);
-    if (!existing) throw new NotFoundException(`Barrio no encontrado: ${id}`);
+    assertFound(existing, "Barrio", id);
     return this.writeRepo.deactivate(id);
   }
 

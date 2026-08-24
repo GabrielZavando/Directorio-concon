@@ -24,7 +24,6 @@ import type { AuthContext } from "../../auth/domain/auth-context.interface";
 import { CatalogValidator } from "../../categorias/application/catalog-validator.service";
 import {
   assertGalleryLimit,
-  assertOwnership,
   buildPlacePatch,
   toPlain,
   toPlainArray,
@@ -32,6 +31,7 @@ import {
   validateCatalogReferences,
   type AbiertoAhoraResponse,
 } from "./places-service.helpers";
+import { assertOwnerOrAdmin as sharedAssertOwnerOrAdmin } from "../../../common/utils/assertions";
 
 // ---------------------------------------------------------------------------
 // DTO types (mirrors what the controller will receive after validation)
@@ -225,7 +225,11 @@ export class PlacesService {
       throw new NotFoundException(`Place ${id} no encontrado`);
     }
 
-    assertOwnership(existing, actor, "modificar este lugar");
+    sharedAssertOwnerOrAdmin(
+      { uid: actor.uid, rol: actor.rol },
+      existing.usuarioId,
+      "modificar este lugar",
+    );
 
     if (this.catalogValidator.enabled) {
       await validateCatalogReferences(this.catalogValidator, dto, existing);
@@ -272,7 +276,11 @@ export class PlacesService {
       throw new NotFoundException(`Place ${id} no encontrado`);
     }
 
-    assertOwnership(existing, actor, "eliminar este lugar");
+    sharedAssertOwnerOrAdmin(
+      { uid: actor.uid, rol: actor.rol },
+      existing.usuarioId,
+      "eliminar este lugar",
+    );
 
     const hasSolicitudes = await this.solicitudRepo.existsByPlaceId(id);
     if (hasSolicitudes) {
