@@ -7,7 +7,7 @@
 # To customize for your stack, adjust the commands inside each target or add a
 # new branch to the STACK detection below.
 
-.PHONY: help install lint test build audit commitlint refs solid-lint
+.PHONY: help install lint test build audit commitlint refs solid-lint solid-lint-backend solid-lint-frontend
 
 # Detect the active stack from its manifest file.
 STACK := $(shell \
@@ -79,17 +79,22 @@ commitlint: ## Lint commit messages (stack-independent)
 refs: ## Check referential integrity of {file:...} references
 	bash check-refs.sh
 
-solid-lint: ## SOLID thresholds — ESLint + dependency-cruiser + madge (monorepo)
+solid-lint-backend: ## SOLID thresholds — backend (ESLint + dependency-cruiser)
 	@if [ ! -f backend/package.json ] || [ ! -d backend/src ]; then \
 	  echo "solid-lint: backend/package.json or backend/src not found — skipping"; exit 0; \
 	fi
 	@echo "→ SOLID lint: backend (ESLint thresholds)"
-	cd backend && NODE_PATH=$$(pwd)/node_modules npx eslint -c ../templates/ci/eslintrc.backend.js --resolve-plugins-relative-to . 'src/**/*.ts'
+	cd backend && NODE_PATH=$$(pwd)/node_modules ./node_modules/.bin/eslint -c ../templates/ci/eslintrc.backend.js --resolve-plugins-relative-to . 'src/**/*.ts'
 	@echo "→ SOLID lint: backend (dependency-cruiser)"
-	cd backend && npx dependency-cruiser src --config ../templates/ci/.dependency-cruiser.js
+	cd backend && ./node_modules/.bin/depcruise src --config ../templates/ci/.dependency-cruiser.js
+
+solid-lint-frontend: ## SOLID thresholds — frontend (ESLint + madge), guarded
 	@if [ -f frontend/angular.json ]; then \
 	  echo "→ SOLID lint: frontend (ESLint thresholds)"; \
-	  cd frontend && NODE_PATH=$$(pwd)/node_modules npx eslint -c ../templates/ci/eslintrc.frontend.js --resolve-plugins-relative-to . src/**/*.ts; \
+	  cd frontend && NODE_PATH=$$(pwd)/node_modules ./node_modules/.bin/eslint -c ../templates/ci/eslintrc.frontend.js --resolve-plugins-relative-to . src/**/*.ts; \
 	  echo "→ SOLID lint: frontend (madge circular-deps)"; \
-	  cd frontend && npx madge --circular src --ts-config tsconfig.app.json; \
+	  cd frontend && ./node_modules/.bin/madge --circular src --ts-config tsconfig.app.json; \
 	fi
+
+solid-lint: solid-lint-backend solid-lint-frontend ## SOLID thresholds — aggregate (monorepo)
+

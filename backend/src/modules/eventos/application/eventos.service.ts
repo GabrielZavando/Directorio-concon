@@ -6,7 +6,6 @@
  */
 import {
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -33,6 +32,7 @@ import {
   stageApprovedUpdate,
   validateEventoCatalogReferences,
 } from "./eventos-service.helpers";
+import { assertFound, assertOwnerOrAdmin } from "../../../common/utils/assertions";
 
 // ---------------------------------------------------------------------------
 // Service
@@ -158,6 +158,7 @@ export class EventosService {
     return evento;
   }
 
+
   async findBySlugPublic(slug: string): Promise<Evento> {
     const evento = await this.eventoRepo.findBySlug(slug);
     if (!evento || evento.status !== "aprobado") {
@@ -186,7 +187,7 @@ export class EventosService {
   async findOne(id: string): Promise<Evento> {
     const evento = await this.eventoRepo.findById(id);
     if (!evento) {
-      throw new NotFoundException(`Evento ${id} no encontrado`);
+      throw assertFound(evento, "Evento", id);
     }
     return evento;
   }
@@ -207,13 +208,11 @@ export class EventosService {
   ): Promise<Evento> {
     const existing = await this.eventoRepo.findById(id);
     if (!existing) {
-      throw new NotFoundException(`Evento ${id} no encontrado`);
+      throw assertFound(existing, "Evento", id);
     }
 
-    if (rol !== "admin" && existing.usuarioId !== usuarioId) {
-      throw new ForbiddenException(
-        "No tienes permiso para modificar este evento",
-      );
+    if (rol !== "admin") {
+      assertOwnerOrAdmin({ uid: usuarioId, rol }, existing.usuarioId, "modificar este evento");
     }
 
     if (this.catalogValidator.enabled) {
@@ -245,14 +244,12 @@ export class EventosService {
   async remove(id: string, usuarioId: string, rol: string): Promise<void> {
     const existing = await this.eventoRepo.findById(id);
     if (!existing) {
-      throw new NotFoundException(`Evento ${id} no encontrado`);
+      throw assertFound(existing, "Evento", id);
     }
 
     // Authorization: empresa owner or admin
-    if (rol !== "admin" && existing.usuarioId !== usuarioId) {
-      throw new ForbiddenException(
-        "No tienes permiso para eliminar este evento",
-      );
+    if (rol !== "admin") {
+      assertOwnerOrAdmin({ uid: usuarioId, rol }, existing.usuarioId, "eliminar este evento");
     }
 
     // 409 if pending solicitudes exist
