@@ -88,13 +88,6 @@ export interface UsuarioWriteRepositoryInterface {
    * defensive SRP).
    */
   updateRol(uid: string, rol: Usuario["rol"]): Promise<Usuario>;
-
-  /**
-   * Link / unlink a `placeId` to the user.
-   * Set `placeId: null` to unbind. Used by `updateRol` cascades and by
-   * admin tooling (NOT by self-service `updatePerfil`).
-   */
-  linkPlaceId(uid: string, placeId: string | null): Promise<Usuario>;
 }
 
 // ---------------------------------------------------------------------------

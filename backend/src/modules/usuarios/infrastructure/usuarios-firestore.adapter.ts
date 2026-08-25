@@ -41,7 +41,6 @@ export interface UsuarioFirestoreDoc {
   email: string;
   nombre: string;
   rol: Usuario["rol"];
-  placeId?: string | null;
   telefono?: string | null;
   createdAt: unknown;
   updatedAt: unknown;
@@ -113,7 +112,6 @@ export class UsuariosFirestoreAdapter implements UsuarioRepositoryInterface {
       email: usuario.email,
       nombre: usuario.nombre,
       rol: usuario.rol,
-      ...(usuario.placeId !== undefined ? { placeId: usuario.placeId } : {}),
       ...(usuario.telefono !== undefined ? { telefono: usuario.telefono } : {}),
     };
 
@@ -144,12 +142,6 @@ export class UsuariosFirestoreAdapter implements UsuarioRepositoryInterface {
   async updateRol(uid: string, rol: Usuario["rol"]): Promise<Usuario> {
     await this.ensureExists(uid);
     await this.firebase.updateDocument(COLLECTION, uid, { rol });
-    return this.refetch(uid);
-  }
-
-  async linkPlaceId(uid: string, placeId: string | null): Promise<Usuario> {
-    await this.ensureExists(uid);
-    await this.firebase.updateDocument(COLLECTION, uid, { placeId });
     return this.refetch(uid);
   }
 
@@ -189,7 +181,6 @@ export class UsuariosFirestoreAdapter implements UsuarioRepositoryInterface {
       email: doc.email,
       nombre: doc.nombre,
       rol: doc.rol,
-      placeId: doc.placeId ?? null,
       telefono: doc.telefono ?? null,
       createdAt: this.firebase.timestampToDate(
         doc.createdAt as Parameters<FirebaseService["timestampToDate"]>[0],

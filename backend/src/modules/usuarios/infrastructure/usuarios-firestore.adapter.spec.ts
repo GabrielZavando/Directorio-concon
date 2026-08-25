@@ -154,7 +154,6 @@ describe("UsuariosFirestoreAdapter", () => {
         expect.objectContaining({
           email: "owner@example.com",
           rol: "owner",
-          placeId: "restaurante-el-marino",
         }),
         "uid-owner-001",
       );
@@ -262,59 +261,6 @@ describe("UsuariosFirestoreAdapter", () => {
       });
 
       await expect(adapter.updateRol("missing", "owner")).rejects.toThrow(
-        /not found/i,
-      );
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // linkPlaceId
-  // -------------------------------------------------------------------------
-  describe("linkPlaceId", () => {
-    it("writes the placeId", async () => {
-      writePathReturnsDocWith(
-        mockFirebase,
-        makeFirestoreDoc({
-          placeId: "place-x",
-          updatedAt: { toDate: () => new Date("2025-06-02T00:00:00Z") },
-        }),
-      );
-
-      const result = await adapter.linkPlaceId("uid-owner-001", "place-x");
-
-      expect(result.placeId).toBe("place-x");
-      expect(mockFirebase.updateDocument).toHaveBeenCalledWith(
-        "usuarios",
-        "uid-owner-001",
-        expect.objectContaining({ placeId: "place-x" }),
-      );
-    });
-
-    it("accepts null to unlink", async () => {
-      writePathReturnsDocWith(
-        mockFirebase,
-        makeFirestoreDoc({
-          placeId: null,
-          updatedAt: { toDate: () => new Date("2025-06-02T00:00:00Z") },
-        }),
-      );
-
-      const result = await adapter.linkPlaceId("uid-owner-001", null);
-
-      expect(result.placeId).toBeNull();
-      const writePayload = writePayloadOf(mockFirebase);
-      expect(writePayload).toMatchObject({ placeId: null });
-      expect(writePayload).not.toHaveProperty("updatedAt");
-    });
-
-    it("refuses when the user does not exist", async () => {
-      mockFirebase.getDocument.mockResolvedValue({
-        exists: false,
-        id: "missing",
-        data: () => undefined,
-      });
-
-      await expect(adapter.linkPlaceId("missing", "p1")).rejects.toThrow(
         /not found/i,
       );
     });

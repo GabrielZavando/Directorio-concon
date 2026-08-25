@@ -41,7 +41,6 @@ export function makeFirestoreDoc(
     email: "owner@example.com",
     nombre: "Owner One",
     rol: "owner",
-    placeId: "restaurante-el-marino",
     telefono: "+56912345678",
     createdAt: { toDate: () => new Date("2025-06-01T00:00:00Z") },
     updatedAt: { toDate: () => new Date("2025-06-01T00:00:00Z") },
@@ -58,7 +57,6 @@ export function makeCreateInput(
     email: "owner@example.com",
     nombre: "Owner One",
     rol: "owner",
-    placeId: "restaurante-el-marino",
     telefono: "+56912345678",
     ...overrides,
   };

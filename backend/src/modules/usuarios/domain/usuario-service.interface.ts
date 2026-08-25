@@ -22,18 +22,6 @@ import type {
 } from "./usuario-repository.interface";
 
 /** Input for the admin-only `create` operation (POST /usuarios). */
-export interface CreateUsuarioInput {
-  /** Firebase Auth UID — REQUIRED (the Firebase Auth user is created client-side; this provision writes the matching `usuarios` row). */
-  id: string;
-  email: string;
-  nombre: string;
-  /** Defaults to `'member'` if omitted (per `docs/data-model.md §usuarios`). */
-  rol?: Rol;
-  /** Optional; MUST be omitted when `rol !== 'owner'`. */
-  placeId?: string | null;
-  telefono?: string | null;
-}
-
 /** Input for the self-service `PUT /usuarios/me` operation. */
 export interface UpdatePerfilInput {
   nombre?: string;
@@ -48,16 +36,13 @@ export interface UsuariosServiceInterface {
   /** Self-update `nombre` and `telefono` only (refuses `rol` / `placeId`). */
   updatePerfil(uid: string, patch: UpdatePerfilInput): Promise<Usuario>;
 
-  // -- Admin operations (`POST /usuarios`, `GET /usuarios`, `GET /usuarios/:uid`, `PUT /usuarios/:uid/rol`) --
-  /** Provision a new `usuarios` document. Rejects duplicate `email` with `ConflictException` (application layer). */
-  create(input: CreateUsuarioInput): Promise<Usuario>;
-
+  // -- Admin operations (`GET /usuarios`, `GET /usuarios/:uid`, `PUT /usuarios/:uid/rol`) --
   /** Admin-only listing with optional `rol` filter + pagination. */
   findAll(adminFilters: UsuarioSearchFilters): Promise<PaginatedUsuarios>;
 
   /** Admin-only lookup of any user by UID. */
   findById(uid: string): Promise<Usuario>;
 
-  /** Admin-only mutation of a user's `rol`. Cascades `linkPlaceId` cleanup when transitioning out of `'owner'`. */
+  /** Admin-only mutation of a user's `rol`. */
   updateRol(uid: string, rol: Rol): Promise<Usuario>;
 }

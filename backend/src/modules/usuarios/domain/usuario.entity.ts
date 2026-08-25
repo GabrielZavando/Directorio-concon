@@ -11,11 +11,14 @@
  * depends on it).
  *
  * Invariants (enforced by `UsuariosService`, not by the type-system):
- * - `placeId` is REQUIRED when `rol === 'owner'`; MUST be `null`/omitted
- *   for `'admin'` and `'member'` (the service validates before persisting).
  * - `email` is UNIQUE across the collection (the service checks
  *   `findByEmail` before `create`).
  * - Default `rol: 'member'` on registration (per docs/data-model.md §usuarios).
+ *
+ * Note: the `placeId` field was removed in change `auth-usuarios-v2` (CH-02).
+ * The user→place relation has a single source of truth: `places.usuarioId`.
+ * Resolving "which places does this user own" is done via a query on the
+ * `places` collection (`WHERE usuarioId == uid`).
  *
  * This change (`auth-usuarios`) only assembles the module; no Firebase Auth
  * users exist yet without a matching `usuarios` document — orphans get `403`
@@ -36,15 +39,6 @@ export interface Usuario {
 
   /** Controlled enum: `'admin' | 'owner' | 'member'`. Default `'member'`. */
   rol: Rol;
-
-  /**
-   * Reference to the `places` document the user owns.
-   *
-   * Present when and only when `rol === 'owner'`. MUST be `null` / omitted
-   * for `'admin'` and `'member'`. Enforced by `UsuariosService.create` /
-   * `usuariosService.updateRol` before persistence.
-   */
-  placeId?: string | null;
 
   /** Chilean-format phone (free string). Optional. */
   telefono?: string | null;
