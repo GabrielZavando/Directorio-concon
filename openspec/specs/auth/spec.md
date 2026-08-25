@@ -4,54 +4,15 @@
 TBD - created by archiving change auth-usuarios. Update Purpose after archive.
 ## Requirements
 ### Requirement: Firebase Auth JWT verification on protected endpoints
-The system SHALL verify the Firebase Auth `idToken` carried in the `Authorization: Bearer <idToken>` header on every endpoint decorated with `@UseGuards(JwtAuthGuard)` (or any guard composed with `JwtAuthGuard`). Verification is performed by `FirebaseService.verifyIdToken` (delegating to `admin.auth().verifyIdToken`). On success the guard SHALL attach an `AuthContext` value object to `request.user` containing `{ uid, email, rol, placeId? }`. On any verification failure (invalid signature, expired, revoked, malformed) the guard SHALL short-circuit with `401 Unauthorized` and SHALL NOT proceed to the route handler.
+The JWT verification, `AuthContext` construction, rol resolution order (custom claim → Firestore fallback), and `401/403` semantics SHALL remain as previously specified; this change adds no new guard.
 
-The `rol` resolution order is:
-1. Read `decodedIdToken.rol` (Firebase custom claim). If present and a valid `Rol`, use it.
-2. Otherwise, look up the `usuarios` document with `id === decodedIdToken.uid` and read `rol`.
-3. If neither resolves a valid `Rol`, the guard SHALL respond `403 Forbidden` with error: `user has not been provisioned in the usuarios collection` (this happens when a Firebase Auth user exists but no `usuarios` document has been created yet — the fix is an admin-created `usuarios` record, not an auto-create on first request, to prevent privilege escalation via self-registration).
+**Aclaración del change**: the `AuthContext.placeId?` field sourced from `usuarios.placeId` MUST no longer be populated (the field is removed from the entity). Guards and consumers that read `AuthContext` SHALL rely on `uid` + `rol` only; the user→place relation MUST be queried from `places.usuarioId`.
 
-The Firestore rol lookup (step 2) is cacheable via the global `CacheModule` (Redis with in-memory fallback) keyed by `auth:rol:<uid>` with a short TTL (60s default — configurable). Cache invalidation is implicit on any `PUT /usuarios/:uid/rol` mutation (the admin endpoint writes-through).
-
-#### Scenario: Valid token populates AuthContext on request.user
-- **GIVEN** a Firebase Auth user with UID `uid-owner-001` and a custom claim `{ rol: 'owner' }`
-- **WHEN** the user sends `POST /api/v1/places` with `Authorization: Bearer <valid idToken>`
-- **THEN** the `JwtAuthGuard` verifies the token via `verifyIdToken` and attaches `request.user = { uid: 'uid-owner-001', email: '<email>', rol: 'owner' }`
-- **AND** the request proceeds to the `PlacesController.create` handler
-- **AND** the place's `usuarioId` is set to `'uid-owner-001'` (no longer the `"anonymous"` stub)
-
-#### Scenario: Token without custom claim falls back to usuarios collection
-- **GIVEN** a Firebase Auth user with UID `uid-owner-002` and no custom claim `rol`
-- **AND** a `usuarios` document with `id: 'uid-owner-002'`, `rol: 'owner'`
-- **WHEN** the user sends `POST /api/v1/places` with `Authorization: Bearer <valid idToken>`
-- **THEN** the `JwtAuthGuard` reads no `rol` on the decoded token, looks up `usuarios/uid-owner-002`, reads `rol: 'owner'`, and attaches `request.user.rol = 'owner'`
-- **AND** the request proceeds normally
-
-#### Scenario: Token referencing a user with no usuarios document returns 403
-- **GIVEN** a Firebase Auth user with UID `uid-orphan-001` and no custom claim `rol`
-- **AND** no `usuarios` document with `id: 'uid-orphan-001'`
-- **WHEN** the user sends `POST /api/v1/places` with `Authorization: Bearer <valid idToken>`
-- **THEN** the response is `403` with error: `user has not been provisioned in the usuarios collection`
-- **AND** nothing is persisted (the place is not created)
-
-#### Scenario: Invalid signature token returns 401
-- **WHEN** a client sends `Authorization: Bearer <token with invalid signature>`
-- **THEN** `verifyIdToken` throws and the guard responds `401 Unauthorized`
-- **AND** `request.user` is not attached
-
-#### Scenario: Expired token returns 401
-- **WHEN** a client sends `Authorization: Bearer <expired idToken>`
-- **THEN** `verifyIdToken` throws and the guard responds `401 Unauthorized`
-
-#### Scenario: Revoked token returns 401
-- **GIVEN** a Firebase Auth user whose token has been revoked (e.g., password changed, admin disabled the user)
-- **WHEN** the client sends the revoked `idToken` with `Authorization: Bearer ...`
-- **THEN** `verifyIdToken` (called with `checkRevoked = true`) throws and the guard responds `401 Unauthorized`
-
-#### Scenario: Missing Authorization header on a protected endpoint returns 401
-- **GIVEN** an endpoint decorated with `@UseGuards(JwtAuthGuard)`
-- **WHEN** a client sends a request with no `Authorization` header (or with a non-`Bearer` scheme)
-- **THEN** the response is `401` with error: `missing or malformed Authorization header`
+#### Scenario: Owner recién registrado accede a endpoints protegidos
+- **GIVEN** a user registered via `POST /auth/registro` with `rol: 'owner'` (no `placeId` anywhere)
+- **WHEN** the user calls `POST /api/v1/places` with their Bearer token
+- **THEN** the `JwtAuthGuard` resolves `rol: 'owner'` from the `usuarios` document and the request proceeds
+- **AND** the created place gets `usuarioId: <uid>` — the relation is established from the place side
 
 ### Requirement: RolesGuard enforces `@Roles(...)` on endpoints
 The system SHALL provide a `RolesGuard` that, when composed with `JwtAuthGuard` on a route, inspects the `@Roles(...)` decorator metadata and rejects requests whose `request.user.rol` is not in the allowed set. The guard SHALL respond `403 Forbidden` with error: `rol '<actual>' is not allowed to <action description>` for any role that does not satisfy the decorator. When `@Roles(...)` is absent, the `RolesGuard` SHALL be a no-op (any authenticated user passes) so that endpoints that only need authentication — but not role-based authorization — still work without a `@Roles` decorator.
@@ -134,4 +95,54 @@ The `domain/` and `application/` layers SHALL NOT import `firebase-admin`, `Fire
 - **WHEN** a developer inspects `backend/src/modules/auth/infrastructure/usuarios-rol-lookup.adapter.ts`
 - **THEN** the file imports `FirebaseService` and `firebase-admin/firestore` types and implements the `AuthContextRepository` interface defined in `domain/`
 - **AND** no other file in `auth/` (outside `infrastructure/`) imports `FirebaseService` directly
+
+### Requirement: Self-registration público con selección de rol
+The system SHALL expose a public endpoint `POST /api/v1/auth/registro` (decorated `@Public()`) that creates a Firebase Auth user and its corresponding `usuarios/{uid}` Firestore document atomically from the caller's perspective. The request body SHALL be `RegisterDto`:
+
+- `email: string` — valid email format
+- `password: string` — minimum 8 characters
+- `nombre: string` — 2..100 characters
+- `rol: 'member' | 'owner'` — the ONLY values accepted; `'admin'` MUST be rejected with `400 Bad Request`
+
+On success the endpoint SHALL respond `201` with `{ uid, email, rol, nombre }`. If the email already exists in Firebase Auth, the endpoint SHALL respond `409 Conflict`.
+
+If the Firestore write fails after the Firebase Auth user was created, the system SHALL delete the orphaned Auth user (compensating rollback) and SHALL respond `500` with a logged error containing the `uid` for manual audit.
+
+The field `usuarios.placeId` SHALL NOT be created for any rol — the caller supplies no place reference, and the entity no longer carries the field (see `usuarios` delta).
+
+#### Scenario: Registro exitoso como member
+- **GIVEN** no Firebase Auth user exists with email `maria@example.com`
+- **WHEN** a client sends `POST /api/v1/auth/registro` with `{ email: 'maria@example.com', password: 'secreta123', nombre: 'María Pérez', rol: 'member' }`
+- **THEN** the response is `201` with `{ uid, email: 'maria@example.com', rol: 'member', nombre: 'María Pérez' }`
+- **AND** a Firebase Auth user exists with that email and `displayName: 'María Pérez'`
+- **AND** a Firestore document `usuarios/{uid}` exists with `{ email, nombre, rol: 'member' }` and NO field `placeId`
+
+#### Scenario: Registro exitoso como owner (sin place asociado)
+- **GIVEN** no Firebase Auth user exists with email `dueño@example.com`
+- **WHEN** a client sends `POST /api/v1/auth/registro` with `{ email: 'dueño@example.com', password: 'secreta123', nombre: 'Dueño Local', rol: 'owner' }`
+- **THEN** the response is `201` with `rol: 'owner'`
+- **AND** the `usuarios` document is created WITHOUT `placeId` (an owner exists before owning any place; the relation is resolved later via `places.usuarioId`)
+
+#### Scenario: Registrar rol admin es rechazado
+- **WHEN** a client sends `POST /api/v1/auth/registro` with `{ email: 'x@example.com', password: 'secreta123', nombre: 'X', rol: 'admin' }`
+- **THEN** the response is `400 Bad Request` (whitelist validation rejects the enum value)
+- **AND** no Firebase Auth user nor `usuarios` document is created
+
+#### Scenario: Email duplicado retorna 409
+- **GIVEN** a Firebase Auth user already exists with email `maria@example.com`
+- **WHEN** a client sends `POST /api/v1/auth/registro` with that email and any valid payload
+- **THEN** the response is `409 Conflict`
+- **AND** no second `usuarios` document is created
+
+#### Scenario: Fallo de Firestore dispara rollback de Auth
+- **GIVEN** the Firebase Auth `createUser` succeeds for `pedro@example.com` returning `uid-123`
+- **AND** the `usuarios` repository write fails (e.g., Firestore unavailable)
+- **WHEN** `registerWithRole` processes the request
+- **THEN** the system calls `admin.auth().deleteUser('uid-123')`
+- **AND** the response is `500` and the error log includes `uid-123`
+
+#### Scenario: Password corto es rechazado
+- **WHEN** a client sends `POST /api/v1/auth/registro` with `password: 'short'`
+- **THEN** the response is `400 Bad Request`
+- **AND** the error message references the minimum length of 8
 

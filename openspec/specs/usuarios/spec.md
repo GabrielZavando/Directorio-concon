@@ -9,45 +9,33 @@ The system SHALL persist a `Usuario` document in the Firestore collection `usuar
 - `id: string` — Firebase Auth UID (PK); same value as `firebase.auth().currentUser.uid`
 - `email: string` — UNIQUE, validated as email format on create
 - `nombre: string` — display name (2..100 characters)
-- `rol: Rol` — controlled enum: `'admin' | 'owner' | 'member'` (default `'member'` on registration via the `usuarios` create flow introduced by this change)
-- `placeId?: string` — reference to the `places` document the user owns; set when and only when `rol === 'owner'`; MUST be `null`/omitted for `'admin'` and `'member'`
+- `rol: Rol` — controlled enum: `'admin' | 'owner' | 'member'`; set at creation via self-registration (`POST /auth/registro` with `'member' | 'owner'`) or via the `seed-admin` script (first `'admin'`)
 - `telefono?: string` — Chilean-format phone (free string)
 - `createdAt: Date` — document creation timestamp
 - `updatedAt: Date` — last modification timestamp
 
-The controlled type `Rol = 'admin' | 'owner' | 'member'` is defined as a reusable domain enum at `backend/src/modules/auth/domain/rol.enum.ts` (introduced by the `roles-rename` change; **moved** from `usuarios/domain/` to `auth/domain/` by this change — Task 4.1, Option A: `auth` owns its own domain so `auth → usuarios` has zero imports, closing a DIP cross-module violation). The `ROL_VALUES` const is the closed array used by `class-validator` `@IsEnum` validation on the `PUT /usuarios/:uid/rol` body, and by `AuthService.buildContext` to validate the Firebase custom claim.
+**The `placeId` field is REMOVED from the entity.** The user→place relation has a single source of truth: `places.usuarioId`. Resolving "which places does this user own" SHALL be done via a query on the `places` collection (`WHERE usuarioId == uid`). The repository method `linkPlaceId(uid, placeId)` and the service-level invariant `assertRolPlaceIdInvariant` (with its owner→non-owner cascade) are REMOVED.
 
-The usuarios module (`backend/src/modules/usuarios/`) is fully assembled by this change with domain (`Usuario` entity + `UsuariosRepository` interface + DI token), application (`UsuariosService` + interface), and infrastructure (`UsuariosFirestoreAdapter` + `UsuariosController` + DTOs). The `UsuariosService` implements: `findById`, `findByEmail`, `create` (admin-only), `updatePerfil` (self service), `updateRol` (admin-only), `linkPlaceId`. The controller exposes `GET /usuarios/me` (self), `PUT /usuarios/me` (self), `GET /usuarios/:uid` (admin-only), `PUT /usuarios/:uid/rol` (admin-only).
+**Historical note (for audit):** the field `usuarios.placeId` existed between the changes `auth-usuarios` and `auth-usuarios-v2`, along with the invariant "`placeId` REQUIRED when `rol === 'owner'`, forbidden otherwise". It was removed because (a) it duplicated the relation already stored in `places.usuarioId`, creating drift risk, and (b) it was incompatible with self-registration, where an owner exists before owning any place.
 
-#### Scenario: Owner registers with a place
-- **GIVEN** an authenticated Firebase user with UID `uid-owner-001` and email `owner@example.com`
-- **AND** an admin with `rol: 'admin'` (the `usuarios` create flow is admin-only in this change — self-registration via a public signup endpoint is deferred; the frontend Firebase Auth signup creates the Firebase Auth user, and an admin provisions the `usuarios` document with the appropriate `rol`)
-- **WHEN** the admin calls `POST /api/v1/usuarios` (admin-only `{ uid, email, nombre, rol: 'owner', placeId: 'restaurante-el-marino' }`) OR `PUT /api/v1/usuarios/:uid/rol` to upgrade an existing `member` to `owner`
-- **THEN** a `usuarios` document is created/upserted with `id: 'uid-owner-001'`, `rol: 'owner'`, `placeId: 'restaurante-el-marino'`
-- **AND** no duplicate `usuarios` document with the same `email` exists (UNIQUE constraint on `email` enforced by `UsuariosService.create` checking `findByEmail` before persisting)
+The controller exposes: `GET /usuarios/me` (self), `PUT /usuarios/me` (self), `GET /usuarios` (admin), `GET /usuarios/:uid` (admin), `PUT /usuarios/:uid/rol` (admin). **`POST /usuarios` (admin provisioning) is REMOVED** — users arrive via self-registration or the `seed-admin` script.
 
-#### Scenario: Member registers with default rol
-- **GIVEN** an authenticated Firebase user with no `places` ownership intent
-- **WHEN** an admin provisions the user via `POST /api/v1/usuarios` with `{ uid, email, nombre }` (no explicit `rol`)
-- **THEN** the document is created with `rol: 'member'` and `placeId: null`
+#### Scenario: Self-registration creates document without placeId
+- **GIVEN** a visitor calls `POST /api/v1/auth/registro` with `rol: 'owner'`
+- **THEN** the created `usuarios` document contains NO `placeId` field
+- **AND** resolving "the place of this owner" is a `places` query by `usuarioId`, returning zero results until the owner creates a place
 
 #### Scenario: Self profile retrieval and update
-- **GIVEN** an authenticated user with UID `uid-owner-001`
+- **GIVEN** an authenticated user with UID `uid-001`
 - **WHEN** the user calls `GET /api/v1/usuarios/me` with their `Bearer` token
-- **THEN** the response is `200` with their `usuarios` document (`{ id, email, nombre, rol, placeId, telefono, createdAt, updatedAt }`)
-- **AND** when the user calls `PUT /api/v1/usuarios/me` with `{ nombre: 'Nuevo Nombre', telefono: '+569...' }`, the response is `200` with the updated document
-- **AND** the `rol` and `placeId` fields are NOT accepted in the `UpdatePerfil` body (forbidNonWhitelisted) — only `nombre` and `telefono` are mutable by the user on their own profile
+- **THEN** the response is `200` with their `usuarios` document (`{ id, email, nombre, rol, telefono?, createdAt, updatedAt }` — sin `placeId`)
+- **AND** when calling `PUT /api/v1/usuarios/me` with `{ nombre, telefono }`, the response is `200` with the updated document
+- **AND** `rol` is NOT accepted in the `UpdatePerfil` body (forbidNonWhitelisted)
 
-#### Scenario: Admin rol is set only by another admin
-- **GIVEN** a `usuarios` document with `rol: 'member'`
-- **WHEN** a non-admin (rol `'owner'` or `'member'`) attempts `PUT /api/v1/usuarios/:uid/rol` with `{ rol: 'admin' }`
-- **THEN** the operation is rejected with `403` (the `RolesGuard` with `@Roles('admin')` on the controller method enforces this — no spec-honesty caveat remains)
-- **AND** when an admin calls the same endpoint, the response is `200` with the updated `rol`
-
-#### Scenario: UpdateRol validates against the closed Rol enum
-- **WHEN** an admin sends `PUT /api/v1/usuarios/:uid/rol` with `{ rol: 'superuser' }` (not in `ROL_VALUES`)
-- **THEN** the response is `400` with error: `rol must be one of: admin, owner, member`
-- **AND** the `usuarios` document is not mutated
+#### Scenario: Provisioning admin endpoint no longer exists
+- **GIVEN** an authenticated admin with a valid Bearer token
+- **WHEN** the admin calls `POST /api/v1/usuarios` with any payload
+- **THEN** the response is `404` (route removed)
 
 ### Requirement: Favouritos (deferred)
 The `usuarios` entity SHALL NOT include a `favoritos` field in this change. The modelling of the favourite-places capability for the `member` role (the user can save `places` references and list them on their profile) is **deferred** to the future `auth + usuarios` change, where the storage shape (array on the `usuarios` document vs. subcollection `usuarios/{uid}/favoritos/{placeId}` vs. top-level collection `favoritos`) will be decided against actual access patterns.
@@ -99,4 +87,23 @@ The `docs/data-model.md` "Authentication debt" note block is updated by this cha
 - **WHEN** a stakeholder opens `docs/data-model.md §usuarios`
 - **THEN** the "Authentication debt" note block (updated by this change) marks each of the three bullets as **closed** with a reference to the `auth-usuarios` change
 - **AND** the note no longer reads as a future `auth + usuarios` change obligation
+
+### Requirement: Rol transitions are restricted to admin/member targets
+The endpoint `PUT /api/v1/usuarios/:uid/rol` (`@Roles('admin')`) SHALL accept a body `{ rol }` enumerated to `['admin', 'member']` ONLY. A request with `rol: 'owner'` SHALL be rejected with `400 Bad Request` and an explicit message (the `owner` rol is acquired exclusively via self-registration). Transitions between `admin` and `member` are permitted. Transitions out of `owner` (demoting an owner) are deferred to the `places-refactor` change (CH-03), which decides what happens to the owner's places; until then such transitions SHALL NOT be performed via this endpoint's accepted set.
+
+#### Scenario: Admin assigns member rol to an admin (or vice versa)
+- **GIVEN** a `usuarios` document `uid-1` with `rol: 'member'`
+- **WHEN** an admin calls `PUT /api/v1/usuarios/uid-1/rol` with `{ rol: 'admin' }`
+- **THEN** the response is `200` with `rol: 'admin'`
+
+#### Scenario: Assigning owner rol via admin endpoint is rejected
+- **GIVEN** a `usuarios` document `uid-2` with `rol: 'member'`
+- **WHEN** an admin calls `PUT /api/v1/usuarios/uid-2/rol` with `{ rol: 'owner' }`
+- **THEN** the response is `400 Bad Request`
+- **AND** the document remains unchanged
+
+#### Scenario: Non-admin cannot change roles
+- **GIVEN** an authenticated user with `rol: 'owner'` or `'member'`
+- **WHEN** they call `PUT /api/v1/usuarios/:uid/rol` with any body
+- **THEN** the response is `403 Forbidden` (`RolesGuard` + `@Roles('admin')`)
 

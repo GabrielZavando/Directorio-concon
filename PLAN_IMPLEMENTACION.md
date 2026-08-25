@@ -1,6 +1,21 @@
 # Plan de Implementación — Refactorización Completa de Flujos
 
-**Basado en:** Auditoría 2026-07-31 + Especificación de 5 flujos revisados + Respuestas de validación  
+> **Nota 2026-08-24:** `AUDITORIA_PROYECTO.md` fue eliminado por estar obsoleto (sus hallazgos críticos ya están resueltos y archivados en OpenSpec). Este plan permanece como roadmap vivo: cada change se marca DONE al archivarse.
+
+## Tracking de Changes
+
+| CH | Change | Estado | Change OpenSpec |
+|----|--------|--------|-----------------|
+| CH-01 | categorias-barrios-crud | ✅ DONE | `archive/2026-08-23-categorias-barrios-crud` |
+| CH-02 | auth-usuarios-v2 | ✅ DONE | `archive/2026-08-25-auth-usuarios-v2` (backend completo; páginas frontend de auth — Tasks 8–10 — y E2E backend quedan cubiertas por CH-08 `frontend-mvp-v2` / change E2E dedicado) |
+| CH-03 | places-refactor | ⬜ PENDING | — |
+| CH-04 | eventos-refactor | ⬜ PENDING | — |
+| CH-05 | solicitudes-refactor | ⬜ PENDING | — |
+| CH-06 | notificaciones | ⬜ PENDING | — |
+| CH-07 | favoritos | ⬜ PENDING | — |
+| CH-08 | frontend-mvp-v2 | ⬜ PENDING | — |
+
+**Basado en:** Especificación de 5 flujos revisados + Respuestas de validación (la auditoría original 2026-07-31 ya no existe como archivo)  
 **Metodología:** Spec-Driven Development (OpenSpec) — cada phase = un openspec change  
 **Principio:** Un cambio a la vez, TDD, specs antes que código, DIP estricto  
 **Entorno:** Desarrollo — datos mock/inventados para places/eventos; seed desde JSONs categorias/barrios; Google Places API post-MVP  
@@ -52,7 +67,7 @@ PHASE 3: FRONTEND (depende de todo el backend)
 
 ## PHASE 0 — FOUNDATION (2 changes paralelos)
 
-### CH-01: categorias-barrios-crud — Flow 5
+### CH-01: categorias-barrios-crud — Flow 5 ✅ DONE (archivado `2026-08-23-categorias-barrios-crud`)
 
 **Alcance:** Módulos `categorias` y `barrios` Clean Architecture + seed + endpoints admin/públicos + validación cruzada
 
