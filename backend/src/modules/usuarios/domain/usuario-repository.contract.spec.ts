@@ -52,10 +52,6 @@ class DummyUsuarioRepository implements UsuarioRepositoryInterface {
   async updateRol(_uid: string, _rol: Usuario["rol"]): Promise<Usuario> {
     throw new Error("Not implemented");
   }
-
-  async linkPlaceId(_uid: string, _placeId: string | null): Promise<Usuario> {
-    throw new Error("Not implemented");
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +65,6 @@ function makeCreateInput(
     email: "owner@example.com",
     nombre: "Owner One",
     rol: "owner",
-    placeId: "restaurante-el-marino",
     telefono: "+56912345678",
     ...overrides,
   };
@@ -121,14 +116,7 @@ describe("UsuariosRepositoryInterface (LSP contract)", () => {
     );
   });
 
-  it("linkPlaceId throws when the dummy is not implemented (signature compiles)", async () => {
-    await expect(repo.linkPlaceId("uid-x", "place-id-x")).rejects.toThrow(
-      "Not implemented",
-    );
-  });
-
-  // Interface segregation (ISP) — verify the split interfaces exist and
-  // are assignable back to the combined interface (LSP).
+  // Interface segregation (read/write split)
   describe("interface segregation (read/write split)", () => {
     it("UsuarioReadRepositoryInterface exposes read methods only", () => {
       const read: UsuarioReadRepositoryInterface = repo;
@@ -143,7 +131,6 @@ describe("UsuariosRepositoryInterface (LSP contract)", () => {
       expect(typeof write.create).toBe("function");
       expect(typeof write.updatePerfil).toBe("function");
       expect(typeof write.updateRol).toBe("function");
-      expect(typeof write.linkPlaceId).toBe("function");
     });
 
     it("combined interface is assignable from read + write (LSP)", () => {

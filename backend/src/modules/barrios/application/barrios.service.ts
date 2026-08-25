@@ -1,12 +1,7 @@
 /**
  * BarriosService — application layer for barrios.
  */
-import {
-  Injectable,
-  Inject,
-  NotFoundException,
-  ConflictException,
-} from "@nestjs/common";
+import { Injectable, Inject, ConflictException } from "@nestjs/common";
 import { Barrio } from "../domain/barrio.entity";
 import type { BarrioReadRepository } from "../domain/barrio-read-repository.interface";
 import type { BarrioWriteRepository } from "../domain/barrio-write-repository.interface";

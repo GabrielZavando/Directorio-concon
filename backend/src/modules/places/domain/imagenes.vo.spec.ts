@@ -1,8 +1,4 @@
-import {
-  GALERIA_LIMITS,
-  Imagenes,
-  isValidImagenes,
-} from "./imagenes.vo";
+import { GALERIA_LIMITS, Imagenes, isValidImagenes } from "./imagenes.vo";
 
 describe("isValidImagenes (characterisation)", () => {
   const validGaleria = ["https://a.cl/1.jpg", "https://a.cl/2.jpg"];
@@ -37,15 +33,20 @@ describe("isValidImagenes (characterisation)", () => {
   });
 
   it("rejects galeria entries that are not valid URL strings", () => {
-    expect(
-      isValidImagenes({ galeria: ["https://a.cl/1.jpg", "broken"] }),
-    ).toBe(false);
+    expect(isValidImagenes({ galeria: ["https://a.cl/1.jpg", "broken"] })).toBe(
+      false,
+    );
     expect(isValidImagenes({ galeria: [1, 2] as unknown })).toBe(false);
     expect(isValidImagenes({ galeria: "nope" })).toBe(false);
   });
 
   it("enforces the free plan gallery limit (3)", () => {
-    const g4 = ["https://a.cl/1.jpg", "https://a.cl/2.jpg", "https://a.cl/3.jpg", "https://a.cl/4.jpg"];
+    const g4 = [
+      "https://a.cl/1.jpg",
+      "https://a.cl/2.jpg",
+      "https://a.cl/3.jpg",
+      "https://a.cl/4.jpg",
+    ];
     expect(isValidImagenes({ galeria: g4 }, "gratuito")).toBe(false);
     expect(isValidImagenes({ galeria: g4 }, "premium")).toBe(true);
   });
@@ -60,7 +61,12 @@ describe("isValidImagenes (characterisation)", () => {
   });
 
   it("defaults to the free plan limit when planId is omitted", () => {
-    const g4 = ["https://a.cl/1.jpg", "https://a.cl/2.jpg", "https://a.cl/3.jpg", "https://a.cl/4.jpg"];
+    const g4 = [
+      "https://a.cl/1.jpg",
+      "https://a.cl/2.jpg",
+      "https://a.cl/3.jpg",
+      "https://a.cl/4.jpg",
+    ];
     expect(isValidImagenes({ galeria: g4 })).toBe(false);
   });
 

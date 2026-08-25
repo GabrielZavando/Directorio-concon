@@ -37,6 +37,7 @@ import { AUTH_CONTEXT_REPOSITORY } from "../domain/auth-context-repository.token
 import type { AuthContextRepository } from "../domain/auth-context-repository.interface";
 import type { AuthContext } from "../domain/auth-context.interface";
 import { ROL_VALUES, type Rol } from "../domain/rol.enum";
+import type { RegisterUserInput } from "./register-user.input";
 
 /** Canonical 403 message for an unprovisioned Firebase Auth user. */
 export const NOT_PROVISIONED_MESSAGE =
@@ -74,6 +75,46 @@ export class AuthService {
     return this.assembleAuthContext(decoded);
   }
 
+  /**
+   * Register a new user with a selected role (member | owner).
+   *
+   * Creates a Firebase Auth user and the matching `usuarios/{uid}` Firestore
+   * document atomically. If the Firestore write fails after the Auth user was
+   * created, a compensating `deleteUser` rollback is performed.
+   *
+   * The `RegisterUserInput` limits `rol` to `"member" | "owner"` — the `admin`
+   * rol is not accepted via the public API (the first admin is provisioned by
+   * the `seed-admin` script). The HTTP layer's `RegisterDto` rejects `admin`
+   * via class-validator whitelist validation before reaching this point.
+   */
+  async registerWithRole(
+    input: RegisterUserInput,
+  ): Promise<{ uid: string; email: string; rol: Rol; nombre: string }> {
+    // 1. Create Firebase Auth user (input already validates rol ∈ {member, owner})
+    const { uid } = await this.firebase.createUser(
+      input.email,
+      input.password,
+      input.nombre,
+    );
+
+    // 2. Write the usuarios doc (compensating rollback if it fails)
+    try {
+      await this.authContextRepository.createUsuario({
+        uid,
+        email: input.email,
+        nombre: input.nombre,
+        rol: input.rol,
+      });
+    } catch (error) {
+      // Compensating rollback: delete the Auth user created in step 1
+      await this.firebase.deleteUser(uid);
+      throw error; // re-throw original error (likely a Firestore error)
+    }
+
+    // 3. Return minimal auth result
+    return { uid, email: input.email, rol: input.rol, nombre: input.nombre };
+  }
+
   // -------------------------------------------------------------------------
   // Internal — kept separate so future spec cases can target the assembly
   // step without a full verifyIdToken round-trip (see `auth.service.spec.ts`
@@ -102,16 +143,12 @@ export class AuthService {
       throw new ForbiddenException(NOT_PROVISIONED_MESSAGE);
     }
 
+    // NOTE (change auth-usuarios-v2): `placeId` is no longer mirrored from
+    // the custom claim — AuthContext carries only { uid, email, rol }.
     return {
       uid,
       email: decoded.email ?? "",
       rol,
-      // owners may carry their placeId in the custom claim; we mirror it
-      // when it's a non-empty string. Leave `undefined` for non-owner roles
-      // or when the claim isn't set yet (pre-backfill).
-      ...(typeof decoded.placeId === "string" && decoded.placeId.length > 0
-        ? { placeId: decoded.placeId }
-        : {}),
     };
   }
 }

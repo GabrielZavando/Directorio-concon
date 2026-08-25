@@ -124,7 +124,7 @@ describe("BarriosService", () => {
   it("updateById: missing → NotFoundException", async () => {
     readRepo.findById.mockResolvedValue(undefined);
     await expect(service.updateById("nope", { nombre: "x" })).rejects.toThrow(
-      "Barrio nope no esperado",
+      "Barrio nope no encontrado",
     );
   });
 

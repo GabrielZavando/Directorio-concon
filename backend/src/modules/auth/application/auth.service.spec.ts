@@ -12,11 +12,13 @@
  *     been provisioned in the usuarios collection".
  *  4. custom claim with `rol` outside ROL_VALUES → ignore it, fallback.
  *
- * Additionally covers `placeId` propagation:
+ * Additionally covers the post-`auth-usuarios-v2` context shape:
  *
- *  - When the claim carries a valid `rol` AND a `placeId`, the resulting
- *    `AuthContext.placeId` mirrors it (owner self-identifying their place
- *    post-`setCustomUserClaims`).
+ *  - `AuthContext` is exactly `{ uid, email, rol }`. A legacy `placeId`
+ *    claim lingering in a token MUST NOT propagate into the context
+ *    (the user→place relation lives in `places.usuarioId`, not in the
+ *    auth mirror).
+
  *
  * Uses NestJS `Test.createTestingModule` so DI resolves
  * `@Inject(AUTH_CONTEXT_REPOSITORY)` against the real `AuthService`
@@ -111,7 +113,7 @@ describe("AuthService.buildContext", () => {
       },
     );
 
-    it("propagates the claim placeId when present (owner case)", async () => {
+    it("does NOT propagate a legacy placeId claim into the context", async () => {
       const token: DecodedTokenStub = {
         uid: "uid-owner-001",
         email: "owner@example.com",
@@ -122,7 +124,11 @@ describe("AuthService.buildContext", () => {
 
       const ctx: AuthContext = await service.buildContext("raw-token");
 
-      expect(ctx.placeId).toBe("restaurante-el-marino");
+      expect(ctx).toEqual({
+        uid: "uid-owner-001",
+        email: "owner@example.com",
+        rol: "owner",
+      });
     });
   });
 

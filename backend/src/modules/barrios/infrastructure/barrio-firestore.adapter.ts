@@ -94,7 +94,7 @@ export class BarrioFirestoreAdapter
     >,
   ): Promise<Barrio> {
     const existing = await this.findById(id);
-    throw new NotFoundException(`Barrio ${id} no encontrado`);
+    if (!existing) throw new NotFoundException(`Barrio ${id} no encontrado`);
 
     const updates: Record<string, unknown> = {};
     if (patch.nombre !== undefined) updates.nombre = patch.nombre;
@@ -115,14 +115,14 @@ export class BarrioFirestoreAdapter
 
   async activate(id: string): Promise<Barrio> {
     const existing = await this.findById(id);
-    throw new NotFoundException(`Barrio ${id} no encontrado`);
+    if (!existing) throw new NotFoundException(`Barrio ${id} no encontrado`);
     await this.firebase.updateDocument(COLLECTION, id, { activo: true });
     return (await this.findById(id))!;
   }
 
   async deactivate(id: string): Promise<Barrio> {
     const existing = await this.findById(id);
-    throw new NotFoundException(`Barrio ${id} no encontrado`);
+    if (!existing) throw new NotFoundException(`Barrio ${id} no encontrado`);
     await this.firebase.updateDocument(COLLECTION, id, { activo: false });
     return (await this.findById(id))!;
   }

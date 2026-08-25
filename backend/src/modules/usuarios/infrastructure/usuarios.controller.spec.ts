@@ -41,7 +41,6 @@ jest.mock("@/common/services/firebase.service", () => ({
 const mockUsuariosService = {
   getMe: jest.fn(),
   updatePerfil: jest.fn(),
-  create: jest.fn(),
   findAll: jest.fn(),
   findById: jest.fn(),
   updateRol: jest.fn(),
@@ -53,7 +52,6 @@ function makeUsuario(overrides: Record<string, unknown> = {}) {
     email: "owner@example.com",
     nombre: "Owner One",
     rol: "owner",
-    placeId: "restaurante-el-marino",
     telefono: "+56912345678",
     createdAt: new Date("2026-01-01T00:00:00Z").toISOString(),
     updatedAt: new Date("2026-01-01T00:00:00Z").toISOString(),
@@ -204,57 +202,18 @@ describe("UsuariosController (HTTP)", () => {
   });
 
   // =========================================================================
-  // POST /usuarios — admin-only provisioning
+  // POST /usuarios — REMOVED (change auth-usuarios-v2, CH-02)
+  // Provisioning now happens via the public `POST /auth/registro` endpoint.
   // =========================================================================
-  describe("POST /usuarios", () => {
-    it("provisions a new usuario (201)", async () => {
-      mockUsuariosService.create.mockResolvedValue(
-        makeUsuario({ id: "uid-new", email: "new@example.com" }),
-      );
-
+  describe("POST /usuarios (removed)", () => {
+    it("returns 404 — the route no longer exists", async () => {
       const res = await request(app.getHttpServer()).post("/usuarios").send({
         id: "uid-new",
         email: "new@example.com",
         nombre: "New User",
       });
 
-      expect(res.status).toBe(201);
-      expect(mockUsuariosService.create).toHaveBeenCalledWith({
-        id: "uid-new",
-        email: "new@example.com",
-        nombre: "New User",
-      });
-    });
-
-    it("rejects an invalid rol enum value (400)", async () => {
-      const res = await request(app.getHttpServer()).post("/usuarios").send({
-        id: "uid-new",
-        email: "new@example.com",
-        nombre: "New User",
-        rol: "superuser",
-      });
-
-      expect(res.status).toBe(400);
-      expect(mockUsuariosService.create).not.toHaveBeenCalled();
-    });
-
-    it("rejects an invalid email (400)", async () => {
-      const res = await request(app.getHttpServer()).post("/usuarios").send({
-        id: "uid-new",
-        email: "not-an-email",
-        nombre: "New User",
-      });
-
-      expect(res.status).toBe(400);
-      expect(mockUsuariosService.create).not.toHaveBeenCalled();
-    });
-
-    it("decorates with @Roles('admin')", () => {
-      const handler = reflector.get(
-        ROLES_KEY,
-        UsuariosController.prototype.create,
-      );
-      expect(handler).toEqual(["admin"]);
+      expect(res.status).toBe(404);
     });
   });
 
@@ -283,23 +242,33 @@ describe("UsuariosController (HTTP)", () => {
   });
 
   // =========================================================================
-  // PUT /usuarios/:uid/rol — admin-only, validates @IsEnum(ROL_VALUES)
+  // PUT /usuarios/:uid/rol — admin-only, validates restricted enum
+  // `[admin, member]` (change auth-usuarios-v2: 'owner' is NOT assignable)
   // =========================================================================
   describe("PUT /usuarios/:uid/rol", () => {
     it("updates the rol (200)", async () => {
       mockUsuariosService.updateRol.mockResolvedValue(
-        makeUsuario({ rol: "owner" }),
+        makeUsuario({ rol: "member" }),
       );
 
       const res = await request(app.getHttpServer())
         .put("/usuarios/uid-x/rol")
-        .send({ rol: "owner" });
+        .send({ rol: "member" });
 
       expect(res.status).toBe(200);
       expect(mockUsuariosService.updateRol).toHaveBeenCalledWith(
         "uid-x",
-        "owner",
+        "member",
       );
+    });
+
+    it("rejects 'owner' as target (400 — acquired only via self-registration)", async () => {
+      const res = await request(app.getHttpServer())
+        .put("/usuarios/uid-x/rol")
+        .send({ rol: "owner" });
+
+      expect(res.status).toBe(400);
+      expect(mockUsuariosService.updateRol).not.toHaveBeenCalled();
     });
 
     it("rejects 'superuser' (400 from @IsEnum)", async () => {

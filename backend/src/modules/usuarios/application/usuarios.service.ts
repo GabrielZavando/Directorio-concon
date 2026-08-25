@@ -8,15 +8,16 @@
  * Implements `UsuariosServiceInterface` from `domain/usuario-service.interface.ts`
  * — the controller depends on the interface (IOC), not on this concrete class.
  *
- * SRP — this service does ONLY business logic + validation. Cross-field
- * invariants (e.g., `placeId` ↔ `rol === 'owner'`) and conflict detection
- * live HERE; persistence and Date ↔ Timestamp mapping live in the adapter.
+ * SRP — this service does ONLY business logic + validation. The user→place
+ * relation has a single source of truth: `places.usuarioId`. This service
+ * no longer enforces `placeId`↔`rol` invariants (those were removed in
+ * `auth-usuarios-v2`, CH-02).
  *
  * Throws:
- * - `ConflictException` (`409`) — duplicate `email` on create.
+ * - `ConflictException` (`409`) — duplicate `email` on create (if create
+ *   endpoint were re-added).
  * - `NotFoundException` (`404`) — `usuarios` document missing.
- * - `BadRequestException` (`400`) — cross-field invariant violations
- *   (`placeId` ↔ `rol`) and enum validation (`rol` not in `ROL_VALUES`).
+ * - `BadRequestException` (`400`) — enum validation (`rol` not in `ROL_VALUES`).
  */
 import {
   BadRequestException,
@@ -35,7 +36,6 @@ import type {
 } from "../domain/usuario-repository.interface";
 import type { Usuario } from "../domain/usuario.entity";
 import type {
-  CreateUsuarioInput,
   UpdatePerfilInput,
   UsuariosServiceInterface,
 } from "../domain/usuario-service.interface";
@@ -79,30 +79,6 @@ export class UsuariosService implements UsuariosServiceInterface {
   // Admin operations
   // -------------------------------------------------------------------------
 
-  async create(input: CreateUsuarioInput): Promise<Usuario> {
-    const rol: Rol = input.rol ?? "member";
-    this.assertRolPlaceIdInvariant(rol, input.placeId);
-
-    // Uniqueness check (UNIQUE email). The persistence layer does NOT enforce
-    // this — Firestore single-field indexes are automatic; the app side is
-    // the only authoritative gate.
-    const existing = await this.repo.findByEmail(input.email);
-    if (existing) {
-      throw new ConflictException(
-        `A usuarios document with email '${input.email}' already exists`,
-      );
-    }
-
-    return this.repo.create({
-      id: input.id,
-      email: input.email,
-      nombre: input.nombre,
-      rol,
-      placeId: input.placeId ?? null,
-      telefono: input.telefono ?? null,
-    });
-  }
-
   async findAll(
     adminFilters: UsuarioSearchFilters,
   ): Promise<PaginatedUsuarios> {
@@ -119,38 +95,13 @@ export class UsuariosService implements UsuariosServiceInterface {
         `rol must be one of: ${ROL_VALUES.join(", ")}`,
       );
     }
-    const current = await this.assertExists(uid);
-    const updated = await this.repo.updateRol(uid, rol);
-    // Cascade: when transitioning OUT of 'owner', unbind `placeId` (the
-    // spec invariant — `placeId` MUST be `null` for non-owners).
-    if (current.rol === "owner" && rol !== "owner" && current.placeId) {
-      this.logger.log(
-        `Cascading linkPlaceId(null) for uid=${uid} on rol transition owner→${rol}`,
-      );
-      return this.repo.linkPlaceId(uid, null);
-    }
-    return updated;
+    await this.assertExists(uid);
+    return this.repo.updateRol(uid, rol);
   }
 
   // -------------------------------------------------------------------------
   // Private helpers
   // -------------------------------------------------------------------------
-
-  /**
-   * `placeId` MUST be omitted/null when `rol !== 'owner'`; MUST be present
-   * (non-null) when `rol === 'owner'`. Enforced at the service boundary so
-   * the controller + adapter do not need to duplicate the check.
-   */
-  private assertRolPlaceIdInvariant(rol: Rol, placeId?: string | null): void {
-    if (rol === "owner" && !placeId) {
-      throw new BadRequestException("placeId is required when rol is 'owner'");
-    }
-    if (rol !== "owner" && placeId) {
-      throw new BadRequestException(
-        "placeId is only allowed when rol is 'owner'",
-      );
-    }
-  }
 
   /** Fetch + throw if missing. */
   private async assertExists(uid: string): Promise<Usuario> {

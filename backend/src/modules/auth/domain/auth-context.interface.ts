@@ -17,6 +17,7 @@ export interface AuthContext {
   email: string;
   /** Resolved `rol` (custom claim or Firestore fallback). */
   rol: import("./rol.enum").Rol;
-  /** Owner's place reference; REQUIRED when `rol === 'owner'`. */
-  placeId?: string | null;
+
+  // NOTE (change auth-usuarios-v2): `placeId` was REMOVED from AuthContext.
+  // The user→place relation is resolved via a `places` query by `usuarioId`.
 }

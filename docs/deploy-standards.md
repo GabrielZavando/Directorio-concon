@@ -88,6 +88,19 @@
 | `CORS_ORIGINS` | Orígenes permitidos (coma) | `https://directorio-concon.com` |
 | `REDIS_URL` | Cache (opcional) | `redis://redis:6379` |
 
+## Firebase Auth config (change auth-usuarios-v2)
+
+Configure these settings in the **Firebase Console → Authentication → Sign-in method**, not in backend code:
+
+1. **Sign-in providers**: enable **Email/Password** and **Google**. These are required by `POST /api/v1/auth/registro` (Email/Password) and the frontend LoginPage (both providers).
+2. **Email verification**: managed in Firebase Console → Templates → "Email address verification". Set the action URL to `https://directorio-concon.com/login` (post-verification redirect). The backend does NOT implement an `EmailVerifiedGuard` — verification state is read by the client from `firebase.auth().currentUser.emailVerified` and does not gate backend endpoints in MVP. Document any future server-side verification gating in a new OpenSpec change before implementing it.
+3. **Authorized domains** (Console → Authentication → Settings): add `directorio-concon.com`, `staging.directorio-concon.com`, `localhost` (dev only).
+4. **Service account credentials** (`firebase-admin.json`) MUST be present in `backend/` for Admin SDK operations (`createUser`, `deleteUser`, `verifyIdToken`). Gitignored. Path is wired by `backend/scripts/lib/bootstrap-firebase.ts`.
+
+**Self-registration flow** (no custom claims required for MVP):
+- Visitor → `POST /api/v1/auth/registro` (rol ∈ `{member, owner}`) → backend creates Firebase Auth user + Firestore `usuarios/{uid}` in a single call → backend returns 201.
+- Rol resolution at request time is `decodedToken.rol` (custom claim) → Firestore fallback (`usuarios/{uid}.rol`) — see `docs/api-spec.yml` §AuthContext.
+
 ## Project-specific stack
 
 ```

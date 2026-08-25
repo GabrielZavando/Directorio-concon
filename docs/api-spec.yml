@@ -732,16 +732,25 @@ components:
         destacado:
           type: boolean
 
-    # — auth + usuarios schemas (change auth-usuarios) —
+    # — auth + usuarios schemas (changes auth-usuarios, auth-usuarios-v2) —
 
     Rol:
       type: string
       enum: [admin, owner, member]
       description: |
         Closed `Rol` enum, defined at
-        `backend/src/modules/usuarios/domain/rol.enum.ts`. The legacy values
+        `backend/src/modules/auth/domain/rol.enum.ts`. The legacy values
         `'admin' | 'empresa' | 'usuario'` (roles-rename) were renamed to
-        `'admin' | 'owner' | 'member'`. Default `'member'` on registration.
+        `'admin' | 'owner' | 'member'`.
+
+    RegisterRol:
+      type: string
+      enum: [member, owner]
+      description: |
+        Subset of `Rol` accepted by the public self-registration endpoint
+        `POST /auth/registro` (change `auth-usuarios-v2`). `admin` is NOT
+        accepted via API; the first admin is provisioned by the `seed-admin`
+        script. A client sending `rol: 'admin'` receives `400`.
 
     AuthContext:
       type: object
@@ -749,7 +758,9 @@ components:
         The authenticated principal travelling on `request.user` after
         `JwtAuthGuard` verifies the Firebase Auth `idToken`. Constructed by
         `AuthService.buildContext(decodedToken)`. Read-only — never accepted
-        in request bodies.
+        in request bodies. The `placeId` field was REMOVED in
+        `auth-usuarios-v2` (the user→place relation is resolved via a
+        `places` query by `usuarioId`, the single source of truth).
       properties:
         uid:
           type: string
@@ -759,13 +770,6 @@ components:
           format: email
         rol:
           $ref: '#/components/schemas/Rol'
-        placeId:
-          type: string
-          nullable: true
-          description: |
-            Reference to the `places` document the user owns. Present when
-            `rol === 'owner'`; MUST be `null`/omitted for `'admin'` and
-            `'member'`.
 
     Usuario:
       type: object
@@ -785,12 +789,6 @@ components:
           description: Display name.
         rol:
           $ref: '#/components/schemas/Rol'
-        placeId:
-          type: string
-          nullable: true
-          description: |
-            Reference to the `places` document the user owns. Set when and
-            only when `rol === 'owner'`.
         telefono:
           type: string
           nullable: true
@@ -802,38 +800,52 @@ components:
           type: string
           format: date-time
 
-    CreateUsuario:
+    RegisterDto:
       type: object
       description: |
-        Admin-only request to provision a `usuarios` document for an existing
-        Firebase Auth user. Self-registration is deferred (see change
-        `usuarios-self-signup`).
-      required: [email, nombre]
+        Public self-registration request (change `auth-usuarios-v2`). Creates a
+        Firebase Auth user and the matching `usuarios/{uid}` document in a
+        single backend call (Admin SDK). `rol` accepts ONLY `member` or
+        `owner`; `admin` is rejected with `400` (the first admin is
+        provisioned by the `seed-admin` script).
+      required: [email, password, nombre, rol]
       properties:
         email:
           type: string
           format: email
+        password:
+          type: string
+          minLength: 8
+          description: Minimum 8 characters.
         nombre:
           type: string
           minLength: 2
           maxLength: 100
         rol:
+          $ref: '#/components/schemas/RegisterRol'
+
+    RegisterResult:
+      type: object
+      description: Response body for `POST /auth/registro` (201).
+      required: [uid, email, rol, nombre]
+      properties:
+        uid:
+          type: string
+          description: Created Firebase Auth UID.
+        email:
+          type: string
+          format: email
+        nombre:
+          type: string
+        rol:
           $ref: '#/components/schemas/Rol'
-          default: member
-        placeId:
-          type: string
-          nullable: true
-        telefono:
-          type: string
-          nullable: true
 
     UpdatePerfil:
       type: object
       description: |
-        Self-service update for the authenticated user's profile. `rol` and
-        `placeId` are NOT accepted — they are admin-only (`UpdateRol` /
-        admin provisioning). The global `ValidationPipe` with
-        `forbidNonWhitelisted: true` rejects any other field with `400`.
+        Self-service update for the authenticated user's profile. `rol` is NOT
+        accepted — it is admin-only (`UpdateRol`). The global `ValidationPipe`
+        with `forbidNonWhitelisted: true` rejects any other field with `400`.
       properties:
         nombre:
           type: string
@@ -846,13 +858,19 @@ components:
     UpdateRol:
       type: object
       description: |
-        Admin-only mutation of a user's `rol`. Validated against the closed
-        `Rol` enum server-side; any value outside `[admin, owner, member]`
-        receives `400` with message `rol must be one of: admin, owner, member`.
+        Admin-only mutation of a user's `rol`. The `rol` value is restricted to
+        `admin` or `member` (change `auth-usuarios-v2`): the `owner` rol is
+        acquired exclusively via self-registration (`POST /auth/registro`) and
+        cannot be assigned by an admin. Any value outside `[admin, member]`
+        receives `400` with message `rol must be one of: admin, member`.
+        Transitions out of `owner` are deferred to the `places-refactor` change
+        (CH-03), which decides what happens to the owner's places.
       required: [rol]
       properties:
         rol:
-          $ref: '#/components/schemas/Rol'
+          type: string
+          enum: [admin, member]
+          description: Restricted enum — `owner` is NOT accepted here.
 
     SolicitudApproveRejectBody:
       type: object
@@ -1870,7 +1888,43 @@ paths:
         "404":
           $ref: '#/components/schemas/Error'
 
-  # — auth + usuarios paths (change auth-usuarios) —
+  # — auth + usuarios paths (changes auth-usuarios, auth-usuarios-v2) —
+
+  /auth/registro:
+    post:
+      summary: Public self-registration with rol selection (member/owner)
+      security: []
+      description: |
+        Public endpoint (no Bearer token required). Creates a Firebase Auth
+        user and the matching `usuarios/{uid}` Firestore document in a single
+        backend call (using the Admin SDK). `rol` accepts ONLY `'member'` or
+        `'owner'`; a client sending `rol: 'admin'` receives `400` (the first
+        admin is provisioned by the `seed-admin` script, never via API).
+        Email verification is handled in Firebase Console, not in backend code.
+        On a Firestore write failure after the Auth user was created, the
+        backend performs a compensating `deleteUser` rollback and responds `500`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+      responses:
+        "201":
+          description: Usuario created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResult'
+        "400":
+          description: Validation error (whitelist + enum; e.g. `rol: 'admin'`, short password).
+          $ref: '#/components/schemas/Error'
+        "409":
+          description: A Firebase Auth user with that `email` already exists.
+          $ref: '#/components/schemas/Error'
+        "500":
+          description: Internal failure (Auth user created but Firestore write failed — rolled back).
+          $ref: '#/components/schemas/Error'
 
   /usuarios/me:
     get:
@@ -1893,7 +1947,7 @@ paths:
         "403":
           description: |
             The verified Firebase Auth UID has no matching `usuarios`
-            document (orphan — needs admin provisioning before accessing
+            document (orphan — needs provisioning before accessing
             any authenticated endpoint).
           $ref: '#/components/schemas/Error'
     put:
@@ -1902,9 +1956,9 @@ paths:
         - bearerAuth: []
       description: |
         Self-service update of `nombre` and `telefono`. The body accepts
-        ONLY `{ nombre?, telefono? }`. `rol` and `placeId` are NOT accepted
-        — they are admin-only. The global `ValidationPipe` with
-        `forbidNonWhitelisted: true` rejects any other field with `400`.
+        ONLY `{ nombre?, telefono? }`. `rol` is NOT accepted — it is
+        admin-only. The global `ValidationPipe` with `forbidNonWhitelisted:
+        true` rejects any other field with `400`.
       requestBody:
         required: true
         content:
@@ -1964,40 +2018,10 @@ paths:
         "403":
           description: Caller's `rol` is not `'admin'`.
           $ref: '#/components/schemas/Error'
-    post:
-      summary: Provision a new usuarios document (admin-only)
-      security:
-        - bearerAuth: []
-      description: |
-        Admin-only. Provisions a `usuarios` document for an existing
-        Firebase Auth user (the Firebase Auth signup happens client-side;
-        this endpoint writes the matching `usuarios` row). Default
-        `rol: 'member'` if omitted. Email uniqueness is enforced server-side
-        (`ConflictException`/`409`). Self-registration is deferred to a
-        future `usuarios-self-signup` change.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateUsuario'
-      responses:
-        "201":
-          description: Usuario created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Usuario'
-        "400":
-          $ref: '#/components/schemas/Error'
-        "401":
-          $ref: '#/components/schemas/Error'
-        "403":
-          description: Caller's `rol` is not `'admin'`.
-          $ref: '#/components/schemas/Error'
-        "409":
-          description: A `usuarios` document with that `email` already exists.
-          $ref: '#/components/schemas/Error'
+    # NOTE (change auth-usuarios-v2): the `POST /usuarios` admin-provisioning
+    # endpoint was REMOVED. User provisioning now happens via the public
+    # `POST /auth/registro` (rol ∈ {member, owner}); the first admin is
+    # provisioned by the `seed-admin` script (Firebase real).
 
   /usuarios/{uid}:
     get:
@@ -2027,14 +2051,17 @@ paths:
 
   /usuarios/{uid}/rol:
     put:
-      summary: Update a user's rol (admin-only, validates closed enum)
+      summary: Update a user's rol (admin-only, restricted to admin|member targets)
       security:
         - bearerAuth: []
       description: |
-        Admin-only. Body MUST be `{ rol: 'admin'|'owner'|'member' }`.
-        Validated against `ROL_VALUES` `@IsEnum` — any other value
-        receives `400` with message `rol must be one of: admin, owner, member`.
-        Non-admins receive `403`.
+        Admin-only. Body MUST be `{ rol: 'admin'|'member' }` — the `owner`
+        value is NOT accepted here (acquired exclusively via self-registration
+        `POST /auth/registro`). Validated server-side; a request with
+        `rol: 'owner'` receives `400` with message
+        `rol must be one of: admin, member`. Non-admins receive `403`.
+        Transitions out of `owner` are deferred to the `places-refactor`
+        change (CH-03).
       parameters:
         - name: uid
           in: path

@@ -9,4 +9,12 @@
 export interface AuthContextRepository {
   /** Returns the `Rol` for the given uid, or `undefined` if not provisioned. */
   getRolByUid(uid: string): Promise<import("./rol.enum").Rol | undefined>;
+
+  /** Creates a `usuarios` document for a newly registered user. */
+  createUsuario(data: {
+    uid: string;
+    email: string;
+    nombre: string;
+    rol: import("./rol.enum").Rol;
+  }): Promise<void>;
 }

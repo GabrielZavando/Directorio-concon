@@ -269,6 +269,24 @@ export class FirebaseService implements OnModuleInit {
   }
 
   /**
+   * Crea un nuevo usuario en Firebase Auth.
+   * Lanza 409 si el email ya existe, o error 400 si la contraseña no cumple requisitos.
+   */
+  async createUser(
+    email: string,
+    password: string,
+    displayName?: string,
+  ): Promise<{ uid: string }> {
+    this.assertEnabled();
+    const userRecord = await this.auth.createUser({
+      email,
+      password,
+      displayName,
+    });
+    return { uid: userRecord.uid };
+  }
+
+  /**
    * Verifica un token de Firebase Auth
    */
   async verifyIdToken(
@@ -314,11 +332,11 @@ export class FirebaseService implements OnModuleInit {
   }
 
   /**
-   * Elimina un archivo del Storage
+   * Elimina un usuario de Firebase Auth por UID.
+   * Lanza ServiceUnavailableException si Firebase no está habilitado.
    */
-  async deleteFile(filePath: string): Promise<void> {
-    const bucket = this.storage.bucket();
-    const file = bucket.file(filePath);
-    await file.delete();
+  async deleteUser(uid: string): Promise<void> {
+    this.assertEnabled();
+    await this.auth.deleteUser(uid);
   }
 }

@@ -5,7 +5,6 @@
  *  - `GET  /usuarios/me`     — self profile (any authenticated role)
  *  - `PUT  /usuarios/me`     — self profile update (any authenticated role)
  *  - `GET  /usuarios`         — admin-only list with optional `rol` filter
- *  - `POST /usuarios`         — admin-only provisioning
  *  - `GET  /usuarios/:uid`    — admin-only lookup
  *  - `PUT  /usuarios/:uid/rol`— admin-only `rol` mutation
  *
@@ -15,13 +14,17 @@
  * The guard implementation lives in `modules/auth/application/` (Task 7
  * of the `auth-usuarios` change); this controller consumes them as
  * opaque classes — wiring happens in `UsuariosModule.imports: [AuthModule]`.
+ *
+ * NOTE (change auth-usuarios-v2): the `POST /usuarios` admin-provisioning
+ * endpoint was REMOVED. User provisioning now happens via the public
+ * `POST /auth/registro` (rol ∈ {member, owner}); the first admin is
+ * provisioned by the `seed-admin` script (Firebase real).
  */
 import {
   Body,
   Controller,
   Get,
   Param,
-  Post,
   Put,
   HttpCode,
   HttpStatus,
@@ -31,7 +34,6 @@ import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { UsuariosService } from "../application/usuarios.service";
 import { UpdatePerfilDto } from "./dto/update-perfil.dto";
 import { UpdateRolDto } from "./dto/update-rol.dto";
-import { CreateUsuarioDto } from "./dto/create-usuario.dto";
 import { CurrentUser } from "../../auth/application/current-user.decorator";
 import type { AuthContext } from "../../auth/domain/auth-context.interface";
 import { Roles } from "../../auth/application/roles.decorator";
@@ -93,23 +95,6 @@ export class UsuariosController {
   @ApiResponse({ status: 200, description: "Paginated list of usuarios" })
   async findAll() {
     return this.usuariosService.findAll({});
-  }
-
-  // ---------------------------------------------------------------------------
-  // POST /usuarios
-  // ---------------------------------------------------------------------------
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @Roles("admin")
-  @ApiOperation({ summary: "Provision a new usuarios document (admin-only)" })
-  @ApiResponse({ status: 201, description: "Usuario created" })
-  @ApiResponse({
-    status: 400,
-    description: "Validation error or cross-field invariant violation",
-  })
-  @ApiResponse({ status: 409, description: "Duplicate email" })
-  async create(@Body() dto: CreateUsuarioDto) {
-    return this.usuariosService.create(dto);
   }
 
   // ---------------------------------------------------------------------------
