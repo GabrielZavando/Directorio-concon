@@ -70,4 +70,22 @@ export class UsuariosRolLookupAdapter implements AuthContextRepository {
     }
     return stored;
   }
+
+  async createUsuario(data: {
+    uid: string;
+    email: string;
+    nombre: string;
+    rol: Rol;
+  }): Promise<void> {
+    await this.firebase.createDocument(
+      COLLECTION,
+      {
+        uid: data.uid,
+        email: data.email,
+        nombre: data.nombre,
+        rol: data.rol,
+      },
+      data.uid,
+    );
+  }
 }
