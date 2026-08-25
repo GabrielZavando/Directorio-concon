@@ -98,18 +98,19 @@
 | email | string UNIQUE | Email |
 | nombre | string | Nombre |
 | rol | enum | `admin` \| `owner` \| `member` |
-| placeId | string? | Si es dueño de un place (solo rol `owner`; null para `admin` y `member`) |
 | telefono | string? | Teléfono |
 | createdAt | Timestamp | Creación |
 | updatedAt | Timestamp | Modificación |
 
+> **Nota — Eliminación de `usuarios.placeId` (change `auth-usuarios-v2`):** el campo `placeId` que existió entre los changes `auth-usuarios` y `auth-usuarios-v2` fue **eliminado**. Duplicaba la relación ya almacenada en `places.usuarioId` (fuente única de verdad) e imponía una invariante incompatible con el self-registration (un `owner` recién registrado existe antes de tener place). La relación usuario→place se resuelve con una query `places` `WHERE usuarioId == uid` (índice simple). La cardinalidad "1 owner : N places" queda libre; si el negocio decide restringirla a 1:1, la regla se enforceará en `PlacesService` (count query) en el change `places-refactor` (CH-03), no en el documento del usuario.
+
 **Semántica por rol:**
 
-- `admin` — acceso total: aprueba/rechaza `solicitudes`, gestiona `categorias`/`barrios`, edita cualquier place/evento, toggles `destacado`/`verificado`.
-- `owner` — gestiona su `places` (vinculado via `placeId`); crea eventos con `eventos.usuarioId === token.uid`; no puede administrar catálogos ni aprobar solicitudes. Reemplaza al rol legacy `empresa`.
+- `admin` — acceso total: aprueba/rechaza `solicitudes`, gestiona `categorias`/`barrios`, edita cualquier place/evento, toggles `destacado`/`verificado`. Se provisiona via el script `seed-admin.ts` (no via API pública ni via `POST /usuarios`, endpoint eliminado).
+- `owner` — gestiona su `places` (relación via `places.usuarioId`, no via un campo en `usuarios`); crea eventos con `eventos.usuarioId === token.uid`; no puede administrar catálogos ni aprobar solicitudes. Reemplaza al rol legacy `empresa`. Se obtiene via self-registration (`POST /auth/registro` con `rol: 'owner'`).
 - `member` — perfil básico autenticado; acceso de lectura pública completo; capacidad (futura, deferred — ver "Favoritos (deferred)") de guardar `places` favoritos; NO puede `POST /places` ni `POST /eventos` (403). Reemplaza al rol legacy `usuario`.
 
-> **Nota — Rename del enum (rol):** el enum cambió de `'admin' | 'empresa' | 'usuario'` a `'admin' | 'owner' | 'member'` (English-only, function-based naming, "Family B"). El rename es schema-only: la colección `usuarios` estaba vacía al momento del change `roles-rename` (el módulo `usuarios` no estaba implementado), por lo que **no hubo migración de datos**. Tras el change MVP `auth + usuarios` (que ensambla el módulo `usuarios` y el módulo `auth`), los registros nuevos empiezan con los valores nuevos directamente, con default `'member'` en el flujo de provisioning admin.
+> **Nota — Rename del enum (rol):** el enum cambió de `'admin' | 'empresa' | 'usuario'` a `'admin' | 'owner' | 'member'` (English-only, function-based naming, "Family B"). El rename es schema-only: la colección `usuarios` estaba vacía al momento del change `roles-rename` (el módulo `usuarios` no estaba implementado), por lo que **no hubo migración de datos**. Tras el change `auth-usuarios` (módulo ensamblado) y `auth-usuarios-v2` (self-registration público), los registros nuevos llegan via `POST /auth/registro` con `rol ∈ {member, owner}`; el primer `admin` se provisiona via el script `seed-admin.ts` (no via API). El provisioning admin (`POST /usuarios`) fue eliminado en `auth-usuarios-v2`.
 
 > **Authentication debt — [CLOSED por el change `auth-usuarios`, se materializa al archivar dicho change]:**
 >
