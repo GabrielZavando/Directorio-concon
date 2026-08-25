@@ -1,7 +1,11 @@
 import { isValidValoracionGoogle } from "./valoracion-google.vo";
 
 describe("isValidValoracionGoogle (characterisation)", () => {
-  const valid = { rating: 4.5, reviewsCount: 12, mapsLink: "https://maps.app.goo.gl/x" };
+  const valid = {
+    rating: 4.5,
+    reviewsCount: 12,
+    mapsLink: "https://maps.app.goo.gl/x",
+  };
 
   it("accepts a valid value object", () => {
     expect(isValidValoracionGoogle(valid)).toBe(true);
@@ -22,9 +26,7 @@ describe("isValidValoracionGoogle (characterisation)", () => {
   });
 
   it("rejects negative or non-number reviewsCount", () => {
-    expect(isValidValoracionGoogle({ ...valid, reviewsCount: -1 })).toBe(
-      false,
-    );
+    expect(isValidValoracionGoogle({ ...valid, reviewsCount: -1 })).toBe(false);
     expect(isValidValoracionGoogle({ ...valid, reviewsCount: "10" })).toBe(
       false,
     );

@@ -32,7 +32,10 @@ import {
   stageApprovedUpdate,
   validateEventoCatalogReferences,
 } from "./eventos-service.helpers";
-import { assertFound, assertOwnerOrAdmin } from "../../../common/utils/assertions";
+import {
+  assertFound,
+  assertOwnerOrAdmin,
+} from "../../../common/utils/assertions";
 
 // ---------------------------------------------------------------------------
 // Service
@@ -158,7 +161,6 @@ export class EventosService {
     return evento;
   }
 
-
   async findBySlugPublic(slug: string): Promise<Evento> {
     const evento = await this.eventoRepo.findBySlug(slug);
     if (!evento || evento.status !== "aprobado") {
@@ -212,7 +214,11 @@ export class EventosService {
     }
 
     if (rol !== "admin") {
-      assertOwnerOrAdmin({ uid: usuarioId, rol }, existing.usuarioId, "modificar este evento");
+      assertOwnerOrAdmin(
+        { uid: usuarioId, rol },
+        existing.usuarioId,
+        "modificar este evento",
+      );
     }
 
     if (this.catalogValidator.enabled) {
@@ -249,7 +255,11 @@ export class EventosService {
 
     // Authorization: empresa owner or admin
     if (rol !== "admin") {
-      assertOwnerOrAdmin({ uid: usuarioId, rol }, existing.usuarioId, "eliminar este evento");
+      assertOwnerOrAdmin(
+        { uid: usuarioId, rol },
+        existing.usuarioId,
+        "eliminar este evento",
+      );
     }
 
     // 409 if pending solicitudes exist
