@@ -50,11 +50,6 @@ export class SolicitudesService implements SolicitudesServiceInterface {
     private readonly placeHandler?: PlaceApprovalHandler,
   ) {}
 
-  /**
-   * Enforce the XOR invariant at the application boundary: exactly one of
-   * placeId / eventoId must be present, and it must match the tipo.
-   * Throws 400 before anything is persisted on violation.
-   */
   private assertXorConstraint(input: {
     placeId?: string;
     eventoId?: string;
@@ -169,6 +164,16 @@ export class SolicitudesService implements SolicitudesServiceInterface {
         }
         await this.placeHandler.approveRegistro(solicitud.placeId!, adminUid);
         break;
+      case "reclamo-place":
+        if (!this.placeHandler) {
+          throw new Error("PlaceApprovalHandler no está configurado");
+        }
+        await this.placeHandler.approveReclamo(
+          solicitud.placeId!,
+          solicitud.solicitanteUid!,
+          adminUid,
+        );
+        break;
       case "actualizacion":
         // Place update approval — not yet implemented
         this.logger.warn(
@@ -216,6 +221,16 @@ export class SolicitudesService implements SolicitudesServiceInterface {
       case "registro":
         // Place rejection — not yet implemented
         this.logger.warn(`Rechazo de place no implementado (solicitud ${id})`);
+        break;
+      case "reclamo-place":
+        if (!this.placeHandler) {
+          throw new Error("PlaceApprovalHandler no está configurado");
+        }
+        await this.placeHandler.rejectReclamo(
+          solicitud.placeId!,
+          solicitud.id,
+          adminUid,
+        );
         break;
       case "actualizacion":
         // No-op: place stays unchanged on rejection

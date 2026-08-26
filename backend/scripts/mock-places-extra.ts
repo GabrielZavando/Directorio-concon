@@ -24,7 +24,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["wifi", "estacionamiento"],
     metodosPago: ["efectivo", "transferencia"],
-    verificado: true,
+    estadoVerificacion: "verificado",
     destacado: false,
   },
   {
@@ -43,7 +43,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["wifi", "estacionamiento", "acceso-discapacidad"],
     metodosPago: ["efectivo", "debito", "credito", "transferencia"],
-    verificado: true,
+    estadoVerificacion: "verificado",
     destacado: true,
   },
   {
@@ -62,7 +62,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["acceso-discapacidad", "reservas"],
     metodosPago: ["efectivo", "debito", "credito", "transferencia"],
-    verificado: true,
+    estadoVerificacion: "verificado",
     destacado: false,
   },
   {
@@ -81,7 +81,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["wifi", "estacionamiento"],
     metodosPago: ["efectivo", "transferencia", "qr"],
-    verificado: true,
+    estadoVerificacion: "verificado",
     destacado: false,
   },
   {
@@ -100,7 +100,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["estacionamiento", "ninos-bienvenida"],
     metodosPago: ["efectivo", "transferencia"],
-    verificado: true,
+    estadoVerificacion: "verificado",
     destacado: false,
   },
   {
@@ -117,7 +117,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["wifi", "acceso-discapacidad"],
     metodosPago: [],
-    verificado: false,
+    estadoVerificacion: "pendiente",
     destacado: false,
   },
   {
@@ -135,7 +135,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["estacionamiento"],
     metodosPago: ["efectivo", "transferencia"],
-    verificado: false,
+    estadoVerificacion: "pendiente",
     destacado: false,
   },
   {
@@ -155,7 +155,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: true,
     servicios: ["delivery"],
     metodosPago: ["efectivo", "transferencia", "qr"],
-    verificado: true,
+    estadoVerificacion: "verificado",
     destacado: true,
   },
   {
@@ -175,7 +175,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["reservas", "apto-mascotas"],
     metodosPago: ["efectivo", "debito", "credito", "transferencia"],
-    verificado: true,
+    estadoVerificacion: "verificado",
     destacado: false,
   },
   {
@@ -194,7 +194,7 @@ export const MOCK_PLACES_EXTRA: MockPlace[] = [
     abierto24x7: false,
     servicios: ["take-away", "delivery"],
     metodosPago: ["efectivo", "debito", "transferencia", "qr"],
-    verificado: false,
+    estadoVerificacion: "pendiente",
     destacado: false,
   },
 ];

@@ -235,6 +235,45 @@ describe("SolicitudesFirestoreAdapter", () => {
   });
 
   // =========================================================================
+  // findPendingReclamosByPlaceId
+  // =========================================================================
+  describe("findPendingReclamosByPlaceId", () => {
+    it("returns pending reclamo-place solicitations for a place", async () => {
+      const mockGet = jest.fn().mockResolvedValue({
+        docs: [
+          {
+            id: "sol-reclamo-1",
+            data: () =>
+              makeSolicitudDoc({
+                placeId: "place-1",
+                tipo: "reclamo-place",
+                status: "pendiente",
+                solicitanteUid: "owner-uid",
+              }),
+          },
+        ],
+      });
+      mockFirebase.getFirestore.mockReturnValue({ collection: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ get: mockGet }) }) }) }) });
+
+      const result = await adapter.findPendingReclamosByPlaceId("place-1");
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("sol-reclamo-1");
+      expect(result[0].tipo).toBe("reclamo-place");
+      expect(result[0].solicitanteUid).toBe("owner-uid");
+    });
+
+    it("returns empty array when no reclamos exist", async () => {
+      const mockGet = jest.fn().mockResolvedValue({ docs: [] });
+      mockFirebase.getFirestore.mockReturnValue({ collection: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ get: mockGet }) }) }) }) });
+
+      const result = await adapter.findPendingReclamosByPlaceId("place-999");
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  // =========================================================================
   // update
   // =========================================================================
   describe("update", () => {

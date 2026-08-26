@@ -4,7 +4,7 @@
       "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" },
         { "fieldPath": "destacado", "order": "DESCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
@@ -13,7 +13,7 @@
       "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" },
         { "fieldPath": "categoriaId", "order": "ASCENDING" },
         { "fieldPath": "destacado", "order": "DESCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
@@ -23,7 +23,7 @@
       "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" },
         { "fieldPath": "barrioId", "order": "ASCENDING" },
         { "fieldPath": "destacado", "order": "DESCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
@@ -33,11 +33,36 @@
       "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "activo", "order": "ASCENDING" },
         { "fieldPath": "categoriaId", "order": "ASCENDING" },
         { "fieldPath": "barrioId", "order": "ASCENDING" },
         { "fieldPath": "destacado", "order": "DESCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "places",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "estadoVerificacion", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "places",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "activo", "order": "ASCENDING" },
+        { "fieldPath": "gestionadoPorAdmin", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "places",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "slug", "order": "ASCENDING" }
       ]
     },
     {

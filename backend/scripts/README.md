@@ -10,6 +10,7 @@ Scripts TypeScript ejecutables con `ts-node` (o `npx ts-node`). Requieren creden
 | `npm run seed:cat` | Solo seedea `categorias` + `barrios` (sin places/eventos mock). Útil cuando ya tienes datos de places reales. |
 | `npm run seed:places` | Solo seedea `places` + `eventos` mock. Útil para tests E2E contra un catálogo ya cargado. |
 | `npm run audit-refs` | Escanea `places` y `eventos`, valida que cada `categoriaId`/`subcategoriaId`/`barrioId` resuelva a un doc existente en los catálogos. Imprime `{ validos, huerfanos }`. Exit code `0` si no hay huérfanos, `1` si los hay. Usar antes de activar `CATALOG_VALIDATION_ENABLED=true` en staging/prod. |
+| `npm run migrate:places` | Migración idempotente de `places` al modelo de verificación (CH-03): reemplaza `status`+`verificado` por `activo`+`estadoVerificacion`+`gestionadoPorAdmin`. Puede ejecutarse varias veces de forma segura (salta docs ya migrados). |
 
 ## Uso en local
 

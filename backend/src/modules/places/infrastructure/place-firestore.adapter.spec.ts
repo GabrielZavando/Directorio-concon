@@ -1,6 +1,9 @@
 /**
  * Unit tests for PlaceFirestoreAdapter.
  * Mocks FirebaseService module to test domain ↔ Firestore mapping without real DB.
+ *
+ * Updated by places-refactor (CH-03): replaced `status`/`verificado`/`fechaVerificacion`
+ * with `activo`/`estadoVerificacion`/`motivoRechazoVerificacion`/`gestionadoPorAdmin`.
  */
 
 // Mock FirebaseService before any imports that depend on it
@@ -46,9 +49,11 @@ function makeFirestoreDoc(overrides: Record<string, unknown> = {}) {
     planId: "gratuito",
     abierto24x7: false,
     vistasTotales: 0,
-    status: "aprobado",
-    verificado: false,
+    activo: true,
+    estadoVerificacion: "verificado",
+    gestionadoPorAdmin: false,
     destacado: false,
+    usuarioId: "user-1",
     createdAt: { toDate: () => new Date("2025-01-01") },
     updatedAt: { toDate: () => new Date("2025-01-01") },
     ...overrides,
@@ -84,6 +89,8 @@ describe("PlaceFirestoreAdapter", () => {
       expect(result).not.toBeNull();
       expect(result!.id).toBe("place-1");
       expect(result!.nombre).toBe("Restaurante El Marino");
+      expect(result!.activo).toBe(true);
+      expect(result!.estadoVerificacion).toBe("verificado");
       expect(result!.createdAt).toBeInstanceOf(Date);
     });
 
@@ -121,6 +128,28 @@ describe("PlaceFirestoreAdapter", () => {
       const result = await adapter.findBySlug("non-existent");
       expect(result).toBeNull();
     });
+
+    it("queries with activo=true filter", async () => {
+      mockFirebase.getDocuments.mockResolvedValue({
+        empty: true,
+        docs: [],
+      });
+
+      await adapter.findBySlug("some-slug");
+
+      expect(mockFirebase.getDocuments).toHaveBeenCalledWith(
+        "places",
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "activo",
+            operator: "==",
+            value: true,
+          }),
+        ]),
+        undefined,
+        1,
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -151,11 +180,11 @@ describe("PlaceFirestoreAdapter", () => {
         planId: "gratuito" as const,
         abierto24x7: false,
         vistasTotales: 0,
-        status: "pendiente" as const,
-        verificado: false,
+        activo: true,
+        estadoVerificacion: "pendiente" as const,
+        gestionadoPorAdmin: false,
         destacado: false,
-        createdAt: new Date("2025-06-01"),
-        updatedAt: new Date("2025-06-01"),
+        usuarioId: "user-1",
       };
 
       const result = await adapter.save(input);
@@ -164,6 +193,49 @@ describe("PlaceFirestoreAdapter", () => {
       expect(mockFirebase.createDocument).toHaveBeenCalledWith(
         "places",
         expect.objectContaining({ nombre: "Restaurante El Marino" }),
+      );
+    });
+
+    it("persists activo and estadoVerificacion fields", async () => {
+      mockFirebase.getCurrentTimestamp.mockReturnValue({
+        toDate: () => new Date("2025-06-01"),
+      });
+      mockFirebase.createDocument.mockResolvedValue({ id: "new-id" });
+      mockFirebase.getDocument.mockResolvedValue({
+        exists: true,
+        id: "new-id",
+        data: () => makeFirestoreDoc(),
+      });
+
+      const input = {
+        nombre: "Test",
+        slug: "test",
+        descripcionCorta: "d",
+        descripcion: "d",
+        categoriaId: "c",
+        barrioId: "b",
+        direccion: "a",
+        coordenadas: { lat: 0, lng: 0 },
+        imagenes: { galeria: [] },
+        planId: "gratuito" as const,
+        abierto24x7: false,
+        vistasTotales: 0,
+        activo: true,
+        estadoVerificacion: "pendiente" as const,
+        gestionadoPorAdmin: false,
+        destacado: false,
+        usuarioId: "user-1",
+      };
+
+      await adapter.save(input);
+
+      expect(mockFirebase.createDocument).toHaveBeenCalledWith(
+        "places",
+        expect.objectContaining({
+          activo: true,
+          estadoVerificacion: "pendiente",
+          gestionadoPorAdmin: false,
+        }),
       );
     });
   });
@@ -188,7 +260,7 @@ describe("PlaceFirestoreAdapter", () => {
   // findForMap
   // -------------------------------------------------------------------------
   describe("findForMap", () => {
-    it("returns approved places with coordinates", async () => {
+    it("returns active places with coordinates", async () => {
       mockFirebase.getDocuments.mockResolvedValue({
         docs: [
           {
@@ -217,6 +289,23 @@ describe("PlaceFirestoreAdapter", () => {
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe("p1");
       expect(result[0].coordenadas).toEqual({ lat: -33.0, lng: -71.5 });
+    });
+
+    it("queries with activo=true filter", async () => {
+      mockFirebase.getDocuments.mockResolvedValue({ docs: [] });
+
+      await adapter.findForMap();
+
+      expect(mockFirebase.getDocuments).toHaveBeenCalledWith(
+        "places",
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "activo",
+            operator: "==",
+            value: true,
+          }),
+        ]),
+      );
     });
   });
 
@@ -250,13 +339,38 @@ describe("PlaceFirestoreAdapter", () => {
         expect.objectContaining({ telefono: "+56999999999" }),
       );
     });
+
+    it("persists activo field in updates", async () => {
+      const existingDoc = makeFirestoreDoc();
+      mockFirebase.getDocument
+        .mockResolvedValueOnce({
+          exists: true,
+          id: "place-1",
+          data: () => existingDoc,
+        })
+        .mockResolvedValueOnce({
+          exists: true,
+          id: "place-1",
+          data: () => ({ ...existingDoc, activo: false }),
+        });
+      mockFirebase.updateDocument.mockResolvedValue(undefined);
+
+      const result = await adapter.update("place-1", { activo: false });
+
+      expect(result.activo).toBe(false);
+      expect(mockFirebase.updateDocument).toHaveBeenCalledWith(
+        "places",
+        "place-1",
+        expect.objectContaining({ activo: false }),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------
   // search
   // -------------------------------------------------------------------------
   describe("search", () => {
-    it("returns paginated results with approved status", async () => {
+    it("returns paginated results with activo=true default", async () => {
       const mockQuery = {
         where: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
@@ -274,6 +388,55 @@ describe("PlaceFirestoreAdapter", () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].id).toBe("place-1");
+      // Verify activo=true filter is applied
+      expect(mockQuery.where).toHaveBeenCalledWith("activo", "==", true);
+    });
+
+    it("respects explicit activo=false filter", async () => {
+      const mockQuery = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue({
+          docs: [],
+        }),
+        startAfter: jest.fn().mockReturnThis(),
+      };
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue(mockQuery),
+      });
+
+      await adapter.search({ activo: false, page: 1, limit: 20 });
+
+      expect(mockQuery.where).toHaveBeenCalledWith("activo", "==", false);
+    });
+
+    it("filters by estadoVerificacion", async () => {
+      const mockQuery = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue({
+          docs: [],
+        }),
+        startAfter: jest.fn().mockReturnThis(),
+      };
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue(mockQuery),
+      });
+
+      await adapter.search({
+        activo: true,
+        estadoVerificacion: "verificado",
+        page: 1,
+        limit: 20,
+      });
+
+      expect(mockQuery.where).toHaveBeenCalledWith(
+        "estadoVerificacion",
+        "==",
+        "verificado",
+      );
     });
 
     it("filters by text query (q)", async () => {
@@ -287,7 +450,10 @@ describe("PlaceFirestoreAdapter", () => {
               id: "p1",
               data: () => makeFirestoreDoc({ nombre: "Pizza Place" }),
             },
-            { id: "p2", data: () => makeFirestoreDoc({ nombre: "Sushi Bar" }) },
+            {
+              id: "p2",
+              data: () => makeFirestoreDoc({ nombre: "Sushi Bar" }),
+            },
           ],
         }),
         startAfter: jest.fn().mockReturnThis(),
@@ -296,10 +462,90 @@ describe("PlaceFirestoreAdapter", () => {
         collection: jest.fn().mockReturnValue(mockQuery),
       });
 
-      const result = await adapter.search({ q: "pizza", page: 1, limit: 20 });
+      const result = await adapter.search({
+        q: "pizza",
+        page: 1,
+        limit: 20,
+      });
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].nombre).toBe("Pizza Place");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // findSinDueno
+  // -------------------------------------------------------------------------
+  describe("findSinDueno", () => {
+    it("queries activo=true and returns paginated results", async () => {
+      const mockQuery = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue({
+          docs: [
+            {
+              id: "p1",
+              data: () =>
+                makeFirestoreDoc({
+                  usuarioId: null,
+                  gestionadoPorAdmin: false,
+                }),
+            },
+          ],
+        }),
+        startAfter: jest.fn().mockReturnThis(),
+      };
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue(mockQuery),
+      });
+
+      const result = await adapter.findSinDueno();
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe("p1");
+    });
+
+    it("accepts pagination filters", async () => {
+      const mockQuery = {
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        get: jest.fn().mockResolvedValue({ docs: [] }),
+        startAfter: jest.fn().mockReturnThis(),
+      };
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue(mockQuery),
+      });
+
+      const result = await adapter.findSinDueno({ page: 2, limit: 5 });
+
+      expect(result.data).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // countByUsuarioId
+  // -------------------------------------------------------------------------
+  describe("countByUsuarioId", () => {
+    it("counts active places by usuarioId", async () => {
+      const countResult = { data: () => ({ count: 3 }) };
+      const countChain = {
+        get: jest.fn().mockResolvedValue(countResult),
+      };
+      const whereChain = {
+        where: jest.fn().mockReturnThis(),
+        count: jest.fn().mockReturnValue(countChain),
+      };
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue(whereChain),
+        }),
+      });
+
+      const result = await adapter.countByUsuarioId("user-1");
+
+      expect(result).toBe(3);
     });
   });
 });

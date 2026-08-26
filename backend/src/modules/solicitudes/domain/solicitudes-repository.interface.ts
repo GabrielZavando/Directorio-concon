@@ -11,6 +11,7 @@ export interface CreateSolicitudInput {
   tipo: Solicitud["tipo"];
   status: "pendiente";
   proposal?: Record<string, unknown>;
+  solicitanteUid?: string;
   createdAt: Date;
 }
 
@@ -19,5 +20,6 @@ export interface SolicitudesRepositoryInterface {
   findById(id: string): Promise<Solicitud | null>;
   existsByPlaceId(placeId: string): Promise<boolean>;
   existsPendingByEventoId(eventoId: string): Promise<boolean>;
+  findPendingReclamosByPlaceId(placeId: string): Promise<Solicitud[]>;
   update(id: string, patch: Partial<Solicitud>): Promise<Solicitud>;
 }

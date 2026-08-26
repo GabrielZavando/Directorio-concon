@@ -1,7 +1,7 @@
 # places Specification
 
 ## Purpose
-The `places` capability provides the core CRUD, search, and "open now" derivation for the generic listing entity of the Directorio de Concón. It replaces the previous `empresas` entity with a broader schema that accommodates companies, institutions, and public-interest places. The lifecycle is: a publisher creates a place → a `solicitud` of type `registro` is auto-created with status `pendiente` → an admin approves or rejects → approved places become publicly discoverable via search and slug lookup.
+The `places` capability provides the core CRUD, search, and "open now" derivation for the generic listing entity of the Directorio de Concón. It replaces the previous `empresas` entity with a broader schema that accommodates companies, institutions, and public-interest places. The lifecycle is: a publisher creates a place → the place is visible immediately (`activo: true`, `estadoVerificacion: 'pendiente'`, no badge) → an admin verifies via `POST /places/{id}/verificar` to grant `estadoVerificacion: 'verificado'` (green badge) or reject → owners can claim admin-created places via `POST /places/{id}/reclamar`.
 
 ---
 ## Requirements
@@ -30,28 +30,29 @@ The system SHALL persist a `Place` document in the Firestore collection `places`
 - `servicios?: ServicioEnum[]` — controlled enum: `wifi | estacionamiento | acceso-discapacidad | apto-mascotas | delivery | take-away | terraza | vista-al-mar | reservas | ninos-bienvenida`
 - `metodosPago?: MetodoPagoEnum[]` — controlled enum: `efectivo | debito | credito | transferencia | qr`
 - `idiomas?: string[]` — post-MVP placeholder, no validation beyond array-of-strings
-- `status: PlaceStatus` — `pendiente | aprobado | rechazado` (default `pendiente` on create)
-- `verificado: boolean` — default `false`; set to `true` when an admin approves
-- `fechaVerificacion?: Date` — timestamp when `verificado` became true
+- `activo: boolean` — soft-delete flag (default `true` on create); when `false`, hidden from public directory
+- `estadoVerificacion: 'pendiente' | 'verificado' | 'rechazado'` — default `pendiente` on create; set by admin via `POST /places/{id}/verificar`
+- `motivoRechazoVerificacion?: string` — REQUIRED when `estadoVerificacion === 'rechazado'`; stores the admin's rejection reason
+- `gestionadoPorAdmin: boolean` — `true` if the place was created by an admin (not via owner self-service); default `false`
 - `destacado: boolean` — default `false`; admin-toggled for home carousel
 - `planId: 'gratuito' | 'premium'` — required on create
 - `vistasTotales: number` — post-MVP placeholder, defaults to `0`, no write path implemented in this change
 - `valoracionGoogle?: { rating: number; reviewsCount: number; mapsLink: string }` — post-MVP placeholder, optional
-- `usuarioId?: string` — Firebase Auth UID of the publisher who owns this place
-- `fechaPublicacion?: Date` — timestamp when status transitioned to `aprobado`
+- `usuarioId: string` — Firebase Auth UID of the publisher who owns this place (REQUIRED, set from verified JWT)
+- `fechaPublicacion?: Date` — timestamp when `estadoVerificacion` transitioned to `'verificado'`
 - `createdAt: Date` — document creation timestamp
 - `updatedAt: Date` — last modification timestamp
 
 #### Scenario: Create place with all required fields
 - **WHEN** a publisher sends `POST /api/v1/places` with valid `nombre`, `descripcion`, `descripcionCorta`, `categoriaId`, `barrioId`, `direccion`, `planId`
-- **THEN** the system creates a `Place` document with `status: 'pendiente'`, generated `slug`, `createdAt`/`updatedAt` set, `vistasTotales: 0`, `verificado: false`, `destacado: false`
-- **AND** a `solicitud` document is auto-created in collection `solicitudes` with `tipo: 'registro'`, `status: 'pendiente'`, `placeId` pointing to the new place, and the publisher's `usuarioId`
+- **THEN** the system creates a `Place` document with `activo: true`, `estadoVerificacion: 'pendiente'`, `gestionadoPorAdmin: false`, generated `slug`, `usuarioId` set from verified JWT, `createdAt`/`updatedAt` set, `vistasTotales: 0`, `destacado: false`
+- **AND** NO `solicitud` document is auto-created (the place is visible immediately without admin approval)
 
 #### Scenario: Create place rejects duplicate slug
 - **WHEN** a place with slug `restaurante-el-marino` already exists
 - **AND** a publisher sends `POST /api/v1/places` with `nombre: "Restaurante El Marino"` (which derives the same slug)
 - **THEN** the response is `409` with error "Slug duplicado"
-- **AND** no `Place` nor `solicitud` is created
+- **AND** no `Place` document is created
 
 #### Scenario: Create place rejects invalid DTO
 - **WHEN** payload lacks `categoriaId` or `barrioId`, or `email` is malformed, or `descripcionCorta` exceeds 140 characters
@@ -75,29 +76,33 @@ The system SHALL support paginated, cursor-based listing of places with optional
 #### Scenario: List places with no filters
 - **WHEN** an anonymous visitor sends `GET /api/v1/places?page=1&limit=20`
 - **THEN** response is `200` with `{ data: Place[], meta: { total, page, limit } }`
-- **AND** only places with `status: 'aprobado'` are returned
+- **AND** only places with `activo: true` are returned (default filter)
 - **AND** results are ordered by `destacado DESC, createdAt DESC`
 
 #### Scenario: List places filtered by categoriaId
 - **WHEN** request includes `categoriaId=gastronomia`
-- **THEN** only approved places with that `categoriaId` are returned
+- **THEN** only active places with that `categoriaId` are returned
 
 #### Scenario: List places filtered by barrioId
 - **WHEN** request includes `barrioId=centro`
-- **THEN** only approved places with that `barrioId` are returned
+- **THEN** only active places with that `barrioId` are returned
 
 #### Scenario: List places with text query
 - **WHEN** request includes `q=pizza`
-- **THEN** approved places whose `nombre`, `descripcion`, or `descripcionCorta` contain the query (case-insensitive) are returned
+- **THEN** active places whose `nombre`, `descripcion`, or `descripcionCorta` contain the query (case-insensitive) are returned
 - **AND** the text search is implemented via Firestore array-contains on a `searchTokens` field (generated on write) or via client-side filter for MVP — the exact mechanism is an implementation detail; the contract is that the filter works
 
 #### Scenario: Pagination uses cursors
 - **WHEN** `page=2` is requested
 - **THEN** the response uses a Firestore cursor (not offset) for consistent pagination
 
-#### Scenario: Admin can list places by status
-- **WHEN** an authenticated admin sends `GET /api/v1/places?status=pendiente`
-- **THEN** places with `status: 'pendiente'` are returned (including non-approved)
+#### Scenario: Admin can list places by estadoVerificacion
+- **WHEN** an authenticated admin sends `GET /api/v1/places?estadoVerificacion=pendiente`
+- **THEN** places with `estadoVerificacion: 'pendiente'` are returned (including inactive)
+
+#### Scenario: Admin can list places without owner
+- **WHEN** an authenticated admin sends `GET /api/v1/places?sinDueno=true`
+- **THEN** active places where `usuarioId == null` OR `gestionadoPorAdmin == true` are returned
 
 ---
 
@@ -165,33 +170,31 @@ The endpoint `PUT /api/v1/places/{id}` is decorated with `@UseGuards(JwtAuthGuar
 - **WHEN** owner renames to a nombre that derives a slug already taken
 - **THEN** response `409` "Slug duplicado", no update applied
 
-### Requirement: Delete place
-The system SHALL allow deletion of a place by its owner or an admin. Deletion is blocked if any pending `solicitud` references the place.
+### Requirement: Delete place (soft-delete)
+The system SHALL allow soft-deletion of a place by its owner or an admin. Soft-delete sets `activo: false` (the place is hidden from the public directory but the document is preserved). Soft-delete is blocked if any pending `solicitud` of type `reclamo-place` references the place.
 
 The endpoint `DELETE /api/v1/places/{id}` is decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner', 'admin')`; the controller reads the actor from `@CurrentUser() user: AuthContext` and passes it to `PlacesService.delete(id, actor)`. The service enforces ownership at runtime: `if (actor.rol !== 'admin' && existing.usuarioId !== actor.uid)` → `403 Forbidden`.
 
-> **Semantics note (corrected by the real repository)**: with the `StubSolicitudesRepository`, `existsByPlaceId` always returned `false` and deletion was never blocked. The real `SolicitudesFirestoreAdapter.existsByPlaceId` filters `status === 'pendiente'` — the same semantic as `eventos.remove` (`existsPendingByEventoId`). This change aligns the spec with the real-repo semantic: **deletion is blocked only while a pending solicitud exists** (an approved/rejected solicitud does not block deletion). Historical spec text said "any status"; that wording is superseded.
-
-#### Scenario: Owner deletes own place with no pending solicitudes
+#### Scenario: Owner soft-deletes own place with no pending reclamos
 - **GIVEN** an authenticated `owner` with UID `uid-owner-001` and a place with `usuarioId: 'uid-owner-001'`
-- **WHEN** the owner sends `DELETE /api/v1/places/{id}` with `Authorization: Bearer <idToken>` and no `solicitud` has `placeId = {id}` with `status: 'pendiente'`
-- **THEN** the response is `200` with `{ deleted: true, id }`, place document removed
+- **WHEN** the owner sends `DELETE /api/v1/places/{id}` with `Authorization: Bearer <idToken>` and no `solicitud` has `placeId = {id}` with `tipo: 'reclamo-place'` and `status: 'pendiente'`
+- **THEN** the response is `200` with `{ deleted: true, id, activo: false }`, place `activo` set to `false`
 
-#### Scenario: Owner deletes another owner's place — denied with 403
+#### Scenario: Owner soft-deletes another owner's place — denied with 403
 - **GIVEN** an authenticated `owner` with UID `uid-owner-001` and a place with `usuarioId: 'uid-owner-002'`
 - **WHEN** the owner sends `DELETE /api/v1/places/{id}` with `Authorization: Bearer <idToken>`
 - **THEN** the response is `403` with error: `No tienes permiso para eliminar este lugar`
-- **AND** the place document is NOT removed
+- **AND** the place `activo` remains `true`
 
-#### Scenario: Admin can delete any place
+#### Scenario: Admin can soft-delete any place
 - **WHEN** an admin sends `DELETE /api/v1/places/{id}` for a place owned by another user
-- **THEN** the response is `200` (subject to the pending-solicitud guard)
+- **THEN** the response is `200` (subject to the pending-reclamos guard)
 
-#### Scenario: Delete blocked by pending solicitud
-- **WHEN** a `solicitud` with `placeId = {id}` and `status: 'pendiente'` exists
+#### Scenario: Delete blocked by pending reclamo solicitud
+- **WHEN** a `solicitud` with `placeId = {id}`, `tipo: 'reclamo-place'`, and `status: 'pendiente'` exists
 - **AND** owner or admin sends `DELETE`
-- **THEN** the response is `409` with error: `No se puede eliminar: existen solicitudes asociadas a este lugar`
-- **AND** the place document is NOT removed
+- **THEN** the response is `409` with error: `No se puede eliminar: existen solicitudes de reclamo pendientes para este lugar`
+- **AND** the place `activo` remains `true`
 
 #### Scenario: Member attempts to delete — denied with 403
 - **GIVEN** an authenticated user with `rol: 'member'`
@@ -203,52 +206,79 @@ The endpoint `DELETE /api/v1/places/{id}` is decorated with `@UseGuards(JwtAuthG
 - **WHEN** a caller with no `Authorization` header sends `DELETE /api/v1/places/{id}`
 - **THEN** the response is `401` (the `JwtAuthGuard` rejects before `RolesGuard` runs)
 
-### Requirement: Solicitud auto-creation on place create
-The system SHALL automatically create a `solicitud` document when a place is created. The `POST /api/v1/places` endpoint is decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner')` so that only authenticated users with `rol: 'owner'` may create a place; the controller reads the publisher's UID from `@CurrentUser() user: AuthContext` (the verified Firebase Auth UID) rather than hardcoding the literal `"anonymous"` string. The auto-created `solicitud` carries the verified `usuarioId`.
+### Requirement: Place claiming by owner
+The system SHALL allow an authenticated `owner` to claim an admin-created place (or a place without an active owner) by creating a `solicitud` of type `reclamo-place`. The claiming creates a pending solicitud that an admin can approve or reject.
 
-**Persistence correction**: this change replaces the `StubSolicitudesRepository` (which returned `{ id: "stub" }` and never persisted) with the real `SolicitudesModule`'s `SOLICITUDES_REPOSITORY` (`SolicitudesFirestoreAdapter`), imported via a **direct module import** (no `forwardRef` — the module graph has no circular dependency). The auto-created `solicitud` is now actually persisted in the `solicitudes` collection and carries a real Firestore document ID.
+The endpoint `POST /api/v1/places/{id}/reclamar` is decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner')`. The service validates:
+- The place exists and `activo === true`
+- The place has no active owner (`usuarioId == null` OR `gestionadoPorAdmin === true`)
+- The caller is NOT an `admin`
+- No pending `reclamo-place` solicitud exists for this place by the same user
 
-#### Scenario: Solicitud created with correct linkage
-- **GIVEN** an authenticated `owner` with UID `uid-owner-001`
-- **WHEN** the owner sends `POST /api/v1/places` with `Authorization: Bearer <idToken>` and a valid body
-- **THEN** a `Place` document is created with `status: 'pendiente'` and `usuarioId: 'uid-owner-001'` (no longer `"anonymous"`)
-- **AND** a `solicitud` document is persisted in `solicitudes` with:
-  - `tipo: 'registro'`
-  - `status: 'pendiente'`
-  - `placeId` = the new place's `id`
-  - `usuarioId` = `'uid-owner-001'` (the verified publisher's UID — the same value as on the place)
-  - `createdAt` = same timestamp as the place's `createdAt`
-  - a real Firestore document `id` (not the stub literal `"stub"`)
+#### Scenario: Owner claims admin-created place
+- **GIVEN** an authenticated `owner` with UID `uid-owner-001` and a place with `gestionadoPorAdmin: true` and `usuarioId: null`
+- **WHEN** the owner sends `POST /api/v1/places/{id}/reclamar`
+- **THEN** the response is `201` with `{ solicitudId, status: 'pendiente', placeId }`
+- **AND** a `solicitud` is created with `tipo: 'reclamo-place'`, `status: 'pendiente'`, `placeId`, `solicitanteUid: 'uid-owner-001'`
 
-#### Scenario: Member attempts to create a place — denied with 403
-- **GIVEN** an authenticated user with `rol: 'member'` and UID `uid-member-001`
-- **WHEN** the member sends `POST /api/v1/places` with `Authorization: Bearer <idToken>` and a valid body
-- **THEN** the response is `403` with error: `rol 'member' is not allowed to perform this operation`
-- **AND** the `RolesGuard` short-circuits before the handler
-- **AND** no `Place` document is created and no `solicitud` is auto-created
+#### Scenario: Owner claims place without owner
+- **GIVEN** a place with `usuarioId: null` and `gestionadoPorAdmin: false`
+- **WHEN** an owner sends `POST /api/v1/places/{id}/reclamar`
+- **THEN** the solicitud is created successfully
 
-#### Scenario: Anonymous attempt to create a place — denied with 401
-- **WHEN** a caller with no `Authorization` header sends `POST /api/v1/places`
-- **THEN** the response is `401` (the `JwtAuthGuard` rejects before `RolesGuard` runs)
-- **AND** no document is persisted
+#### Scenario: Claim rejected — place already has active owner
+- **GIVEN** a place with `usuarioId: 'uid-owner-002'` and `gestionadoPorAdmin: false`
+- **WHEN** an owner sends `POST /api/v1/places/{id}/reclamar`
+- **THEN** the response is `409` with error indicating the place already has an owner
 
-### Requirement: Admin approves solicitud
-The system SHALL allow an admin to approve a pending solicitud, which transitions the place to `aprobado` and sets verification metadata.
+#### Scenario: Claim rejected — duplicate pending reclamo
+- **GIVEN** a pending `solicitud` with `tipo: 'reclamo-place'`, `placeId`, and `solicitanteUid: 'uid-owner-001'`
+- **WHEN** the same owner sends `POST /api/v1/places/{id}/reclamar`
+- **THEN** the response is `409` with error indicating a pending reclamo already exists
 
-#### Scenario: Admin approves solicitud
-- **WHEN** an admin sends `PUT /api/v1/solicitudes/{id}/aprobar` (or equivalent action)
-- **THEN** the solicitud `status` becomes `aprobado`, `revisadoPor` = admin UID, `revisadoAt` = now
-- **AND** the linked place `status` becomes `aprobado`, `verificado: true`, `fechaVerificacion` = now, `fechaPublicacion` = now
+#### Scenario: Admin cannot claim — denied with 403
+- **GIVEN** an authenticated `admin`
+- **WHEN** the admin sends `POST /api/v1/places/{id}/reclamar`
+- **THEN** the response is `403`
+
+#### Scenario: Member cannot claim — denied with 403
+- **GIVEN** an authenticated `member`
+- **WHEN** the member sends `POST /api/v1/places/{id}/reclamar`
+- **THEN** the response is `403` (the `RolesGuard` short-circuits)
 
 ---
 
-### Requirement: Admin rejects solicitud
-The system SHALL allow an admin to reject a pending solicitud, which transitions the place to `rechazado`.
+### Requirement: Place verification by admin
+The system SHALL allow an admin to verify a place, setting `estadoVerificacion` and optionally deactivating it.
 
-#### Scenario: Admin rejects solicitud
-- **WHEN** an admin sends `PUT /api/v1/solicitudes/{id}/rechazar` with `comentarios`
-- **THEN** the solicitud `status` becomes `rechazado`, `revisadoPor` = admin UID, `revisadoAt` = now, `comentarios` stored
-- **AND** the linked place `status` becomes `rechazado` (remains non-public)
+The endpoint `POST /api/v1/places/{id}/verificar` is decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')`.
+
+#### Scenario: Admin verifies place — granted
+- **WHEN** an admin sends `POST /api/v1/places/{id}/verificar` with `{ resultado: 'verificado' }`
+- **THEN** the place `estadoVerificacion` becomes `'verificado'`, `fechaPublicacion` is set to now
+- **AND** the place remains `activo: true`
+
+#### Scenario: Admin rejects place — deactivated with motivo
+- **WHEN** an admin sends `POST /api/v1/places/{id}/verificar` with `{ resultado: 'rechazado', motivo: 'Información incompleta' }`
+- **THEN** the place `estadoVerificacion` becomes `'rechazado'`, `activo` becomes `false`, `motivoRechazoVerificacion` is stored
+
+#### Scenario: Admin rejects place without motivo — 400
+- **WHEN** an admin sends `POST /api/v1/places/{id}/verificar` with `{ resultado: 'rechazado' }` (no motivo)
+- **THEN** the response is `400` with error indicating motivo is required
+
+#### Scenario: Non-admin verification — denied with 403
+- **WHEN** an owner sends `POST /api/v1/places/{id}/verificar`
+- **THEN** the response is `403`
+
+---
+
+### Requirement: Place updating does not revert verification
+The system SHALL NOT revert `estadoVerificacion` when a verified place is updated via `PUT /api/v1/places/{id}`. Unlike the eventos module (where editing an approved event generates a solicitud), updating a place applies changes in-place without affecting its verification state.
+
+#### Scenario: Owner updates verified place — verification preserved
+- **GIVEN** a place with `estadoVerificacion: 'verificado'`
+- **WHEN** the owner sends `PUT /api/v1/places/{id}` with `{ nombre: "New Name" }`
+- **THEN** the place is updated and `estadoVerificacion` remains `'verificado'`
 
 ---
 
@@ -313,9 +343,9 @@ The system SHALL reject any `servicios` or `metodosPago` value not in the canoni
 ### Requirement: Map data endpoint
 The system SHALL provide `GET /api/v1/places/map-data` returning a lightweight array for map markers.
 
-#### Scenario: Map data returns approved places with coordinates
+#### Scenario: Map data returns active places with coordinates
 - **WHEN** request `GET /api/v1/places/map-data`
-- **THEN** response `200` with array of `{ id, slug, nombre, coordenadas: { lat, lng }, categoriaId, barrioId }` for all approved places that have `coordenadas`
+- **THEN** response `200` with array of `{ id, slug, nombre, coordenadas: { lat, lng }, categoriaId, barrioId }` for all active places (`activo: true`) that have `coordenadas`
 
 ---
 
@@ -382,9 +412,8 @@ The `Place` response schema still exposes `usuarioId` as a read-only field (admi
 #### Scenario: CreatePlace without usuarioId — persisted with verified JWT uid
 - **GIVEN** an authenticated `owner` with UID `uid-owner-001` (verified by `JwtAuthGuard`)
 - **WHEN** the owner sends `POST /api/v1/places` with body `{ ..., "nombre": "...", "categoriaId": "...", "barrioId": "...", "planId": "gratuito" }` (no `usuarioId`) and `Authorization: Bearer <idToken>`
-- **THEN** the place is created with `usuarioId: 'uid-owner-001'` (the verified `user.uid` — the documented `"anonymous"` stub is removed by this change)
-- **AND** a `solicitud` tipo `'registro'` is auto-created as before
-- ~~**WHEN** the `auth + usuarios` change eventually ships~~ (this IS the `auth + usuarios` change — no further contract change is required in `api-spec.yml`)
+- **THEN** the place is created with `usuarioId: 'uid-owner-001'` (the verified `user.uid`), `activo: true`, `estadoVerificacion: 'pendiente'`
+- **AND** NO solicitud is auto-created
 
 ### Requirement: Cross-catalog validation in place create and update
 
@@ -444,3 +473,5 @@ The system SHALL validate at create and update time that `categoriaId`, `subcate
 - API alias `/empresas` (no backward-compat needed)
 - Migration script from `empresas` collection (clean replacement)
 - Renaming the auth role `empresa` (stays `'empresa'` in `usuarios.rol`)
+- EmailVerifiedGuard — Firebase manages email verification as an external service
+- Reverting `estadoVerificacion` on place update (unlike eventos, updates apply in-place)

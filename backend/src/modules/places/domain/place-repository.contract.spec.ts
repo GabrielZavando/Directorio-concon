@@ -6,6 +6,9 @@
  *
  * Uses a minimal dummy implementation to verify the type-level contract
  * compiles and the dummy methods can be invoked without runtime errors.
+ *
+ * Updated by places-refactor (CH-03): added findSinDueno, countByUsuarioId,
+ * and updated PlaceSearchFilters.
  */
 import type {
   PlaceRepositoryInterface,
@@ -48,6 +51,14 @@ class DummyPlaceRepository implements PlaceRepositoryInterface {
   > {
     return [];
   }
+
+  async findSinDueno(): Promise<PaginatedPlaces> {
+    return { data: [], total: 0 };
+  }
+
+  async countByUsuarioId(_usuarioId: string): Promise<number> {
+    return 0;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -84,5 +95,21 @@ describe("PlaceRepositoryInterface (LSP contract)", () => {
   it("findForMap returns array with required fields", async () => {
     const result = await repo.findForMap();
     expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("findSinDueno returns PaginatedPlaces", async () => {
+    const result = await repo.findSinDueno();
+    expect(Array.isArray(result.data)).toBe(true);
+    expect(typeof result.total).toBe("number");
+  });
+
+  it("findSinDueno accepts filters", async () => {
+    const result = await repo.findSinDueno({ page: 1, limit: 5 });
+    expect(Array.isArray(result.data)).toBe(true);
+  });
+
+  it("countByUsuarioId returns a number", async () => {
+    const result = await repo.countByUsuarioId("uid-123");
+    expect(typeof result).toBe("number");
   });
 });

@@ -22,6 +22,7 @@ const mockRepo: jest.Mocked<SolicitudesRepositoryInterface> = {
   findById: jest.fn(),
   existsByPlaceId: jest.fn(),
   existsPendingByEventoId: jest.fn(),
+  findPendingReclamosByPlaceId: jest.fn(),
   update: jest.fn(),
 };
 
@@ -33,6 +34,8 @@ const mockEventoHandler: jest.Mocked<EventoApprovalHandler> = {
 
 const mockPlaceHandler: jest.Mocked<PlaceApprovalHandler> = {
   approveRegistro: jest.fn(),
+  approveReclamo: jest.fn(),
+  rejectReclamo: jest.fn(),
 };
 
 // ---------------------------------------------------------------------------
@@ -298,6 +301,32 @@ describe("SolicitudesService", () => {
         "admin-1",
       );
     });
+
+    it("approves reclamo-place and calls place handler approveReclamo", async () => {
+      const sol = makeSolicitud({
+        id: "sol-rc1",
+        placeId: "place-1",
+        tipo: "reclamo-place",
+        eventoId: undefined,
+        solicitanteUid: "claimant-uid",
+      });
+      mockRepo.findById.mockResolvedValue(sol);
+      mockRepo.update.mockResolvedValue(
+        makeSolicitud({
+          ...sol,
+          status: "aprobado",
+          revisadoPor: "admin-1",
+        }),
+      );
+
+      await service.aprobarSolicitud("sol-rc1", "admin-1");
+
+      expect(mockPlaceHandler.approveReclamo).toHaveBeenCalledWith(
+        "place-1",
+        "claimant-uid",
+        "admin-1",
+      );
+    });
   });
 
   // =========================================================================
@@ -370,6 +399,36 @@ describe("SolicitudesService", () => {
       await service.rechazarSolicitud("sol-e2", "admin-1");
 
       expect(mockEventoHandler.rejectRegistro).not.toHaveBeenCalled();
+    });
+
+    it("rejects reclamo-place and calls place handler rejectReclamo", async () => {
+      const sol = makeSolicitud({
+        id: "sol-rc1",
+        placeId: "place-1",
+        tipo: "reclamo-place",
+        eventoId: undefined,
+        solicitanteUid: "claimant-uid",
+      });
+      mockRepo.findById.mockResolvedValue(sol);
+      mockRepo.update.mockResolvedValue(
+        makeSolicitud({ ...sol, status: "rechazado" }),
+      );
+
+      await service.rechazarSolicitud(
+        "sol-rc1",
+        "admin-1",
+        "Reclamo no válido",
+      );
+
+      expect(mockPlaceHandler.rejectReclamo).toHaveBeenCalledWith(
+        "place-1",
+        "sol-rc1",
+        "admin-1",
+      );
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        "sol-rc1",
+        expect.objectContaining({ comentarios: "Reclamo no válido" }),
+      );
     });
   });
 });

@@ -39,8 +39,9 @@ function makePlace(overrides: Partial<Place> = {}): Place {
     planId: "gratuito",
     abierto24x7: false,
     vistasTotales: 0,
-    status: "aprobado",
-    verificado: false,
+    activo: true,
+    estadoVerificacion: "verificado",
+    gestionadoPorAdmin: false,
     destacado: false,
     usuarioId: "user-1",
     createdAt: new Date("2025-01-01"),
@@ -72,11 +73,15 @@ const mockPlaceRepo: jest.Mocked<PlaceRepositoryInterface> = {
   update: jest.fn(),
   delete: jest.fn(),
   findForMap: jest.fn(),
+  findSinDueno: jest.fn(),
+  countByUsuarioId: jest.fn(),
 };
 
 const mockSolicitudRepo: jest.Mocked<SolicitudesRepositoryInterface> = {
   create: jest.fn(),
+  update: jest.fn(),
   existsByPlaceId: jest.fn(),
+  findPendingReclamosByPlaceId: jest.fn(),
 };
 
 // Mock CatalogValidator — the `enabled` flag is toggled per-test to exercise
@@ -133,7 +138,7 @@ describe("PlacesService", () => {
       abierto24x7: false,
     };
 
-    it("generates slug, creates place with status pendiente, creates solicitud", async () => {
+    it("generates slug, creates place with activo + estadoVerificacion, NO solicitud", async () => {
       mockPlaceRepo.findBySlug.mockResolvedValue(null);
       mockPlaceRepo.save.mockImplementation(async (data) =>
         makePlace({
@@ -143,29 +148,20 @@ describe("PlacesService", () => {
           updatedAt: new Date(),
         } as Partial<Place>),
       );
-      mockSolicitudRepo.create.mockImplementation(async (input) =>
-        makeSolicitud({ ...input, id: "sol-new" }),
-      );
 
       const result = await service.createPlace(createDto, "user-1");
 
       expect(result.id).toBe("new-id");
-      expect(result.status).toBe("pendiente");
+      expect(result.activo).toBe(true);
+      expect(result.estadoVerificacion).toBe("pendiente");
+      expect(result.gestionadoPorAdmin).toBe(false);
       expect(result.slug).toBe("restaurante-el-marino");
       expect(result.usuarioId).toBe("user-1");
       expect(mockPlaceRepo.findBySlug).toHaveBeenCalledWith(
         "restaurante-el-marino",
       );
       expect(mockPlaceRepo.save).toHaveBeenCalledTimes(1);
-      expect(mockSolicitudRepo.create).toHaveBeenCalledTimes(1);
-      expect(mockSolicitudRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          placeId: "new-id",
-          usuarioId: "user-1",
-          tipo: "registro",
-          status: "pendiente",
-        }),
-      );
+      expect(mockSolicitudRepo.create).not.toHaveBeenCalled();
     });
 
     it("throws ConflictException on duplicate slug", async () => {
@@ -233,9 +229,6 @@ describe("PlacesService", () => {
             updatedAt: new Date(),
           } as Partial<Place>),
         );
-        mockSolicitudRepo.create.mockImplementation(async (input) =>
-          makeSolicitud({ ...input, id: "sol-new" }),
-        );
 
         await service.createPlace(createDto, "user-1");
 
@@ -246,6 +239,7 @@ describe("PlacesService", () => {
           mockCatalogValidator.assertSubcategoriaActiva,
         ).not.toHaveBeenCalled();
         expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
+        expect(mockSolicitudRepo.create).not.toHaveBeenCalled();
       });
     });
   });
@@ -266,6 +260,14 @@ describe("PlacesService", () => {
       mockPlaceRepo.findBySlug.mockResolvedValue(null);
 
       const result = await service.findBySlug("non-existent");
+      expect(result).toBeNull();
+    });
+
+    it("returns null when place exists but activo=false", async () => {
+      const inactivePlace = makePlace({ activo: false });
+      mockPlaceRepo.findBySlug.mockResolvedValue(inactivePlace);
+
+      const result = await service.findBySlug("restaurante-el-marino");
       expect(result).toBeNull();
     });
   });
@@ -312,12 +314,76 @@ describe("PlacesService", () => {
 
       expect(result).toEqual(paginatedResult);
       expect(mockPlaceRepo.search).toHaveBeenCalledWith({
+        activo: true,
         categoriaId: "gastronomia",
         barrioId: "centro",
         q: "pizza",
         page: 1,
         limit: 20,
       });
+    });
+
+    it("defaults activo=true when not specified", async () => {
+      const paginatedResult: PaginatedPlaces = {
+        data: [makePlace()],
+        total: 1,
+      };
+      mockPlaceRepo.search.mockResolvedValue(paginatedResult);
+
+      await service.search({ page: 1, limit: 10 });
+
+      expect(mockPlaceRepo.search).toHaveBeenCalledWith({
+        activo: true,
+        page: 1,
+        limit: 10,
+      });
+    });
+
+    it("passes activo, estadoVerificacion, sinDueno filters to repo", async () => {
+      const paginatedResult: PaginatedPlaces = {
+        data: [],
+        total: 0,
+      };
+      mockPlaceRepo.search.mockResolvedValue(paginatedResult);
+
+      await service.search({
+        activo: true,
+        estadoVerificacion: "verificado",
+        sinDueno: true,
+        page: 1,
+        limit: 10,
+      });
+
+      expect(mockPlaceRepo.search).toHaveBeenCalledWith({
+        activo: true,
+        estadoVerificacion: "verificado",
+        sinDueno: true,
+        page: 1,
+        limit: 10,
+      });
+    });
+  });
+
+  // =========================================================================
+  // findForMap
+  // =========================================================================
+  describe("findForMap", () => {
+    it("delegates to repository findForMap", async () => {
+      const mapData = [
+        {
+          id: "place-1",
+          nombre: "Restaurante El Marino",
+          slug: "restaurante-el-marino",
+          coordenadas: { lat: -33.01, lng: -71.54 },
+          categoriaId: "gastronomia",
+        },
+      ];
+      mockPlaceRepo.findForMap.mockResolvedValue(mapData);
+
+      const result = await service.findForMap();
+
+      expect(result).toEqual(mapData);
+      expect(mockPlaceRepo.findForMap).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -601,16 +667,22 @@ describe("PlacesService", () => {
       rol: "admin",
     };
 
-    it("owner deletes own place when no solicitudes exist", async () => {
+    it("owner soft-deletes own place when no solicitudes exist", async () => {
       mockPlaceRepo.findById.mockResolvedValue(
         makePlace({ usuarioId: ownerActor.uid }),
       );
       mockSolicitudRepo.existsByPlaceId.mockResolvedValue(false);
-      mockPlaceRepo.delete.mockResolvedValue(undefined);
+      mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+        makePlace({ activo: false } as Partial<Place>),
+      );
 
       await service.delete("place-1", ownerActor);
 
-      expect(mockPlaceRepo.delete).toHaveBeenCalledWith("place-1");
+      expect(mockPlaceRepo.update).toHaveBeenCalledWith("place-1", {
+        activo: false,
+        updatedAt: expect.any(Date),
+      });
+      expect(mockPlaceRepo.delete).not.toHaveBeenCalled();
     });
 
     it("owner deleting a foreign place → ForbiddenException, no delete", async () => {
@@ -625,16 +697,21 @@ describe("PlacesService", () => {
       expect(mockSolicitudRepo.existsByPlaceId).not.toHaveBeenCalled();
     });
 
-    it("admin deleting any place → proceeds (solicitudes guard applies)", async () => {
+    it("admin soft-deletes any place → proceeds (solicitudes guard applies)", async () => {
       mockPlaceRepo.findById.mockResolvedValue(
         makePlace({ usuarioId: ownerActor.uid }),
       );
       mockSolicitudRepo.existsByPlaceId.mockResolvedValue(false);
-      mockPlaceRepo.delete.mockResolvedValue(undefined);
+      mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+        makePlace({ activo: false } as Partial<Place>),
+      );
 
       await service.delete("place-1", adminActor);
 
-      expect(mockPlaceRepo.delete).toHaveBeenCalledWith("place-1");
+      expect(mockPlaceRepo.update).toHaveBeenCalledWith("place-1", {
+        activo: false,
+        updatedAt: expect.any(Date),
+      });
     });
 
     it("throws ConflictException when solicitudes exist", async () => {
@@ -761,6 +838,144 @@ describe("PlacesService", () => {
       await expect(service.abiertoAhora("non-existent")).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  // =========================================================================
+  // reclamar
+  // =========================================================================
+  describe("reclamar", () => {
+    it("creates solicitud tipo reclamo-place with solicitanteUid", async () => {
+      const place = makePlace({ id: "place-1", usuarioId: "owner-orig" });
+      mockPlaceRepo.findById.mockResolvedValue(place);
+      mockSolicitudRepo.existsByPlaceId.mockResolvedValue(false);
+      mockSolicitudRepo.create.mockImplementation(async (input) => ({
+        id: "sol-new",
+        placeId: input.placeId,
+        usuarioId: input.usuarioId,
+        tipo: input.tipo,
+        status: input.status,
+        solicitanteUid: input.solicitanteUid,
+        createdAt: input.createdAt,
+      }));
+
+      const result = await service.reclamar("place-1", "claimant-uid");
+
+      expect(result).toBe(true);
+      expect(mockSolicitudRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          placeId: "place-1",
+          usuarioId: "owner-orig",
+          tipo: "reclamo-place",
+          status: "pendiente",
+          solicitanteUid: "claimant-uid",
+        }),
+      );
+    });
+
+    it("throws NotFoundException when place not found", async () => {
+      mockPlaceRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.reclamar("non-existent", "claimant-uid"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("allows multiple simultaneous claims (only one will be approved)", async () => {
+      const place = makePlace({ id: "place-1", usuarioId: "owner-orig" });
+      mockPlaceRepo.findById.mockResolvedValue(place);
+      // A pending reclamo already exists for this place — spec allows it.
+      mockSolicitudRepo.existsByPlaceId.mockResolvedValue(true);
+      mockSolicitudRepo.create.mockImplementation(async (input) => ({
+        id: "sol-new-2",
+        placeId: input.placeId,
+        usuarioId: input.usuarioId,
+        tipo: input.tipo,
+        status: input.status,
+        solicitanteUid: input.solicitanteUid,
+        createdAt: input.createdAt,
+      }));
+
+      const result = await service.reclamar("place-1", "claimant-uid-2");
+
+      expect(result).toBe(true);
+      expect(mockSolicitudRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          placeId: "place-1",
+          solicitanteUid: "claimant-uid-2",
+          tipo: "reclamo-place",
+        }),
+      );
+    });
+  });
+
+  // =========================================================================
+  // verificar
+  // =========================================================================
+  describe("verificar", () => {
+    it("marks place as verificado with fechaPublicacion", async () => {
+      const place = makePlace({
+        id: "place-1",
+        estadoVerificacion: "pendiente",
+      });
+      mockPlaceRepo.findById.mockResolvedValue(place);
+      mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+        makePlace({ ...place, ...patch } as Partial<Place>),
+      );
+
+      const result = await service.verificar("place-1", {
+        resultado: "verificado",
+      });
+
+      expect(result.estadoVerificacion).toBe("verificado");
+      expect(result.fechaPublicacion).toBeDefined();
+      expect(mockPlaceRepo.update).toHaveBeenCalledWith(
+        "place-1",
+        expect.objectContaining({
+          estadoVerificacion: "verificado",
+          fechaPublicacion: expect.any(Date),
+        }),
+      );
+    });
+
+    it("rejects place: activo=false, motivoRechazoVerificacion set", async () => {
+      const place = makePlace({
+        id: "place-1",
+        estadoVerificacion: "pendiente",
+      });
+      mockPlaceRepo.findById.mockResolvedValue(place);
+      mockPlaceRepo.update.mockImplementation(async (_id, patch) =>
+        makePlace({ ...place, ...patch } as Partial<Place>),
+      );
+
+      const result = await service.verificar("place-1", {
+        resultado: "rechazado",
+        motivo: "Información incompleta",
+      });
+
+      expect(result.estadoVerificacion).toBe("rechazado");
+      expect(result.activo).toBe(false);
+      expect(result.motivoRechazoVerificacion).toBe("Información incompleta");
+    });
+
+    it("rejects without motivo → throws BadRequestException", async () => {
+      const place = makePlace({
+        id: "place-1",
+        estadoVerificacion: "pendiente",
+      });
+      mockPlaceRepo.findById.mockResolvedValue(place);
+
+      await expect(
+        service.verificar("place-1", { resultado: "rechazado" }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("throws NotFoundException when place not found", async () => {
+      mockPlaceRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.verificar("non-existent", { resultado: "verificado" }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
