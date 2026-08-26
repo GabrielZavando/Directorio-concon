@@ -21,9 +21,6 @@
   },
   "instructions": [
     "docs/base-standards.md",
-    "docs/backend-standards.md",
-    "docs/frontend-standards.md",
-    "docs/documentation-standards.md",
     "AGENTS.md"
   ],
   "permission": {
@@ -41,7 +38,7 @@
   "agent": {
     "plan": {
       "mode": "primary",
-      "prompt": "You are the planning agent for Spec-Driven Development.\n\nAlways load:\n- docs/base-standards.md\n- docs/backend-standards.md (for backend tasks)\n- docs/frontend-standards.md (for frontend tasks)\n- docs/documentation-standards.md\n- docs/api-spec.yml\n- docs/data-model.md\n\nUse OpenSpec CLI for planning:\n- openspec new change <ticket-id> to generate specs\n- Read existing OpenSpec artifacts from .openspec/\n\nYou are in read-only mode: design, analyze, and plan. No file edits or bash commands.",
+      "prompt": "{file:ai-specs/agents/plan-agent.md}",
       "permission": {
         "edit": "deny",
         "bash": {
@@ -84,13 +81,13 @@
       "agent": "build"
     },
     "verify": {
-      "template": "1. Read the OpenSpec scenarios from .openspec/<change>/scenarios.md\n2. Read the current implementation\n3. Verify each scenario is covered\n4. Run the test suite\n5. Report: what passes, what fails, what's missing",
+      "template": "1. Read the OpenSpec scenarios from .openspec/changes/<change>/scenarios.md\n2. Read the current implementation\n3. Verify each scenario is covered\n4. Run the test suite\n5. Report: what passes, what fails, what's missing",
       "description": "Validate implementation against OpenSpec scenarios",
       "agent": "build"
     },
     "adversarial-review": {
       "template": "{file:ai-specs/skills/code-auditing/SKILL.md}\n\nRun the 8-phase audit on the current codebase changes.",
-      "description": "Systematic 8-phase code quality audit",
+      "description": "Adversarial red-team code quality audit (robustness, security, tradeoffs, SOLID/POO)",
       "agent": "reviewer"
     },
     "archive": {
