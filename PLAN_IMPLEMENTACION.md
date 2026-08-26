@@ -8,7 +8,7 @@
 |----|--------|--------|-----------------|
 | CH-01 | categorias-barrios-crud | ✅ DONE | `archive/2026-08-23-categorias-barrios-crud` |
 | CH-02 | auth-usuarios-v2 | ✅ DONE | `archive/2026-08-25-auth-usuarios-v2` (backend completo; páginas frontend de auth — Tasks 8–10 — y E2E backend quedan cubiertas por CH-08 `frontend-mvp-v2` / change E2E dedicado) |
-| CH-03 | places-refactor | ⬜ PENDING | — |
+| CH-03 | places-refactor | ✅ DONE | `archive/2026-08-26-places-refactor` |
 | CH-04 | eventos-refactor | ⬜ PENDING | — |
 | CH-05 | solicitudes-refactor | ⬜ PENDING | — |
 | CH-06 | notificaciones | ⬜ PENDING | — |

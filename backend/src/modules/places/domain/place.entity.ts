@@ -3,8 +3,11 @@
  *
  * Matches docs/data-model.md §places exactly.
  * Timestamps use `Date` in domain; Firestore adapter converts ↔ Timestamp.
+ *
+ * Updated by places-refactor (CH-03): replaced `status` + `verificado`
+ * with `activo` + `estadoVerificacion`. `usuarioId` is now REQUIRED.
  */
-import type { PlaceStatus } from "./place-status";
+import type { EstadoVerificacion } from "./estado-verificacion";
 import type { ServicioEnum } from "./servicio.enum";
 import type { MetodoPagoEnum } from "./metodo-pago.enum";
 import type { Coordenadas } from "./coordenadas.vo";
@@ -57,12 +60,15 @@ export interface Place {
   vistasTotales: number;
   valoracionGoogle?: ValoracionGoogle;
 
+  // -- Lifecycle (places-refactor CH-03) --
+  activo: boolean;
+  estadoVerificacion: EstadoVerificacion;
+  motivoRechazoVerificacion?: string;
+  gestionadoPorAdmin: boolean;
+
   // -- System --
-  status: PlaceStatus;
-  verificado: boolean;
-  fechaVerificacion?: Date;
   destacado: boolean;
-  usuarioId?: string;
+  usuarioId: string;
   fechaPublicacion?: Date;
   createdAt: Date;
   updatedAt: Date;

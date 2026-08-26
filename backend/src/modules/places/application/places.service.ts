@@ -5,6 +5,7 @@
  * open-now derivation, and business-rule enforcement.
  */
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -14,6 +15,7 @@ import {
 import type { PlaceRepositoryInterface } from "../domain/place-repository.interface";
 import type { SolicitudesRepositoryInterface } from "../domain/solicitudes-repository.interface";
 import type { Place } from "../domain/place.entity";
+import type { EstadoVerificacion } from "../domain/estado-verificacion";
 import type { HorarioDia, Turno } from "../domain/horario-dia.vo";
 import type { RedSocial } from "../domain/red-social.vo";
 import { SOLICITUDES_REPOSITORY } from "../domain/solicitudes-repository.token";
@@ -126,8 +128,6 @@ export class PlacesService {
     // Gallery limit per plan
     assertGalleryLimit(dto.imagenes?.galeria, dto.planId);
 
-    const now = new Date();
-
     // Persist place
     const place = await this.placeRepo.save({
       nombre: dto.nombre,
@@ -161,19 +161,11 @@ export class PlacesService {
       metodosPago: dto.metodosPago as Place["metodosPago"],
       idiomas: dto.idiomas,
       vistasTotales: 0,
-      status: "pendiente",
-      verificado: false,
+      activo: true,
+      estadoVerificacion: "pendiente",
+      gestionadoPorAdmin: false,
       destacado: false,
       usuarioId,
-    });
-
-    // Auto-create solicitud
-    await this.solicitudRepo.create({
-      placeId: place.id,
-      usuarioId,
-      tipo: "registro",
-      status: "pendiente",
-      createdAt: now,
     });
 
     this.logger.log(`Place created: ${place.id} (slug: ${slug})`);
@@ -193,18 +185,24 @@ export class PlacesService {
   }
 
   async findBySlug(slug: string): Promise<Place | null> {
-    return this.placeRepo.findBySlug(slug);
+    const place = await this.placeRepo.findBySlug(slug);
+    if (!place || !place.activo) {
+      return null;
+    }
+    return place;
   }
 
   async search(filters: {
     q?: string;
     categoriaId?: string;
     barrioId?: string;
-    status?: string;
+    activo?: boolean;
+    estadoVerificacion?: EstadoVerificacion;
+    sinDueno?: boolean;
     page?: number;
     limit?: number;
   }) {
-    return this.placeRepo.search(filters);
+    return this.placeRepo.search({ activo: true, ...filters });
   }
 
   async findForMap() {
@@ -289,8 +287,12 @@ export class PlacesService {
       );
     }
 
-    await this.placeRepo.delete(id);
-    this.logger.log(`Place deleted: ${id}`);
+    // Soft-delete: deactivate instead of hard delete
+    await this.placeRepo.update(id, {
+      activo: false,
+      updatedAt: new Date(),
+    });
+    this.logger.log(`Place soft-deleted: ${id}`);
   }
 
   // -------------------------------------------------------------------------
@@ -306,5 +308,70 @@ export class PlacesService {
       throw new NotFoundException(`Place ${id} no encontrado`);
     }
     return resolveAbiertoAhora(place, now);
+  }
+
+  // -------------------------------------------------------------------------
+  // reclamar (claim ownership)
+  // -------------------------------------------------------------------------
+
+  async reclamar(placeId: string, claimantUid: string): Promise<boolean> {
+    const place = await this.placeRepo.findById(placeId);
+    if (!place) {
+      throw new NotFoundException(`Place ${placeId} no encontrado`);
+    }
+
+    // Multiple simultaneous claims are allowed: only one will be approved,
+    // the rest auto-rejected during approval (see PlaceApprovalHandlerImpl).
+    await this.solicitudRepo.create({
+      placeId,
+      usuarioId: place.usuarioId,
+      tipo: "reclamo-place",
+      status: "pendiente",
+      solicitanteUid: claimantUid,
+      createdAt: new Date(),
+    });
+
+    this.logger.log(`Place claim created: ${placeId} by ${claimantUid}`);
+    return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // verificar (admin verification)
+  // -------------------------------------------------------------------------
+
+  async verificar(
+    placeId: string,
+    dto: { resultado: "verificado" | "rechazado"; motivo?: string },
+  ): Promise<Place> {
+    const place = await this.placeRepo.findById(placeId);
+    if (!place) {
+      throw new NotFoundException(`Place ${placeId} no encontrado`);
+    }
+
+    if (dto.resultado === "rechazado" && !dto.motivo) {
+      throw new BadRequestException(
+        "El motivo es requerido al rechazar la verificación",
+      );
+    }
+
+    if (dto.resultado === "verificado") {
+      const updated = await this.placeRepo.update(placeId, {
+        estadoVerificacion: "verificado",
+        fechaPublicacion: new Date(),
+        updatedAt: new Date(),
+      });
+      this.logger.log(`Place verified: ${placeId}`);
+      return updated;
+    }
+
+    // rechazado
+    const updated = await this.placeRepo.update(placeId, {
+      estadoVerificacion: "rechazado",
+      activo: false,
+      motivoRechazoVerificacion: dto.motivo,
+      updatedAt: new Date(),
+    });
+    this.logger.log(`Place rejected: ${placeId}`);
+    return updated;
   }
 }

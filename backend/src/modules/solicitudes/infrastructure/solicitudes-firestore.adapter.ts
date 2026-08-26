@@ -25,6 +25,7 @@ function toDomain(id: string, data: Record<string, unknown>): Solicitud {
     status: data.status as Solicitud["status"],
     proposal: (data.proposal as Record<string, unknown>) ?? undefined,
     comentarios: (data.comentarios as string) ?? undefined,
+    solicitanteUid: (data.solicitanteUid as string) ?? undefined,
     revisadoPor: (data.revisadoPor as string) ?? undefined,
     createdAt:
       (data.createdAt as { toDate: () => Date })?.toDate() ?? new Date(),
@@ -84,6 +85,17 @@ export class SolicitudesFirestoreAdapter
       .where("status", "==", "pendiente")
       .get();
     return !snapshot.empty;
+  }
+
+  async findPendingReclamosByPlaceId(placeId: string): Promise<Solicitud[]> {
+    const db = this.firebase.getFirestore();
+    const snapshot = await db
+      .collection(COLLECTION)
+      .where("placeId", "==", placeId)
+      .where("tipo", "==", "reclamo-place")
+      .where("status", "==", "pendiente")
+      .get();
+    return snapshot.docs.map((doc) => toDomain(doc.id, doc.data()));
   }
 
   async update(id: string, patch: Partial<Solicitud>): Promise<Solicitud> {

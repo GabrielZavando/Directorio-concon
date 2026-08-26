@@ -213,15 +213,20 @@ components:
           type: array
           items:
             type: string
-        status:
-          type: string
-          enum: [pendiente, aprobado, rechazado]
-        verificado:
+        activo:
           type: boolean
-        fechaVerificacion:
+          description: Soft-delete flag (default true). When false, hidden from public directory.
+        estadoVerificacion:
           type: string
-          format: date-time
+          enum: [pendiente, verificado, rechazado]
+          description: Verification state. 'verificado' = green badge, 'rechazado' = place deactivated.
+        motivoRechazoVerificacion:
+          type: string
           nullable: true
+          description: Required when estadoVerificacion === 'rechazado'.
+        gestionadoPorAdmin:
+          type: boolean
+          description: true if created by admin (not via owner self-service).
         destacado:
           type: boolean
         planId:
@@ -1473,9 +1478,18 @@ paths:
         - name: q
           in: query
           schema: { type: string }
-        - name: status
+        - name: activo
           in: query
-          schema: { type: string, enum: [pendiente, aprobado, rechazado] }
+          schema: { type: boolean, default: true }
+          description: Filter by active status. Default true (only active places).
+        - name: estadoVerificacion
+          in: query
+          schema: { type: string, enum: [pendiente, verificado, rechazado] }
+          description: Filter by verification state. Admin-only.
+        - name: sinDueno
+          in: query
+          schema: { type: boolean }
+          description: "Filter places without an active owner (usuarioId == null OR gestionadoPorAdmin == true). Admin-only."
       responses:
         "200":
           description: Lista de places
@@ -1501,6 +1515,12 @@ paths:
         by `RolesGuard`), and `places.usuarioId` is sourced from the verified
         JWT `uid` (via `@CurrentUser()`). The body MUST NOT include
         `usuarioId` (forbidNonWhitelisted — `400` if present).
+
+        The place is created with `activo: true` and `estadoVerificacion: 'pendiente'`.
+        It is visible in the public directory immediately (no badge). No
+        solicitud is auto-created. The owner can later claim admin-created
+        places via `POST /places/{id}/reclamar`. Admin verifies via
+        `POST /places/{id}/verificar`.
       requestBody:
         required: true
         content:
@@ -1509,7 +1529,7 @@ paths:
               $ref: '#/components/schemas/CreatePlace'
       responses:
         "201":
-          description: Place creado — `usuarioId` set from the verified JWT uid
+          description: Place created — activo:true, estadoVerificacion:'pendiente'. usuarioId set from the verified JWT uid. No solicitud auto-created.
           content:
             application/json:
               schema:
@@ -1591,10 +1611,8 @@ paths:
       description: |
         Authenticated. The caller MUST have `rol === 'owner'` or
         `rol === 'admin'` (enforced by `RolesGuard`). Ownership rule
-        (enforced by `PlacesService`): an `owner` can only delete a place
-        where `places.usuarioId === token.uid` (`403` otherwise); an
-        `admin` can delete any place. Deleting is blocked (`409`) while
-        pending `solicitudes` exist for the place.
+        **BREAKING (change `places-refactor`)**: soft-delete instead of hard
+        delete. The response includes `activo: false`.
       parameters:
         - name: id
           in: path
@@ -1602,7 +1620,7 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Eliminado
+          description: Place soft-deleted (activo set to false)
           content:
             application/json:
               schema:
@@ -1612,6 +1630,9 @@ paths:
                     type: boolean
                   id:
                     type: string
+                  activo:
+                    type: boolean
+                    description: Always false after soft-delete
         "401":
           $ref: '#/components/schemas/Error'
         "403":
@@ -1621,6 +1642,103 @@ paths:
           $ref: '#/components/schemas/Error'
         "409":
           description: "No se puede eliminar: existen solicitudes asociadas"
+          $ref: '#/components/schemas/Error'
+
+  /places/{id}/reclamar:
+    post:
+      summary: Reclamar un place como owner (claiming)
+      security:
+        - bearerAuth: []
+      description: |
+        Owner-only (`rol === 'owner'`). Creates a `solicitud` of type
+        `reclamo-place` with `solicitanteUid = token.uid`. The place MUST
+        not have an active owner (`usuarioId == null` OR `gestionadoPorAdmin
+        == true`). The caller must NOT be an `admin`. Returns `409` if
+        there's already a pending `reclamo-place` for this place by the
+        same user. The place remains visible to the public while the
+        solicitud is pending.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "201":
+          description: Solicitud de reclamo creada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  solicitudId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pendiente]
+                  placeId:
+                    type: string
+        "400":
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'owner'`, or admin trying to claim
+          $ref: '#/components/schemas/Error'
+        "404":
+          $ref: '#/components/schemas/Error'
+        "409":
+          description: Place already has an owner, or pending reclamo exists
+          $ref: '#/components/schemas/Error'
+
+  /places/{id}/verificar:
+    post:
+      summary: Verificar un place (admin-only)
+      security:
+        - bearerAuth: []
+      description: |
+        Admin-only (`rol === 'admin'`). Sets `estadoVerificacion` on the
+        place. If `resultado === 'verificado'`: sets
+        `estadoVerificacion: 'verificado'` + `fechaPublicacion: <now>`.
+        If `resultado === 'rechazado'`: sets `estadoVerificacion: 'rechazado'`
+        + `activo: false` + `motivoRechazoVerificacion: <motivo>` (motivo is
+        REQUIRED when rechazado). Returns `400` if motivo is missing on
+        rechazado.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resultado]
+              properties:
+                resultado:
+                  type: string
+                  enum: [verificado, rechazado]
+                motivo:
+                  type: string
+                  maxLength: 500
+                  description: Required when resultado === 'rechazado'.
+      responses:
+        "200":
+          description: Place verification updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Place'
+        "400":
+          description: Missing motivo when rechazado, or invalid input
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`
+          $ref: '#/components/schemas/Error'
+        "404":
           $ref: '#/components/schemas/Error'
 
   /places/slug/{slug}:
@@ -1917,7 +2035,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RegisterResult'
         "400":
-          description: Validation error (whitelist + enum; e.g. `rol: 'admin'`, short password).
+          description: "Validation error (whitelist + enum; e.g. rol admin, short password)."
           $ref: '#/components/schemas/Error'
         "409":
           description: A Firebase Auth user with that `email` already exists.

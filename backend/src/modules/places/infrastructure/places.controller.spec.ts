@@ -51,6 +51,8 @@ const mockPlacesService = {
   update: jest.fn(),
   delete: jest.fn(),
   abiertoAhora: jest.fn(),
+  reclamar: jest.fn(),
+  verificar: jest.fn(),
 };
 
 function makePlace(overrides: Record<string, unknown> = {}) {
@@ -68,9 +70,11 @@ function makePlace(overrides: Record<string, unknown> = {}) {
     planId: "gratuito",
     abierto24x7: false,
     vistasTotales: 0,
-    status: "pendiente",
-    verificado: false,
+    activo: true,
+    estadoVerificacion: "pendiente",
+    gestionadoPorAdmin: false,
     destacado: false,
+    usuarioId: "user-1",
     createdAt: new Date("2025-01-01"),
     updatedAt: new Date("2025-01-01"),
     ...overrides,
@@ -447,6 +451,108 @@ describe("PlacesController (HTTP)", () => {
       await sendAuthed(method, null, body).expect(401);
 
       expect(serviceFor(method)).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // POST /places/:id/reclamar (claim ownership)
+  // =========================================================================
+  describe("POST /places/:id/reclamar", () => {
+    it("authenticated member → 403 (RolesGuard — owner only)", async () => {
+      givenUser("member");
+
+      await request(app.getHttpServer())
+        .post("/places/place-1/reclamar")
+        .set("Authorization", "Bearer fake-token")
+        .expect(403);
+
+      expect(mockPlacesService.reclamar).not.toHaveBeenCalled();
+    });
+
+    it("anónimo (no token) → 401", async () => {
+      await request(app.getHttpServer())
+        .post("/places/place-1/reclamar")
+        .expect(401);
+
+      expect(mockPlacesService.reclamar).not.toHaveBeenCalled();
+    });
+
+    it("owner → 201, allows multiple simultaneous claims", async () => {
+      givenUser("owner");
+      mockPlacesService.reclamar.mockResolvedValue(true);
+
+      const response = await request(app.getHttpServer())
+        .post("/places/place-1/reclamar")
+        .set("Authorization", "Bearer fake-token")
+        .expect(201);
+
+      expect(response.body.claimed).toBe(true);
+      expect(mockPlacesService.reclamar).toHaveBeenCalledWith(
+        "place-1",
+        expect.any(String),
+      );
+    });
+  });
+
+  // =========================================================================
+  // POST /places/:id/verificar (admin only)
+  // =========================================================================
+  describe("POST /places/:id/verificar", () => {
+    it("admin → 200, calls verificar", async () => {
+      givenUser("admin");
+      const updatedPlace = makePlace({ estadoVerificacion: "verificado" });
+      mockPlacesService.verificar.mockResolvedValue(updatedPlace);
+
+      const response = await request(app.getHttpServer())
+        .post("/places/place-1/verificar")
+        .set("Authorization", "Bearer fake-token")
+        .send({ resultado: "verificado" })
+        .expect(200);
+
+      expect(response.body.estadoVerificacion).toBe("verificado");
+      expect(mockPlacesService.verificar).toHaveBeenCalledWith("place-1", {
+        resultado: "verificado",
+      });
+    });
+
+    it("owner → 403 (RolesGuard — admin only)", async () => {
+      givenUser("owner");
+
+      await request(app.getHttpServer())
+        .post("/places/place-1/verificar")
+        .set("Authorization", "Bearer fake-token")
+        .send({ resultado: "verificado" })
+        .expect(403);
+
+      expect(mockPlacesService.verificar).not.toHaveBeenCalled();
+    });
+
+    it("anónimo (no token) → 401", async () => {
+      await request(app.getHttpServer())
+        .post("/places/place-1/verificar")
+        .send({ resultado: "verificado" })
+        .expect(401);
+
+      expect(mockPlacesService.verificar).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // DELETE /places/:id — soft-delete response shape
+  // =========================================================================
+  describe("DELETE /places/:id (soft-delete response)", () => {
+    it("returns { deleted, id, activo: false } on success", async () => {
+      givenUser("admin");
+      mockPlacesService.delete.mockResolvedValue(undefined);
+
+      const response = await request(app.getHttpServer())
+        .delete("/places/place-1")
+        .set("Authorization", "Bearer fake-token")
+        .expect(200);
+
+      expect(response.body.deleted).toBe(true);
+      expect(response.body.id).toBe("place-1");
+      expect(response.body.activo).toBe(false);
     });
   });
 });

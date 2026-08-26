@@ -1,6 +1,10 @@
 /**
  * REST controller for the Place aggregate.
  * Routes: /api/v1/places
+ *
+ * Updated by places-refactor (CH-03): replaced `status` query with
+ * `activo`, `estadoVerificacion`, `sinDueno`. Added `POST /:id/reclamar`
+ * and `POST /:id/verificar` endpoints. Soft-delete returns { deleted, id, activo }.
  */
 import {
   Controller,
@@ -41,13 +45,8 @@ export class PlacesController {
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("owner")
-  @ApiOperation({
-    summary: "Create a new place (generates solicitud automatically)",
-  })
-  @ApiResponse({
-    status: 201,
-    description: "Place created with status pendiente",
-  })
+  @ApiOperation({ summary: "Create a new place (visible immediately)" })
+  @ApiResponse({ status: 201, description: "Place created, activo=true" })
   @ApiResponse({ status: 409, description: "Slug duplicado" })
   async create(@Body() dto: CreatePlaceDto, @CurrentUser() user: AuthContext) {
     return this.placesService.createPlace(dto, user.uid);
@@ -64,7 +63,9 @@ export class PlacesController {
       q: query.q,
       categoriaId: query.categoriaId,
       barrioId: query.barrioId,
-      status: query.status,
+      activo: query.activo,
+      estadoVerificacion: query.estadoVerificacion,
+      sinDueno: query.sinDueno,
       page: query.page,
       limit: query.limit,
     });
@@ -75,7 +76,7 @@ export class PlacesController {
   // -------------------------------------------------------------------------
   @Get("map-data")
   @ApiOperation({
-    summary: "Lightweight array of approved places with coordinates for map",
+    summary: "Lightweight array of active places with coordinates for map",
   })
   @ApiResponse({ status: 200, description: "Array of map markers" })
   async getMapData() {
@@ -145,20 +146,60 @@ export class PlacesController {
   }
 
   // -------------------------------------------------------------------------
-  // DELETE /places/:id
+  // DELETE /places/:id (soft-delete)
   // -------------------------------------------------------------------------
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("owner", "admin")
-  @ApiOperation({ summary: "Delete a place (blocked if solicitudes exist)" })
-  @ApiResponse({ status: 200, description: "Place deleted" })
+  @ApiOperation({ summary: "Soft-delete a place (sets activo=false)" })
+  @ApiResponse({
+    status: 200,
+    description: "{ deleted: true, id, activo: false }",
+  })
   @ApiResponse({ status: 401, description: "Unauthorized" })
   @ApiResponse({ status: 403, description: "Role or ownership forbidden" })
   @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
   @ApiResponse({ status: 409, description: "Cannot delete: solicitudes exist" })
   async remove(@Param("id") id: string, @CurrentUser() user: AuthContext) {
     await this.placesService.delete(id, user);
-    return { deleted: true, id };
+    return { deleted: true, id, activo: false };
+  }
+
+  // -------------------------------------------------------------------------
+  // POST /places/:id/reclamar (claim ownership)
+  // -------------------------------------------------------------------------
+  @Post(":id/reclamar")
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("owner")
+  @ApiOperation({ summary: "Claim ownership of a place (creates reclamo)" })
+  @ApiResponse({ status: 201, description: "Claim solicitud created" })
+  @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
+  @ApiResponse({ status: 409, description: "Pending reclamo already exists" })
+  async reclamar(
+    @Param("id") id: string,
+    @CurrentUser() user: AuthContext,
+  ) {
+    await this.placesService.reclamar(id, user.uid);
+    return { claimed: true, placeId: id };
+  }
+
+  // -------------------------------------------------------------------------
+  // POST /places/:id/verificar (admin verification)
+  // -------------------------------------------------------------------------
+  @Post(":id/verificar")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  @ApiOperation({ summary: "Verify or reject a place (admin only)" })
+  @ApiResponse({ status: 200, description: "Place verification updated" })
+  @ApiResponse({ status: 400, description: "Motivo required when rejecting" })
+  @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
+  async verificar(
+    @Param("id") id: string,
+    @Body() dto: { resultado: "verificado" | "rechazado"; motivo?: string },
+  ) {
+    return this.placesService.verificar(id, dto);
   }
 }

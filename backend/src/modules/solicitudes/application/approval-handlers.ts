@@ -32,8 +32,22 @@ export const EVENTO_APPROVAL_HANDLER = "EventoApprovalHandler";
 // ---------------------------------------------------------------------------
 
 export interface PlaceApprovalHandler {
-  /** Approve a 'registro' solicitud: set place status to 'aprobado'. */
+  /** Approve a 'registro' solicitud: set place to activo + verificado. */
   approveRegistro(placeId: string, adminUid: string): Promise<void>;
+
+  /** Approve a 'reclamo-place' solicitud: transfer ownership + auto-reject other reclamos. */
+  approveReclamo(
+    placeId: string,
+    solicitanteUid: string,
+    adminUid: string,
+  ): Promise<void>;
+
+  /** Reject a 'reclamo-place' solicitud: no side-effect on place. */
+  rejectReclamo(
+    placeId: string,
+    solicitudId: string,
+    adminUid: string,
+  ): Promise<void>;
 }
 
 export const PLACE_APPROVAL_HANDLER = "PlaceApprovalHandler";

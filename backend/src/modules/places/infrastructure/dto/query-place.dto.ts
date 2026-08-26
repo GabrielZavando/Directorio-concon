@@ -1,5 +1,13 @@
-import { IsOptional, IsString, IsInt, Min, Max } from "class-validator";
-import { Type } from "class-transformer";
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  IsBoolean,
+  IsIn,
+  Min,
+  Max,
+} from "class-validator";
+import { Type, Transform } from "class-transformer";
 
 export class QueryPlaceDto {
   @IsOptional()
@@ -15,8 +23,19 @@ export class QueryPlaceDto {
   barrioId?: string;
 
   @IsOptional()
+  @Type(() => Boolean)
+  @Transform(({ value }) => value === "true" || value === true)
+  activo?: boolean;
+
+  @IsOptional()
   @IsString()
-  status?: string;
+  @IsIn(["pendiente", "verificado", "rechazado"])
+  estadoVerificacion?: "pendiente" | "verificado" | "rechazado";
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @Transform(({ value }) => value === "true" || value === true)
+  sinDueno?: boolean;
 
   @IsOptional()
   @Type(() => Number)

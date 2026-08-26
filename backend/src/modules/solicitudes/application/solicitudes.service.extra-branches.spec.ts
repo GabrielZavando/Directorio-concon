@@ -23,6 +23,7 @@ const mockRepo: jest.Mocked<SolicitudesRepositoryInterface> = {
   findById: jest.fn(),
   existsByPlaceId: jest.fn(),
   existsPendingByEventoId: jest.fn(),
+  findPendingReclamosByPlaceId: jest.fn(),
   update: jest.fn(),
 };
 
@@ -34,6 +35,8 @@ const mockEventoHandler: jest.Mocked<EventoApprovalHandler> = {
 
 const mockPlaceHandler: jest.Mocked<PlaceApprovalHandler> = {
   approveRegistro: jest.fn(),
+  approveReclamo: jest.fn(),
+  rejectReclamo: jest.fn(),
 };
 
 // ---------------------------------------------------------------------------

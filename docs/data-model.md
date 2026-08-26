@@ -6,6 +6,8 @@
 ## Entidades (colecciones Firestore)
 
 ### places
+> **Modelo refactorizado por el change `places-refactor` (CH-03).** Los campos `status`, `verificado` y `fechaVerificacion` fueron eliminados y reemplazados por `activo` + `estadoVerificacion`. La solicitud auto-creada en `POST /places` fue eliminada; el place es visible públicamente inmediatamente tras la creación.
+
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
 | id | string (PK auto) | ID de documento Firestore |
@@ -31,16 +33,24 @@
 | servicios | ServicioEnum[]? | Enum controlado (wifi, estacionamiento, acceso-discapacidad, apto-mascotas, delivery, take-away, terraza, vista-al-mar, reservas, ninos-bienvenida) |
 | metodosPago | MetodoPagoEnum[]? | Enum controlado (efectivo, debito, credito, transferencia, qr) |
 | idiomas | string[]? | Post-MVP placeholder |
-| status | enum | `pendiente` \| `aprobado` \| `rechazado` |
-| verificado | boolean | Verificado por admin |
-| fechaVerificacion | Timestamp? | Cuándo se verificó |
+| activo | boolean | Soft-delete flag (default `true`). Cuando `false`, el place oculto del directorio público. Admin puede toggle. |
+| estadoVerificacion | enum | `pendiente` \| `verificado` \| `rechazado` — default `pendiente` en creación. Seteado por admin via `POST /places/:id/verificar`. |
+| motivoRechazoVerificacion | string? | Motivo del rechazo. **REQUERIDO** cuando `estadoVerificacion === 'rechazado'`. |
+| gestionadoPorAdmin | boolean | `true` si el place fue creado por un admin (no via owner self-service). Default `false`. |
 | destacado | boolean | Destacado en home |
 | vistasTotales | number | Post-MVP placeholder, default 0 |
 | valoracionGoogle | ValoracionGoogle? | Post-MVP placeholder `{ rating, reviewsCount, mapsLink }` |
-| usuarioId | string? | Propietario (Firebase Auth UID) — REQUIRED; se setea desde el verified JWT del caller al `POST /places` (tras el change `auth-usuarios`, reemplaza el stub histórico `"anonymous"`). No se acepta en el body del create (forbidNonWhitelisted). |
-| fechaPublicacion | Timestamp? | Cuándo pasó a aprobado |
+| usuarioId | string | Propietario (Firebase Auth UID) — **REQUIRED** (era optional antes de CH-03). Se setea desde el verified JWT del caller al `POST /places`. No se acepta en el body del create (forbidNonWhitelisted). |
+| fechaPublicacion | Timestamp? | Cuándo pasó a verificado (reemplaza `fechaVerificacion` eliminado). Se setea cuando `estadoVerificacion` pasa a `'verificado'`. |
 | createdAt | Timestamp | Creación |
 | updatedAt | Timestamp | Modificación |
+
+> **Campos eliminados por `places-refactor` (CH-03):**
+> - `status: "pendiente" | "aprobado" | "rechazado"` → reemplazado por `activo` + `estadoVerificacion`.
+> - `verificado: boolean` → subsumido en `estadoVerificacion`.
+> - `fechaVerificacion: Timestamp?` → renombrado a `fechaPublicacion`.
+>
+> **Nuevo modelo de vida:** el place se crea con `activo: true` y `estadoVerificacion: 'pendiente'`. Es visible en el directorio público inmediatamente (sin badge "Verificado"). El admin verifica (`POST /places/:id/verificar`) para asignar `estadoVerificacion: 'verificado'` (badge verde) o `'rechazado'` (place desactivado).
 
 **Value Objects (tipos anidados):**
 
@@ -131,15 +141,16 @@
 | placeId | string? (ref) | Place asociado (nullable para solicitudes de eventos; XOR con `eventoId`) |
 | eventoId | string? (ref) | Evento asociado (nullable para solicitudes de places; XOR con `placeId`) |
 | usuarioId | string (ref) | Usuario creador |
-| tipo | enum | `registro` \| `actualizacion` \| `registro-evento` \| `actualizacion-evento` |
+| tipo | enum | `registro` \| `actualizacion` \| `registro-evento` \| `actualizacion-evento` \| `reclamo-place` |
 | status | enum | `pendiente` \| `aprobado` \| `rechazado` |
 | proposal | object? | Staging de updates para `tipo: 'actualizacion-evento'` (JSON con los campos a aplicar al aprobar). Null para los demás `tipo`. |
+| solicitanteUid | string? | UID del caller que reclama el place. **REQUERIDO** cuando `tipo === 'reclamo-place'`. |
 | comentarios | string? | Comentarios |
 | revisadoPor | string? | UID del admin que aprobó/rechazó. MUST resolver a un `usuarios.id` con `rol === 'admin'`. Tras el change `auth-usuarios`, la validación runtime está garantizada por el `RolesGuard` con `@Roles('admin')` en los endpoints `POST /solicitudes/:id/approve|reject` del nuevo `SolicitudesController` (ver "Authentication debt — [CLOSED]" en §usuarios). |
 | createdAt | Timestamp | Creación |
 | revisadoAt | Timestamp? | Revisión |
 
-> **Nota (módulo places):** al crear un place (`POST /api/v1/places`) se genera automáticamente un documento `solicitudes` con `tipo: 'registro'` y `status: 'pendiente'`, y el place queda en `status: 'pendiente'` hasta su aprobación por un admin.
+> **Nota (módulo places — cambio por `places-refactor`):** la solicitud auto-creada al crear un place fue **eliminada**. El place se crea con `activo: true` y es visible públicamente inmediatamente. La verificación del owner se hace vía `POST /places/:id/reclamar` (crea solicitud `reclamo-place`), y la verificación admin vía `POST /places/:id/verificar`.
 >
 > **Nota (módulo eventos):** al crear un evento (`POST /api/v1/eventos`) se genera automáticamente un documento `solicitudes` con `tipo: 'registro-evento'` y `status: 'pendiente'`, `eventoId` apuntando al nuevo evento. Al actualizar un evento aprobado se genera `tipo: 'actualizacion-evento'` con `proposal` conteniendo los campos staging (no se aplican in-place hasta el approval del admin).
 >
@@ -176,7 +187,7 @@
 | estado | enum | `borrador` \| `programado` \| `en_curso` \| `finalizado` \| `cancelado` \| `suspendido` (ciclo de vida del evento) |
 | destacado | boolean | Destacado en home/listados (default `false`) |
 | verificado | boolean | Verificado por admin (default `false`) |
-| placeId | string? | Ref opcional a un `places` aprobado (ref geográfica/organizacional al lugar del evento). **Sin invariante de pertenencia** al place del creador del evento: el responsable es `usuarioId`, no el dueño del `placeId` referenciado. Si se setea, MUST referenciar un `places` con `status: 'aprobado'`. |
+| placeId | string? | Ref opcional a un `places` aprobado (ref geográfica/organizacional al lugar del evento). **Sin invariante de pertenencia** al place del creador del evento: el responsable es `usuarioId`, no el dueño del `placeId` referenciado. Si se setea, MUST referenciar un `places` con `activo: true`. |
 | usuarioId | string | Firebase Auth UID del creador (REQUIRED, seteado desde token verificado; no en DTO). Identifica al **responsable de publicación** del evento; es independiente de `eventos.placeId` — el responsable puede publicar eventos sin placeId, con su propio place, o con un place ajeno (referencia geográfica/organizacional, sin invariante de pertenencia). Ver §Reglas comunes "Responsabilidad del evento" para el detalle. |
 | vistasTotales | number | Post-MVP placeholder, default 0 (sin lógica de incremento en este cambio, mirror de `places`) |
 | createdAt | Timestamp | Creación |
@@ -203,11 +214,21 @@
 - Un place pertenece a una categoría y un barrio (`categoriaId`, `barrioId` obligatorios).
 - `subcategoriaId` es opcional y debe referenciar un slug existente en `categorias.subcategorias[].slug` de la `categoriaId` seleccionada.
 - `slug` de place/categoria/barrio debe ser único (verificar antes de crear).
-- Todo place nuevo se crea con `status: 'pendiente'` y genera una `solicitud` con `placeId`.
 - Solo rol `admin` aprueba/rechaza solicitudes y edita places ajenos.
-- Rol `owner` solo gestiona su propio place (`placeId`) y crea eventos (`eventos.usuarioId === token.uid`).
+- Rol `owner` solo gestiona su propio place (`places.usuarioId === token.uid`) y crea eventos (`eventos.usuarioId === token.uid`).
 - Rol `member` NO puede `POST /places` ni `POST /eventos` (403).
 - Registro de usuarios: rol default `'member'` (cuando el módulo `auth + usuarios` aterrice).
+
+### Reglas específicas de places (change `places-refactor`)
+
+- Todo place nuevo se crea con `activo: true` y `estadoVerificacion: 'pendiente'`. Es visible en el directorio público inmediatamente, **sin badge de verificación**.
+- El place es visible públicamente cuando `activo === true` (sin filtro de `estadoVerificacion` — places pendientes y rechazados se muestran, pero los rechazados tienen `activo: false`).
+- **Soft-delete**: `DELETE /places/:id` setea `activo: false` (no hard-delete). Retorna `409` si existen `solicitudes` pendientes de tipo `reclamo-place` asociadas al place.
+- **Claiming (owner)**: `POST /places/:id/reclamar` (rol `owner`) crea una `solicitud` de tipo `reclamo-place` con `solicitanteUid = token.uid`. Solo se permite si el place no tiene un owner activo (`usuarioId == null` O `gestionadoPorAdmin === true`) y el caller no es `admin`.
+- **Verificación (admin)**: `POST /places/:id/verificar` (rol `admin`) asigna `estadoVerificacion: 'verificado'` + `fechaPublicacion: <now>` (badge verde) O `estadoVerificacion: 'rechazado'` + `activo: false` + `motivoRechazoVerificacion: <motivo>` (requerido).
+- **Claiming approval**: al aprobar una `solicitud` de tipo `reclamo-place`, se asigna `usuarioId = solicitanteUid` al place y se auto-rechazan todas las demás solicitudes `reclamo-place` pendientes para el mismo place (transacción Firestore).
+- Actualizar un place existente (`PUT /places/:id`) **NO** revierte `estadoVerificacion` (a diferencia del módulo `eventos`).
+- `gestionadoPorAdmin: true` indica un place creado por un admin (no vía owner self-service). Los places con `gestionadoPorAdmin: true` son candidatos a ser reclamados vía `sinDueno`.
 - `galeria` en `imagenes`: plan gratuito máx 3 imágenes, plan premium máx 10.
 - `horarios`: cada día puede tener 0..3 turnos; si `abierto: false`, `turnos` debe ser `[]`.
 - `horariosEspeciales` sobrescribe `horarios` para la fecha indicada; `turnos: []` significa cerrado ese día.
@@ -238,7 +259,7 @@
 - `fechaFin` debe ser estrictamente mayor que `fechaInicio`.
 - `precioTipo='gratis'` ⟹ `precioValor === 0`. `precioTipo !== 'gratis'` ⟹ `precioValor > 0`.
 - `publicoObjetivo` debe contener al menos un elemento del enum controlado.
-- `placeId` (si presente) debe referenciar un `places` existente con `status: 'aprobado'`.
+- `placeId` (si presente) debe referenciar un `places` existente con `activo: true`.
 - `usuarioId` es REQUIRED; se setea desde el token Firebase Auth verificado (no se acepta en el DTO).
 - Todo evento nuevo se crea con `status: 'pendiente'`, `estado: 'borrador'` y genera automáticamente una `solicitud` con `tipo: 'registro-evento'`, `status: 'pendiente'`, `eventoId` apuntando al nuevo evento.
 - Editar un evento con `status: 'aprobado'` NO aplica cambios in-place: genera una `solicitud` con `tipo: 'actualizacion-evento'`, `status: 'pendiente'`, `eventoId`, `usuarioId`, `proposal` (objeto JSON con los campos staging). El evento visible al público permanece sin cambios hasta que el admin aprueba la solicitud.
@@ -280,11 +301,16 @@ usuarios: rol (ASC) (fieldOverride en firestore.indexes.json)
 ### Composite indexes — declarados en `firestore.indexes.json`
 
 ```
-# places (existentes)
-places: status (ASC) + destacado (DESC) + createdAt (DESC)
-places: status (ASC) + categoriaId (ASC) + destacado (DESC) + createdAt (DESC)
-places: status (ASC) + barrioId (ASC) + destacado (DESC) + createdAt (DESC)
-places: status (ASC) + categoriaId (ASC) + barrioId (ASC) + destacado (DESC) + createdAt (DESC)
+# places (existentes — refactorizados por places-refactor: status → activo)
+places: activo (ASC) + destacado (DESC) + createdAt (DESC)
+places: activo (ASC) + categoriaId (ASC) + destacado (DESC) + createdAt (DESC)
+places: activo (ASC) + barrioId (ASC) + destacado (DESC) + createdAt (DESC)
+places: activo (ASC) + categoriaId (ASC) + barrioId (ASC) + destacado (DESC) + createdAt (DESC)
+
+# places [+] — nuevos por places-refactor
+places: activo (ASC) + estadoVerificacion (ASC) + createdAt (DESC) — cola admin verificación
+places: activo (ASC) + gestionadoPorAdmin (ASC) + createdAt (DESC) — sinDueno
+places: slug (ASC) — único (verificar unicidad)
 
 # eventos (existentes)
 eventos: categoriaId (ASC) + fechaInicio (ASC)
@@ -380,9 +406,10 @@ barrios: activo (ASC) + tipo (ASC)
   "servicios": ["wifi", "estacionamiento", "terraza", "vista-al-mar"],
   "metodosPago": ["efectivo", "debito", "credito", "transferencia"],
   "idiomas": ["español", "inglés"],
-  "status": "aprobado",
-  "verificado": true,
-  "fechaVerificacion": "2025-01-15T10:30:00Z",
+  "activo": true,
+  "estadoVerificacion": "verificado",
+  "motivoRechazoVerificacion": null,
+  "gestionadoPorAdmin": false,
   "destacado": true,
   "vistasTotales": 0,
   "valoracionGoogle": null,

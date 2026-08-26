@@ -2,6 +2,10 @@
  * Firestore adapter for PlaceRepositoryInterface.
  * Converts between domain types (Date) and Firestore types (Timestamp).
  * Uses cursor-based pagination (no offset).
+ *
+ * Updated by places-refactor (CH-03): replaced `status`/`verificado`/`fechaVerificacion`
+ * with `activo`/`estadoVerificacion`/`motivoRechazoVerificacion`/`gestionadoPorAdmin`.
+ * Added `findSinDueno` and `countByUsuarioId` methods.
  */
 import { Injectable, Logger } from "@nestjs/common";
 import { FirebaseService } from "@/common/services/firebase.service";
@@ -11,6 +15,7 @@ import type {
   PaginatedPlaces,
 } from "../domain/place-repository.interface";
 import type { Place } from "../domain/place.entity";
+import type { EstadoVerificacion } from "../domain/estado-verificacion";
 import type { Query, DocumentData } from "firebase-admin/firestore";
 
 const COLLECTION = "places";
@@ -45,11 +50,12 @@ interface PlaceFirestoreDoc {
   idiomas?: string[];
   vistasTotales: number;
   valoracionGoogle?: { rating: number; reviewsCount: number; mapsLink: string };
-  status: string;
-  verificado: boolean;
-  fechaVerificacion?: unknown;
+  activo: boolean;
+  estadoVerificacion: EstadoVerificacion;
+  motivoRechazoVerificacion?: string;
+  gestionadoPorAdmin: boolean;
   destacado: boolean;
-  usuarioId?: string;
+  usuarioId: string;
   fechaPublicacion?: unknown;
   createdAt: unknown;
   updatedAt: unknown;
@@ -78,7 +84,10 @@ export class PlaceFirestoreAdapter implements PlaceRepositoryInterface {
   async findBySlug(slug: string): Promise<Place | null> {
     const snapshot = await this.firebase.getDocuments(
       COLLECTION,
-      [{ field: "slug", operator: "==", value: slug }],
+      [
+        { field: "slug", operator: "==", value: slug },
+        { field: "activo", operator: "==", value: true },
+      ],
       undefined,
       1,
     );
@@ -92,18 +101,25 @@ export class PlaceFirestoreAdapter implements PlaceRepositoryInterface {
   // -------------------------------------------------------------------------
 
   async search(filters: PlaceSearchFilters): Promise<PaginatedPlaces> {
-    const { q, categoriaId, barrioId, status, page = 1, limit = 20 } = filters;
+    const {
+      q,
+      categoriaId,
+      barrioId,
+      activo = true,
+      estadoVerificacion,
+      page = 1,
+      limit = 20,
+    } = filters;
 
     let query: Query<DocumentData> = this.firebase
       .getFirestore()
       .collection(COLLECTION);
 
-    // Filters
-    if (status) {
-      query = query.where("status", "==", status);
-    } else {
-      // Default: only approved places for public queries
-      query = query.where("status", "==", "aprobado");
+    // Core filter: activo (default true)
+    query = query.where("activo", "==", activo);
+
+    if (estadoVerificacion) {
+      query = query.where("estadoVerificacion", "==", estadoVerificacion);
     }
     if (categoriaId) {
       query = query.where("categoriaId", "==", categoriaId);
@@ -118,7 +134,6 @@ export class PlaceFirestoreAdapter implements PlaceRepositoryInterface {
     // Cursor-based pagination
     const offset = (page - 1) * limit;
     if (offset > 0) {
-      // Get the last document of the previous page as cursor
       const cursorSnapshot = await query.limit(offset).get();
       if (!cursorSnapshot.empty) {
         const lastDoc = cursorSnapshot.docs[cursorSnapshot.docs.length - 1];
@@ -206,7 +221,7 @@ export class PlaceFirestoreAdapter implements PlaceRepositoryInterface {
     Pick<Place, "id" | "nombre" | "slug" | "coordenadas" | "categoriaId">[]
   > {
     const snapshot = await this.firebase.getDocuments(COLLECTION, [
-      { field: "status", operator: "==", value: "aprobado" },
+      { field: "activo", operator: "==", value: true },
     ]);
 
     return snapshot.docs
@@ -221,6 +236,73 @@ export class PlaceFirestoreAdapter implements PlaceRepositoryInterface {
         };
       })
       .filter((item) => item.coordenadas !== undefined);
+  }
+
+  // -------------------------------------------------------------------------
+  // findSinDueno (orphan places for admin queue)
+  // -------------------------------------------------------------------------
+
+  async findSinDueno(
+    filters: { page?: number; limit?: number } = {},
+  ): Promise<PaginatedPlaces> {
+    const { page = 1, limit = 20 } = filters;
+
+    // Firestore can't do != null queries, so we query activo=true
+    // and filter client-side for usuarioId == null OR gestionadoPorAdmin == true
+    let query: Query<DocumentData> = this.firebase
+      .getFirestore()
+      .collection(COLLECTION);
+
+    query = query.where("activo", "==", true);
+    query = query.orderBy("createdAt", "desc");
+
+    // Cursor-based pagination
+    const offset = (page - 1) * limit;
+    if (offset > 0) {
+      const cursorSnapshot = await query.limit(offset).get();
+      if (!cursorSnapshot.empty) {
+        const lastDoc = cursorSnapshot.docs[cursorSnapshot.docs.length - 1];
+        query = query.startAfter(lastDoc);
+      }
+    }
+
+    // Over-fetch to account for client-side filtering
+    query = query.limit(limit + 10);
+
+    const snapshot = await query.get();
+    const allDocs = snapshot.docs.map((doc) =>
+      this.toDomain(doc.id, doc.data() as PlaceFirestoreDoc),
+    );
+
+    // Filter: no owner OR managed by admin
+    const filtered = allDocs.filter(
+      (p) => !p.usuarioId || p.gestionadoPorAdmin,
+    );
+
+    const data = filtered.slice(0, limit);
+    const hasNextPage = filtered.length > limit;
+
+    return {
+      data,
+      nextCursor: hasNextPage ? String(page + 1) : undefined,
+      total: data.length,
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // countByUsuarioId
+  // -------------------------------------------------------------------------
+
+  async countByUsuarioId(usuarioId: string): Promise<number> {
+    const snapshot = await this.firebase
+      .getFirestore()
+      .collection(COLLECTION)
+      .where("usuarioId", "==", usuarioId)
+      .where("activo", "==", true)
+      .count()
+      .get();
+
+    return snapshot.data().count as number;
   }
 
   // -------------------------------------------------------------------------
@@ -254,11 +336,10 @@ export class PlaceFirestoreAdapter implements PlaceRepositoryInterface {
       idiomas: doc.idiomas,
       vistasTotales: doc.vistasTotales ?? 0,
       valoracionGoogle: doc.valoracionGoogle as Place["valoracionGoogle"],
-      status: doc.status as Place["status"],
-      verificado: doc.verificado,
-      fechaVerificacion: this.firebase.timestampToDate(
-        doc.fechaVerificacion as import("firebase-admin/firestore").Timestamp,
-      ),
+      activo: doc.activo,
+      estadoVerificacion: doc.estadoVerificacion,
+      motivoRechazoVerificacion: doc.motivoRechazoVerificacion,
+      gestionadoPorAdmin: doc.gestionadoPorAdmin,
       destacado: doc.destacado,
       usuarioId: doc.usuarioId,
       fechaPublicacion: this.firebase.timestampToDate(
@@ -302,8 +383,10 @@ export class PlaceFirestoreAdapter implements PlaceRepositoryInterface {
       ["idiomas", "idiomas"],
       ["vistasTotales", "vistasTotales"],
       ["valoracionGoogle", "valoracionGoogle"],
-      ["status", "status"],
-      ["verificado", "verificado"],
+      ["activo", "activo"],
+      ["estadoVerificacion", "estadoVerificacion"],
+      ["motivoRechazoVerificacion", "motivoRechazoVerificacion"],
+      ["gestionadoPorAdmin", "gestionadoPorAdmin"],
       ["destacado", "destacado"],
       ["usuarioId", "usuarioId"],
     ];
@@ -316,11 +399,6 @@ export class PlaceFirestoreAdapter implements PlaceRepositoryInterface {
     }
 
     // Convert Date fields to Timestamps
-    if (place.fechaVerificacion) {
-      result.fechaVerificacion = this.firebase.dateToTimestamp(
-        place.fechaVerificacion,
-      );
-    }
     if (place.fechaPublicacion) {
       result.fechaPublicacion = this.firebase.dateToTimestamp(
         place.fechaPublicacion,
