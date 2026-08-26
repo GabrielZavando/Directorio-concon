@@ -7,12 +7,11 @@
 # To customize for your stack, adjust the commands inside each target or add a
 # new branch to the STACK detection below.
 
-.PHONY: help install lint test build audit commitlint refs
+.PHONY: help install lint test build audit commitlint refs solid-lint solid-lint-backend solid-lint-frontend
 
 # Detect the active stack from its manifest file.
-# This is a monorepo: the Node app lives in backend/, so check there first.
 STACK := $(shell \
-  if [ -f backend/package.json ] || [ -f package.json ]; then echo node; \
+  if [ -f package.json ]; then echo node; \
   elif [ -f composer.json ]; then echo php; \
   elif [ -f pyproject.toml ] || [ -f requirements.txt ]; then echo python; \
   elif [ -f go.mod ]; then echo go; \
@@ -24,7 +23,7 @@ help: ## Show available targets
 
 install: ## Install dependencies (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend ci ;; \
+	  node)   npm ci ;; \
 	  php)    composer install --no-interaction ;; \
 	  python) pip install -r requirements.txt ;; \
 	  go)     go mod download ;; \
@@ -34,7 +33,7 @@ install: ## Install dependencies (stack-specific)
 
 lint: ## Lint and static analysis (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend run lint ;; \
+	  node)   npm run lint ;; \
 	  php)    composer lint ;; \
 	  python) ruff check . ;; \
 	  go)     go vet ./... ;; \
@@ -45,7 +44,7 @@ lint: ## Lint and static analysis (stack-specific)
 
 test: ## Run the test suite (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend test -- --passWithNoTests ;; \
+	  node)   npm test ;; \
 	  php)    composer test ;; \
 	  python) pytest ;; \
 	  go)     go test ./... ;; \
@@ -56,7 +55,7 @@ test: ## Run the test suite (stack-specific)
 
 build: ## Build the project (stack-specific)
 	@case "$(STACK)" in \
-	  node)   npm --prefix backend run build ;; \
+	  node)   npm run build ;; \
 	  php)    composer install --no-dev --optimize-autoloader ;; \
 	  python) pip install -e . ;; \
 	  go)     go build ./... ;; \
@@ -79,3 +78,23 @@ commitlint: ## Lint commit messages (stack-independent)
 
 refs: ## Check referential integrity of {file:...} references
 	bash check-refs.sh
+
+solid-lint-backend: ## SOLID thresholds — backend (ESLint + dependency-cruiser)
+	@if [ ! -f backend/package.json ] || [ ! -d backend/src ]; then \
+	  echo "solid-lint: backend/package.json or backend/src not found — skipping"; exit 0; \
+	fi
+	@echo "→ SOLID lint: backend (ESLint thresholds)"
+	cd backend && NODE_PATH=$$(pwd)/node_modules ./node_modules/.bin/eslint -c ../templates/ci/eslintrc.backend.js --resolve-plugins-relative-to . 'src/**/*.ts'
+	@echo "→ SOLID lint: backend (dependency-cruiser)"
+	cd backend && ./node_modules/.bin/depcruise src --config ../templates/ci/.dependency-cruiser.js
+
+solid-lint-frontend: ## SOLID thresholds — frontend (ESLint + madge), guarded
+	@if [ -f frontend/angular.json ]; then \
+	  echo "→ SOLID lint: frontend (ESLint thresholds)"; \
+	  cd frontend && NODE_PATH=$$(pwd)/node_modules ./node_modules/.bin/eslint -c ../templates/ci/eslintrc.frontend.js --resolve-plugins-relative-to . src/**/*.ts; \
+	  echo "→ SOLID lint: frontend (madge circular-deps)"; \
+	  cd frontend && ./node_modules/.bin/madge --circular src --ts-config tsconfig.app.json; \
+	fi
+
+solid-lint: solid-lint-backend solid-lint-frontend ## SOLID thresholds — aggregate (monorepo)
+

@@ -7,16 +7,18 @@ import { CacheModule } from "@nestjs/cache-manager";
 import { AppConfig } from "@/config/app.config";
 import { FirebaseConfig } from "@/config/firebase.config";
 import { ValidationConfig } from "@/config/validation.config";
+import { CatalogValidationConfig } from "@/config/catalog-validation.config";
 
 // Módulos principales
-import { EmpresasModule } from "@/modules/empresas/empresas.module";
-// import { CategoriasModule } from '@/modules/categorias/categorias.module';
-// import { BarriosModule } from '@/modules/barrios/barrios.module';
-// import { UsuariosModule } from '@/modules/usuarios/usuarios.module';
-// import { SolicitudesModule } from '@/modules/solicitudes/solicitudes.module';
+import { PlacesModule } from "@/modules/places/places.module";
+import { EventosModule } from "@/modules/eventos/eventos.module";
+import { SolicitudesModule } from "@/modules/solicitudes/solicitudes.module";
+import { UsuariosModule } from "@/modules/usuarios/usuarios.module";
+import { CategoriasModule } from "@/modules/categorias/categorias.module";
+import { BarriosModule } from "@/modules/barrios/barrios.module";
 
 // Módulos de autenticación
-// import { AuthModule } from '@/modules/auth/auth.module';
+import { AuthModule } from "@/modules/auth/auth.module";
 
 // Módulos de monetización
 // import { PlanesModule } from '@/modules/planes/planes.module';
@@ -41,6 +43,7 @@ import { AppController } from "./app.controller";
 import { HealthController } from "@/common/controllers/health.controller";
 
 // Servicios globales
+import { FirebaseModule } from "@/common/modules/firebase.module";
 import { AppService } from "./app.service";
 
 @Module({
@@ -48,7 +51,7 @@ import { AppService } from "./app.service";
     // Configuración global
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [AppConfig, FirebaseConfig, ValidationConfig],
+      load: [AppConfig, FirebaseConfig, ValidationConfig, CatalogValidationConfig],
       envFilePath: [".env.local", ".env"],
     }),
 
@@ -77,15 +80,19 @@ import { AppService } from "./app.service";
       ttl: 300, // 5 minutos por defecto
     }),
 
-    // Módulos principales (TODO: Descomentar cuando estén implementados)
-    EmpresasModule,
-    // CategoriasModule,
-    // BarriosModule,
-    // UsuariosModule,
-    // SolicitudesModule,
+    // Firebase (global — provides FirebaseService everywhere)
+    FirebaseModule,
 
-    // Autenticación
-    // AuthModule,
+    // Módulos principales
+    PlacesModule,
+    EventosModule,
+    SolicitudesModule,
+    CategoriasModule,
+    BarriosModule,
+    UsuariosModule,
+
+    // Autenticación (depends on FirebaseModule above)
+    AuthModule,
 
     // Monetización
     // PlanesModule,

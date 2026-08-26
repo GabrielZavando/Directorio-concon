@@ -71,6 +71,17 @@ curl http://localhost:3000/health
 # Expected: {"status":"ok"}
 ```
 
+### 2.1. SOLID/POO Static Analysis (if your project carries real code)
+
+If your instance of Specboot has a `package.json` (i.e. it is not the Metadoc
+template), the SOLID/POO mechanical checks from Ticket 4 are wired in:
+
+- Reference ESLint + `dependency-cruiser` + `madge` configs live in `templates/ci/`.
+- Threshold mapping and instantiation steps: see `docs/ci-standards.md`.
+- The CI job `solid-lint` (in `.github/workflows/ci.yml`) runs automatically when
+  `package.json` exists; it fails the merge if any threshold violation is
+  detected. Run locally with `make solid-lint` before pushing.
+
 ### 3. Configure IDE
 
 #### VS Code (recommended)

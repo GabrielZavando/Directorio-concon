@@ -1,0 +1,23 @@
+<section
+  class="app-hero bg-primary px-4 py-16 md:py-32"
+  data-purpose="hero-search"
+  [style]="heroOverlayStyle"
+>
+  <div class="container mx-auto text-center">
+    <h1 class="font-headline text-4xl md:text-6xl font-bold text-white mb-6">
+      Encuentra los Mejores Lugares
+    </h1>
+    <p class="text-lg md:text-xl text-white/90 mb-12 max-w-2xl mx-auto">
+      Desde dunas doradas hasta la brisa del océano: descubre restaurantes,
+      hoteles y experiencias locales únicas.
+    </p>
+
+    <div
+      class="max-w-5xl mx-auto bg-white/20 backdrop-blur-md p-4 rounded-lg"
+    >
+      <app-search-bar-container
+        (searchSubmit)="searchSubmit.emit($event)"
+      />
+    </div>
+  </div>
+</section>

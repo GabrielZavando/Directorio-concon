@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Sync Specboot tooling to upstream `GabrielZavando/Specboot@main`** (chore/specboot-sync): refreshed `ai-specs/` (added `agents/plan-agent.md`, `skills/plan-change/`, `reference/commits.md`, `examples/enrich-us-auth-reset.md`), `AGENTS.md`, `specboot.sh`, `check-refs.sh`, `templates/ci/` (added `.madge.config.json`, `README.md`, `package.ci.json`), `docs/ci-standards.md` (canonical Ticket 4 version) and `.env.example`. `Makefile.solid-lint` kept monorepo-aware (backend/frontend) over the upstream generic Metadoc version. `opencode.json` aligned `plan-change` to `{file:ai-specs/skills/plan-change/SKILL.md}` and JSON syntax fixed. `tests/solid-templates-test.sh` assertions updated to the new quoted ESLint keys and generic madge config.
 - **Template is OpenCode-only**: removed `.claude/` and `.cursor/` symlinks; no Claude Code or Cursor configuration is generated. Agent/skill artifacts live in `ai-specs/` and are consumed by OpenCode via `{file:...}` references in `opencode.json` (base-standards.md §6, README FAQ).
 - `specboot.sh`: dropped symlink creation and the Windows copy fallback; `--init`/`--ci` now only validate structure, placeholders, JSON and referential integrity.
 - Removed `tests/specboot-symlink-test.sh` (tested the removed symlink behavior).

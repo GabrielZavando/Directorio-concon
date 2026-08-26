@@ -18,11 +18,12 @@ ai-specs/
 │   ├── using-git-worktrees/
 │   ├── deploy/            ← NEW
 │   └── onboarding/        ← NEW
-└── examples/
-    ├── scenarios-example.md     ← NEW
-    ├── requirements-example.md   ← NEW
-    ├── ticket-ejemplo.md         ← NEW
-    └── tasks.md                  ← Improved
+├── examples/
+│   ├── scenarios-example.md     ← NEW
+│   ├── requirements-example.md   ← NEW
+│   ├── ticket-ejemplo.md         ← NEW
+│   └── tasks.md                  ← Improved
+└── ../templates/ci/             ← Reference CI configs (Ticket 4) — instantiated, not run, in the Metadoc template
 ```
 
 ---
@@ -53,11 +54,11 @@ Frontend specialist. Applies `docs/frontend-standards.md` and ensures accessibil
 
 ### Code Auditing (`skills/code-auditing/SKILL.md`)
 
-Systematic 7-phase code quality audit.
+Systematic 8-phase code quality audit.
 
-**Phases:** Security → Types → Performance → Dead code → Best practices → Tests → OpenSpec alignment
+**Phases:** Security → Types → Performance → Dead code → Best practices → Tests → OpenSpec alignment → SOLID/POO (lente Architect)
 
-**Use case:** `/adversarial-review` before archiving a change.
+**Use case:** `/adversarial-review` before archiving a change (incluye chequeo SOLID/POO específico por stack).
 
 ### Commit & PR (`skills/commit/SKILL.md`)
 
@@ -126,8 +127,10 @@ Task list format for OpenSpec changes.
 | `docs/backend-standards.md` | Stack: runtime, framework, ORM, DB |
 | `docs/frontend-standards.md` | Stack: framework, CSS, build tool |
 | `docs/deploy-standards.md` | Deploy flow: environments, versioning, Docker, rollback |
+| `docs/ci-standards.md` | SOLID/POO mechanical thresholds + instantiation of `templates/ci/` (Ticket 4) |
 | `docs/api-spec.yml` | Real API endpoints |
 | `docs/data-model.md` | Domain entities |
+| `templates/ci/` | ESLint + dependency-cruiser configs instantiated per project (see `docs/ci-standards.md`) |
 | `opencode.json` | Model selection |
 
 ---

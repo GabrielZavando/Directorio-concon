@@ -1,0 +1,217 @@
+<!DOCTYPE html><html class="light" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Iniciar Sesión - Direo Concón</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#d8dadc",
+                    "primary-container": "#005b96",
+                    "background": "#f7f9fb",
+                    "on-secondary-fixed-variant": "#554429",
+                    "on-primary-fixed-variant": "#00497a",
+                    "tertiary-fixed-dim": "#a1d494",
+                    "secondary-container": "#fadeba",
+                    "on-primary-fixed": "#001d35",
+                    "on-primary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "on-background": "#191c1e",
+                    "primary-fixed": "#d0e4ff",
+                    "on-primary-container": "#abd2ff",
+                    "inverse-surface": "#2d3133",
+                    "on-error-container": "#93000a",
+                    "primary-fixed-dim": "#9ccaff",
+                    "surface-bright": "#f7f9fb",
+                    "outline-variant": "#c1c7d1",
+                    "tertiary-fixed": "#bcf0ae",
+                    "secondary": "#6f5b3f",
+                    "tertiary": "#1d4a19",
+                    "outline": "#717781",
+                    "surface-container-highest": "#e0e3e5",
+                    "inverse-on-surface": "#eff1f3",
+                    "primary": "#004370",
+                    "inverse-primary": "#9ccaff",
+                    "on-secondary-container": "#756144",
+                    "on-secondary": "#ffffff",
+                    "tertiary-container": "#35622e",
+                    "surface-container-lowest": "#ffffff",
+                    "surface": "#f7f9fb",
+                    "on-tertiary-container": "#a8dc9b",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed-variant": "#23501e",
+                    "surface-container-low": "#f2f4f6",
+                    "on-tertiary-fixed": "#002201",
+                    "surface-tint": "#12629d",
+                    "on-tertiary": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "on-secondary-fixed": "#261904",
+                    "surface-container-high": "#e6e8ea",
+                    "on-surface-variant": "#414750",
+                    "error": "#ba1a1a",
+                    "secondary-fixed-dim": "#dcc3a0",
+                    "surface-variant": "#e0e3e5",
+                    "secondary-fixed": "#fadeba",
+                    "surface-container": "#eceef0"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "container-max": "1280px",
+                    "margin-mobile": "16px",
+                    "margin-desktop": "40px",
+                    "gutter": "24px",
+                    "base": "8px"
+            },
+            "fontFamily": {
+                    "label-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "label-md": ["Inter"],
+                    "headline-xl": ["Montserrat"],
+                    "headline-lg-mobile": ["Montserrat"],
+                    "headline-md": ["Montserrat"],
+                    "headline-lg": ["Montserrat"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #f7f9fb;
+            overflow-x: hidden;
+        }
+        .coastal-gradient {
+            background: linear-gradient(135deg, rgba(247, 249, 251, 0.9) 0%, rgba(250, 222, 186, 0.4) 100%);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .beach-shadow {
+            box-shadow: 0 10px 30px rgba(0, 91, 150, 0.08);
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface">
+<main class="relative min-h-screen flex items-center justify-center overflow-hidden py-12 px-margin-mobile md:px-margin-desktop">
+<!-- Subtle Coastal Background Image -->
+<div class="absolute inset-0 z-0">
+<div class="w-full h-full bg-cover bg-center opacity-20 filter grayscale-[20%] sepia-[10%]" data-alt="A serene cinematic landscape of the Concón sand dunes at golden hour, overlooking the deep blue Pacific Ocean. The lighting is soft and atmospheric, capturing the tactile texture of wind-swept sand ridges and gentle sea foam. The color palette emphasizes soft beige, muted gold, and deep ocean blues, creating a professional and tranquil corporate atmosphere. The composition is wide and airy, suggesting openness and peace." style="background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuDbNHWO0gE0xVfClyfnLS2nalWy0nOBXV2vYSdIH_E16H4G05VclqnyjBygVbsT6BVHxgFppidcSc3ZWC_7FHR1Nr8yKoAEErkCO18I6HrveQz8ADzcmobqDwOkqK59my8SofsCQHOUMho1eg4iWc-GyI6dLmB1u5EIveXXKELJ3iAhPzq5-Ci0eGV3ZKJBlBybr7ERfI1fg0naxsomiDw6E3A57RQp6ykzQjQrcA1Dpq-3gBunMeMVkb4AKhddnd1yr15eYbyRH5we&quot;);">
+</div>
+<div class="absolute inset-0 bg-gradient-to-tr from-surface via-surface/80 to-transparent"></div>
+</div>
+<!-- Login Container -->
+<div class="relative z-10 w-full max-w-[480px] transition-all duration-500 ease-out transform scale-100 opacity-100">
+<!-- Branding -->
+<div class="text-center mb-8">
+<h1 class="font-headline-xl text-headline-xl text-primary tracking-tight mb-2">Direo</h1>
+<p class="font-body-md text-secondary tracking-wide">Tu conexión con lo mejor de Concón</p>
+</div>
+<!-- Card Form -->
+<div class="bg-surface-container-lowest beach-shadow rounded-xl p-8 md:p-10 border border-secondary-fixed/30 backdrop-blur-sm">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-6 text-center">Iniciar Sesión</h2>
+<form action="#" class="space-y-6" method="POST">
+<!-- Email Field -->
+<div>
+<label class="block font-label-md text-label-md text-on-surface-variant mb-2 ml-1" for="email">Correo Electrónico</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">mail</span>
+<input class="w-full pl-12 pr-4 py-3.5 bg-surface-container rounded-lg border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-primary outline-none transition-all font-body-md text-on-surface placeholder:text-outline-variant" id="email" name="email" placeholder="ejemplo@correo.cl" required="" type="email">
+</div>
+</div>
+<!-- Password Field -->
+<div>
+<div class="flex justify-between items-center mb-2 ml-1">
+<label class="block font-label-md text-label-md text-on-surface-variant" for="password">Contraseña</label>
+<a class="font-label-sm text-label-sm text-primary-container hover:text-primary transition-colors" href="#">¿Olvidaste tu contraseña?</a>
+</div>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">lock</span>
+<input class="w-full pl-12 pr-12 py-3.5 bg-surface-container rounded-lg border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-primary outline-none transition-all font-body-md text-on-surface placeholder:text-outline-variant" id="password" name="password" placeholder="••••••••" required="" type="password">
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant transition-colors" onclick="togglePassword()" type="button">
+<span class="material-symbols-outlined" id="visibility-icon">visibility</span>
+</button>
+</div>
+</div>
+<!-- Remember Me -->
+<div class="flex items-center">
+<label class="flex items-center cursor-pointer group">
+<input class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary focus:ring-offset-surface transition-all cursor-pointer" type="checkbox">
+<span class="ml-3 font-body-md text-body-md text-on-surface-variant group-hover:text-on-surface transition-colors">Recordarme</span>
+</label>
+</div>
+<!-- Submit Button -->
+<button class="w-full py-4 px-6 bg-primary-container text-on-primary font-label-md text-label-md rounded-full hover:bg-primary transition-all duration-300 transform active:scale-[0.98] beach-shadow flex justify-center items-center gap-2" type="submit">
+<span class="">Iniciar Sesión</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</form>
+<!-- Alternative Methods (Optional but adds to the high-end UI feel) -->
+
+</div>
+<!-- Footer Sign-up Link -->
+<div class="mt-8 text-center">
+<p class="font-body-md text-body-md text-on-surface-variant">
+                    ¿Aún no tienes una cuenta? 
+                    <a class="font-label-md text-label-md text-primary-container hover:underline ml-1" href="#">Regístrate gratis</a>
+</p>
+</div>
+<!-- Legal Minimal -->
+<div class="mt-12 text-center">
+<div class="flex justify-center gap-6 mb-4">
+<a class="font-label-sm text-label-sm text-outline hover:text-primary transition-colors" href="#">Términos</a>
+<a class="font-label-sm text-label-sm text-outline hover:text-primary transition-colors" href="#">Privacidad</a>
+<a class="font-label-sm text-label-sm text-outline hover:text-primary transition-colors" href="#">Ayuda</a>
+</div>
+<p class="font-label-sm text-label-sm text-outline/60">© 2024 Direo Concón. La Guía Costera.</p>
+</div>
+</div>
+<!-- Decorative Dune Elements (Animated floating circles for atmosphere) -->
+<div class="absolute top-[10%] left-[5%] w-64 h-64 bg-secondary-container/20 rounded-full blur-3xl -z-10 animate-pulse"></div>
+<div class="absolute bottom-[10%] right-[5%] w-96 h-96 bg-primary-fixed/20 rounded-full blur-3xl -z-10 animate-pulse" style="animation-delay: 2s"></div>
+</main>
+<script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const visibilityIcon = document.getElementById('visibility-icon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                visibilityIcon.textContent = 'visibility_off';
+            } else {
+                passwordInput.type = 'password';
+                visibilityIcon.textContent = 'visibility';
+            }
+        }
+
+        // Simple entrance animation trigger
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.querySelector('.relative.z-10');
+            container.classList.add('opacity-100');
+            container.classList.remove('opacity-0', 'scale-95');
+        });
+    </script>
+
+
+</body></html>

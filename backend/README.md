@@ -20,7 +20,7 @@ API REST desarrollada con **NestJS 10** y **Firebase** para el Directorio de Emp
 ### Core
 - ✅ CRUD completo de empresas, categorías y barrios
 - ✅ Sistema de autenticación con Firebase Auth
-- ✅ Gestión de usuarios con roles (admin/empresa/usuario)
+- ✅ Gestión de usuarios con roles (admin/owner/member)
 - ✅ Sistema de solicitudes y aprobaciones
 
 ### Sistema de Planes Premium
@@ -63,13 +63,33 @@ cp .env.example .env
 4. Genera una nueva clave privada
 5. Descarga el archivo JSON de la cuenta de servicio
 
-**Opción A: Usar archivo JSON completo**
+**Opción A: Archivo `firebase-admin.json` (recomendado para dev/VPS)**
+
+Coloca el JSON de la cuenta de servicio descargado como `firebase-admin.json` en la
+**raíz del repositorio** (junto al `package.json` del monorepo):
+
+```bash
+# Desde la raíz del repo
+cp ~/Downloads/directorio-concon-*.json firebase-admin.json
+```
+
+> ⚠️ `firebase-admin.json` está en `.gitignore` y **nunca debe commitearse**.
+
+Cuando el archivo existe y `FIREBASE_ENABLED` no es `false`, Firebase se
+**auto-habilita** al arrancar (no se requieren variables `FIREBASE_*`). Si el
+archivo está en otra ruta, apúntalo con `FIREBASE_ADMIN_CREDENTIALS_PATH`:
+
+```bash
+FIREBASE_ADMIN_CREDENTIALS_PATH=/secret/firebase-admin.json
+```
+
+**Opción B: Variable de entorno con JSON completo**
 ```bash
 # Establecer la variable de entorno con el contenido completo del JSON
 FIREBASE_SERVICE_ACCOUNT_KEY='{"type": "service_account", "project_id": "..."}'
 ```
 
-**Opción B: Usar campos individuales** (recomendado)
+**Opción C: Usar campos individuales**
 ```bash
 # Editar .env con los valores del archivo JSON descargado
 FIREBASE_PROJECT_ID=directorio-concon
@@ -82,20 +102,32 @@ FIREBASE_STORAGE_BUCKET=directorio-concon.appspot.com
 
 ### Modo sin Firebase (desarrollo local)
 
-El backend puede arrancar **sin** un proyecto Firebase configurado. Esto se controla
-con la variable `FIREBASE_ENABLED`:
+El backend puede arrancar **sin** un proyecto Firebase configurado. La habilitación
+de Firebase sigue esta precedencia (evaluada en `FirebaseConfig`):
 
-- **`FIREBASE_ENABLED=false`** (valor por defecto): el backend inicia y sirve
-  `/api/v1/health` y la estructura de la API, pero **no** inicializa Firebase. Los
-  endpoints que requieren Firestore (ej. `GET /api/v1/empresas`) devuelven
-  `503` con el mensaje `Firebase is not enabled. Set FIREBASE_ENABLED=true and provide credentials.`
+1. Si `FIREBASE_ENABLED=false`, Firebase **no** se inicializa (modo sin Firebase).
+2. Si `FIREBASE_ENABLED` no es `false` y existe un archivo de credenciales
+   (`FIREBASE_ADMIN_CREDENTIALS_PATH`, `firebase-admin.json` en la raíz del repo, o
+   en `../firebase-admin.json`), Firebase **auto-se habilita** usando ese archivo.
+3. Si no hay archivo pero están definidas las variables `FIREBASE_*` (Opción B/C),
+   se usan esas credenciales cuando `FIREBASE_ENABLED=true`.
+
+Comportamiento:
+
+- **Sin credenciales ni `FIREBASE_ENABLED=true`** (valor por defecto `false`): el
+  backend inicia y sirve `/api/v1/health` y la estructura de la API, pero **no**
+  inicializa Firebase. Los endpoints que requieren Firestore (ej.
+  `GET /api/v1/empresas`) devuelven `503` con el mensaje
+  `Firebase is not enabled. Set FIREBASE_ENABLED=true and provide credentials.`
   Ideal para desarrollo local sin Firebase.
-- **`FIREBASE_ENABLED=true`**: se requieren las variables `FIREBASE_*` reales (service
-  account JSON). Si la clave no es válida, el arranque falla con un error claro
-  (fail-fast).
+- **Con `firebase-admin.json` presente**: Firebase se auto-habilita al arrancar; el
+  log de arranque y `/api/v1/health` reportan `services.firebase: "connected"`.
+- **`FIREBASE_ENABLED=true` con credenciales inválidas**: el arranque falla con un
+  error claro (fail-fast).
 
-Para habilitar Firebase con credenciales reales, establece `FIREBASE_ENABLED=true` y
-completa la Opción A o B anterior con los valores del archivo JSON descargado.
+Para habilitar Firebase, la forma más simple es colocar `firebase-admin.json` en la
+raíz del repo (Opción A) o establecer `FIREBASE_ENABLED=true` y completar la
+Opción B/C con los valores del archivo JSON descargado.
 
 ### 3. Configurar Redis (Opcional)
 
@@ -220,8 +252,10 @@ npm run lint               # ESLint
 npm run format             # Prettier
 
 # Base de datos
-npm run seed               # Poblar datos iniciales
-npm run migrate            # Migrar datos desde Supabase
+npm run seed               # Poblar catálogo (categorias/barrios) + datos mock de places/eventos
+npm run seed:cat           # Solo catálogo: categorias + barrios
+npm run seed:places        # Solo datos mock: places + eventos
+npm run audit-refs         # Validar referencias de places/eventos contra el catálogo
 ```
 
 ## 🌍 Variables de Entorno
@@ -232,9 +266,10 @@ Ver `.env.example` para la configuración completa. Variables principales:
 |----------|-------------|---------|
 | `NODE_ENV` | Entorno de ejecución | `development` |
 | `PORT` | Puerto del servidor | `3000` |
-| `FIREBASE_ENABLED` | Inicializa Firebase al arrancar (`true`/`false`). Default `false` | `false` |
-| `FIREBASE_PROJECT_ID` | ID del proyecto Firebase (requerido si `FIREBASE_ENABLED=true`) | `directorio-concon` |
-| `FIREBASE_PRIVATE_KEY` | Clave privada de la cuenta de servicio (requerido si `FIREBASE_ENABLED=true`) | `-----BEGIN PRIVATE KEY-----...` |
+| `FIREBASE_ENABLED` | Habilita Firebase al arrancar. Si es `false`, nunca inicializa. Si no es `false` y existe un archivo de credenciales, **auto-se habilita**. Default `false` | `false` |
+| `FIREBASE_ADMIN_CREDENTIALS_PATH` | Ruta a un archivo de cuenta de servicio JSON. Tiene precedencia sobre `firebase-admin.json` en la raíz | `/secret/firebase-admin.json` |
+| `FIREBASE_PROJECT_ID` | ID del proyecto Firebase (opcional; se omite si se usa archivo/credenciales JSON) | `directorio-concon` |
+| `FIREBASE_PRIVATE_KEY` | Clave privada de la cuenta de servicio (opcional; se omite si se usa archivo/credenciales JSON) | `-----BEGIN PRIVATE KEY-----...` |
 | `CORS_ORIGINS` | URLs permitidas para CORS | `http://localhost:4200` |
 | `REDIS_URL` | URL de Redis | `redis://localhost:6379` |
 

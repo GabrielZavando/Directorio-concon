@@ -1,0 +1,19 @@
+{
+  "_comment": "madge config — Angular circular-dependency detection (auxiliary check). Optional per Ticket 4 §2.",
+  "_solid_coverage": "DIP (auxiliary) — circular deps break layered architecture; SRP indirectly (easier to detect tangled responsibilities when modules form cycles).",
+  "detective": {
+    "ts": {
+      "extensions": [".ts"],
+      "parseType": "module"
+    }
+  },
+  "fileExtensions": ["ts"],
+  "excludeRegExp": [
+    "\\.spec\\.ts$",
+    "\\.contract\\.spec\\.ts$",
+    "/node_modules/",
+    "/dist/"
+  ],
+  "circular": true,
+  "summary": false
+}

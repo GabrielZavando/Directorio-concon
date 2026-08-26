@@ -5,14 +5,30 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import * as admin from "firebase-admin";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { getAuth, Auth, DecodedIdToken, UserRecord } from "firebase-admin/auth";
+import {
+  getFirestore,
+  Firestore,
+  Timestamp,
+  FieldValue,
+  DocumentReference,
+  CollectionReference,
+  Transaction,
+  WriteBatch,
+  DocumentSnapshot,
+  Query,
+  QuerySnapshot,
+  WhereFilterOp,
+} from "firebase-admin/firestore";
+import { getStorage, Storage } from "firebase-admin/storage";
 
 @Injectable()
 export class FirebaseService implements OnModuleInit {
   private readonly logger = new Logger(FirebaseService.name);
-  private firestore: admin.firestore.Firestore;
-  private auth: admin.auth.Auth;
-  private storage: admin.storage.Storage;
+  private firestore: Firestore;
+  private auth: Auth;
+  private storage: Storage;
   private enabled = false;
 
   constructor(private readonly configService: ConfigService) {}
@@ -29,9 +45,9 @@ export class FirebaseService implements OnModuleInit {
     }
 
     try {
-      if (!admin.apps.length) {
-        admin.initializeApp({
-          credential: admin.credential.cert(firebaseConfig.serviceAccountKey),
+      if (!getApps().length) {
+        initializeApp({
+          credential: cert(firebaseConfig.serviceAccountKey),
           storageBucket: firebaseConfig.storageBucket,
           databaseURL: firebaseConfig.databaseURL,
         });
@@ -42,9 +58,9 @@ export class FirebaseService implements OnModuleInit {
       }
 
       // Inicializar servicios
-      this.firestore = admin.firestore();
-      this.auth = admin.auth();
-      this.storage = admin.storage();
+      this.firestore = getFirestore();
+      this.auth = getAuth();
+      this.storage = getStorage();
 
       // Configurar Firestore
       this.firestore.settings(firebaseConfig.firestoreSettings);
@@ -74,17 +90,17 @@ export class FirebaseService implements OnModuleInit {
   }
 
   // Getters para acceder a los servicios
-  getFirestore(): admin.firestore.Firestore {
+  getFirestore(): Firestore {
     this.assertEnabled();
     return this.firestore;
   }
 
-  getAuth(): admin.auth.Auth {
+  getAuth(): Auth {
     this.assertEnabled();
     return this.auth;
   }
 
-  getStorage(): admin.storage.Storage {
+  getStorage(): Storage {
     this.assertEnabled();
     return this.storage;
   }
@@ -94,38 +110,35 @@ export class FirebaseService implements OnModuleInit {
   /**
    * Convierte un timestamp de Firestore a Date
    */
-  timestampToDate(timestamp: admin.firestore.Timestamp): Date {
+  timestampToDate(timestamp: Timestamp): Date {
     return timestamp?.toDate() || null;
   }
 
   /**
    * Convierte una Date a timestamp de Firestore
    */
-  dateToTimestamp(date: Date): admin.firestore.Timestamp {
-    return admin.firestore.Timestamp.fromDate(date);
+  dateToTimestamp(date: Date): Timestamp {
+    return Timestamp.fromDate(date);
   }
 
   /**
    * Obtiene el timestamp actual de Firestore
    */
-  getCurrentTimestamp(): admin.firestore.Timestamp {
-    return admin.firestore.Timestamp.now();
+  getCurrentTimestamp(): Timestamp {
+    return Timestamp.now();
   }
 
   /**
    * Obtiene FieldValue para operaciones especiales
    */
-  getFieldValue() {
-    return admin.firestore.FieldValue;
+  getFieldValue(): typeof FieldValue {
+    return FieldValue;
   }
 
   /**
    * Crea una referencia a un documento
    */
-  createDocRef(
-    collection: string,
-    docId?: string,
-  ): admin.firestore.DocumentReference {
+  createDocRef(collection: string, docId?: string): DocumentReference {
     if (docId) {
       return this.firestore.collection(collection).doc(docId);
     }
@@ -135,7 +148,7 @@ export class FirebaseService implements OnModuleInit {
   /**
    * Crea una referencia a una colección
    */
-  createCollectionRef(collection: string): admin.firestore.CollectionReference {
+  createCollectionRef(collection: string): CollectionReference {
     return this.firestore.collection(collection);
   }
 
@@ -143,7 +156,7 @@ export class FirebaseService implements OnModuleInit {
    * Ejecuta una transacción
    */
   async runTransaction<T>(
-    updateFunction: (transaction: admin.firestore.Transaction) => Promise<T>,
+    updateFunction: (transaction: Transaction) => Promise<T>,
   ): Promise<T> {
     return this.firestore.runTransaction(updateFunction);
   }
@@ -151,7 +164,7 @@ export class FirebaseService implements OnModuleInit {
   /**
    * Crea un batch para operaciones múltiples
    */
-  createBatch(): admin.firestore.WriteBatch {
+  createBatch(): WriteBatch {
     return this.firestore.batch();
   }
 
@@ -169,7 +182,7 @@ export class FirebaseService implements OnModuleInit {
   async getDocument(
     collection: string,
     docId: string,
-  ): Promise<admin.firestore.DocumentSnapshot> {
+  ): Promise<DocumentSnapshot> {
     return this.firestore.collection(collection).doc(docId).get();
   }
 
@@ -180,16 +193,16 @@ export class FirebaseService implements OnModuleInit {
     collection: string,
     filters?: Array<{
       field: string;
-      operator: admin.firestore.WhereFilterOp;
-      value: any;
+      operator: WhereFilterOp;
+      value: unknown;
     }>,
     orderBy?: {
       field: string;
       direction: "asc" | "desc";
     },
     limit?: number,
-  ): Promise<admin.firestore.QuerySnapshot> {
-    let query: admin.firestore.Query = this.firestore.collection(collection);
+  ): Promise<QuerySnapshot> {
+    let query: Query = this.firestore.collection(collection);
 
     // Aplicar filtros
     if (filters) {
@@ -216,9 +229,9 @@ export class FirebaseService implements OnModuleInit {
    */
   async createDocument(
     collection: string,
-    data: any,
+    data: Record<string, unknown>,
     docId?: string,
-  ): Promise<admin.firestore.DocumentReference> {
+  ): Promise<DocumentReference> {
     const docRef = docId
       ? this.firestore.collection(collection).doc(docId)
       : this.firestore.collection(collection).doc();
@@ -238,7 +251,7 @@ export class FirebaseService implements OnModuleInit {
   async updateDocument(
     collection: string,
     docId: string,
-    data: any,
+    data: Record<string, unknown>,
   ): Promise<void> {
     const docRef = this.firestore.collection(collection).doc(docId);
     await docRef.update({
@@ -256,26 +269,44 @@ export class FirebaseService implements OnModuleInit {
   }
 
   /**
+   * Crea un nuevo usuario en Firebase Auth.
+   * Lanza 409 si el email ya existe, o error 400 si la contraseña no cumple requisitos.
+   */
+  async createUser(
+    email: string,
+    password: string,
+    displayName?: string,
+  ): Promise<{ uid: string }> {
+    this.assertEnabled();
+    const userRecord = await this.auth.createUser({
+      email,
+      password,
+      displayName,
+    });
+    return { uid: userRecord.uid };
+  }
+
+  /**
    * Verifica un token de Firebase Auth
    */
   async verifyIdToken(
     idToken: string,
     checkRevoked = true,
-  ): Promise<admin.auth.DecodedIdToken> {
+  ): Promise<DecodedIdToken> {
     return this.auth.verifyIdToken(idToken, checkRevoked);
   }
 
   /**
    * Obtiene información de un usuario por UID
    */
-  async getUserByUid(uid: string): Promise<admin.auth.UserRecord> {
+  async getUserByUid(uid: string): Promise<UserRecord> {
     return this.auth.getUser(uid);
   }
 
   /**
    * Obtiene información de un usuario por email
    */
-  async getUserByEmail(email: string): Promise<admin.auth.UserRecord> {
+  async getUserByEmail(email: string): Promise<UserRecord> {
     return this.auth.getUserByEmail(email);
   }
 
@@ -285,7 +316,7 @@ export class FirebaseService implements OnModuleInit {
   async uploadFile(
     filePath: string,
     buffer: Buffer,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ): Promise<string> {
     const bucket = this.storage.bucket();
     const file = bucket.file(filePath);
@@ -301,11 +332,11 @@ export class FirebaseService implements OnModuleInit {
   }
 
   /**
-   * Elimina un archivo del Storage
+   * Elimina un usuario de Firebase Auth por UID.
+   * Lanza ServiceUnavailableException si Firebase no está habilitado.
    */
-  async deleteFile(filePath: string): Promise<void> {
-    const bucket = this.storage.bucket();
-    const file = bucket.file(filePath);
-    await file.delete();
+  async deleteUser(uid: string): Promise<void> {
+    this.assertEnabled();
+    await this.auth.deleteUser(uid);
   }
 }

@@ -41,16 +41,66 @@
 - Errors con contexto: qué ocurrió, dónde, con qué datos
 - Health check endpoint: `/health`
 
+## Principios de Diseño — Backend (NestJS)
+
+SOLID es el rector del backend. Cada módulo de negocio se organiza en **Clean Architecture por feature** con capas obligatorias.
+
+### Estructura de carpetas obligatoria por módulo
+
+```
+backend/src/modules/<feature>/
+├── domain/           ← Entidades, value objects, interfaces de repositorio (puro TS, sin framework)
+│   ├── <feature>.entity.ts
+│   └── <feature>-repository.interface.ts
+├── application/      ← Casos de uso / services (orquestan domain + infrastructure via interfaces)
+│   └── <feature>.service.ts
+└── infrastructure/   ← Implementaciones concretas (Firestore adapter, Firebase Auth, HTTP clients)
+    └── <feature>.firestore.adapter.ts
+```
+
+- **DIP (Dependency Inversion)**: `domain/` y `application/` **nunca** importan de infraestructura concreta (`firebase-admin`, `@nestjs/axios`, `class-validator`, `class-transformer`). Solo importan interfaces definidas en `domain/`.
+- Los controllers viven en `infrastructure/` o directamente en la raíz del módulo (`<feature>.controller.ts`), dependiendo de la complejidad.
+
+### SRP (Single Responsibility)
+
+- Un servicio = una responsabilidad de negocio. Si mezcla data access + business logic + formatting → separar.
+- Un archivo ≤ 300 líneas (ver `templates/ci/eslintrc.backend.js`).
+
+### OCP (Open/Closed)
+
+- Preferir estrategias/polimorfismo sobre switch/if-else crecientes.
+- `sonarjs/no-collapsible-if` y `complexity ≤ 10` como guardrails.
+
+### LSP (Liskov Substitution)
+
+- Interfaces de contratos con `*.contract.spec.ts` que validan que cualquier implementación cumple el contrato.
+
+### ISP (Interface Segregation)
+
+- Interfaces de repositorio ≤ 5 métodos. Si crece, dividir en interfaces más específicas.
+
+### Umbrales objetivos (CI)
+
+| Métrica | Umbral | Config CI |
+|---|---|---|
+| `max-lines` por archivo | 300 | `templates/ci/eslintrc.backend.js` |
+| Cyclomatic complexity | ≤10 | `complexity` rule |
+| Cognitive complexity | ≤10 | `sonarjs/cognitive-complexity` rule |
+| `max-params` por función | ≤3 | `max-params` rule |
+| `max-depth` | ≤4 | `max-depth` rule |
+| Inheritance depth | ≤2 | `madge` (circular-dep) + review manual |
+| DIP (no infra imports en domain/application) | 0 violaciones | `templates/ci/.dependency-cruiser.js` |
+
 ## Stack específico del proyecto
 
 ```
 Runtime: Node.js 22 (>=20.19)
-Framework: NestJS 10 (modular, REST)
+Framework: NestJS 11 (modular, REST)
 Lenguaje: TypeScript 5
 BaaS: Firebase
-  - Firestore  : base de datos NoSQL (colecciones: empresas, categorias, barrios, usuarios, solicitudes)
+  - Firestore  : base de datos NoSQL (colecciones: places, categorias, barrios, usuarios, solicitudes)
   - Auth       : Firebase Authentication (tokens JWT verificados con Admin SDK)
-  - Storage    : logos/imágenes de empresas
+  - Storage    : logos/imágenes de places
 Cache: Redis (opcional, fallback a memoria)
 Validación: class-validator + class-transformer (ValidationPipe global whitelist+forbidNonWhitelisted)
 Docs: Swagger/OpenAPI (solo dev, /api/docs)
@@ -63,10 +113,20 @@ Commits: Conventional Commits (commitlint)
 ### Estructura de módulos (NestJS)
 
 Cada feature en `src/modules/<nombre>/`:
-- `<nombre>.module.ts`, `<nombre>.controller.ts`, `<nombre>.service.ts`
-- `dto/` (`create-<nombre>.dto.ts`, `update-<nombre>.dto.ts`)
-- `entities/` (`<nombre>.entity.ts`)
+- `<nombre>.module.ts`, `<nombre>.controller.ts`
+- `domain/` (`<nombre>.entity.ts`, `<nombre>-repository.interface.ts`)
+- `application/` (`<nombre>.service.ts`)
+- `infrastructure/` (`<nombre>.firestore.adapter.ts`, `dto/`)
 - Tests: `<nombre>.service.spec.ts`, `<nombre>.controller.spec.ts`
+
+Inventario actual (MVP):
+- `places`, `eventos`, `categorias`, `barrios`, `usuarios`, `auth`, `solicitudes`
+- Los módulos `categorias` y `barrios` (change `categorias-barrios-crud`) son la
+  referencia canónica de la plantilla Clean Architecture por feature:
+  repositorios separados en `CategoriaReadRepository`/`CategoriaWriteRepository`
+  (ISP ≤5 métodos), entidades puras sin imports de framework en `domain/`,
+  y un `CatalogValidator` compartido en `application/` que re-exportan para
+  que `places`/`eventos` validen referencias cross-catálogo (DIP).
 
 ### Firebase / Firestore
 
@@ -74,18 +134,18 @@ Cada feature en `src/modules/<nombre>/`:
 - Usar transacciones para operaciones atómicas.
 - Paginación con cursors (no offset).
 - Crear índices compuestos ANTES de deployar queries (ver `.github/instructions/database-instructions.md`).
-- Índices requeridos: empresas(categoriaId), empresas(barrioId), empresas(status+destacado+createdAt), empresas(slug único), categorias(slug único), barrios(slug único), usuarios(email único).
+- Índices requeridos: places(categoriaId), places(barrioId), places(status+destacado+createdAt), places(slug único), categorias(activo+orden), barrios(activo+tipo), usuarios(email único).
 
 ### Autenticación y roles
 
 - Guard JWT verifica `idToken` Firebase (`admin.auth().verifyIdToken`).
-- Roles: `admin` (CRUD total + aprobar), `empresa` (CRUD propia), `usuario` (solo lectura pública).
+- Roles: `admin` (CRUD total + aprobar), `owner` (CRUD propia), `member` (solo lectura pública).
 - No loguear tokens ni PII. CORS explícito por entorno.
 
 ### Testing
 
 - Unit tests para servicios (mock de `FirebaseService`).
-- E2E solo en endpoints críticos (auth, empresas).
+- E2E solo en endpoints críticos (auth, places).
 - Cobertura mínima objetivo: 90%.
 
 ### Lint / build

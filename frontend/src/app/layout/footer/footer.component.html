@@ -1,0 +1,60 @@
+<footer class="bg-surface-container-lowest border-t border-outline-variant">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8 pt-12 pb-8">
+    <!-- Brand column -->
+    <div>
+      <div class="mb-4">
+        <img
+          src="/assets/logo-transparente.webp"
+          alt="Directorio Concón"
+          height="40"
+          class="h-10 w-auto"
+        />
+      </div>
+      <p class="text-on-surface-variant text-sm leading-relaxed mb-4">
+        El directorio líder para negocios locales de Concón. Conectamos a los clientes con las mejores experiencias costeras.
+      </p>
+      <div class="flex space-x-4">
+        <a class="w-9 h-9 bg-surface-container-high rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition" href="#" aria-label="Compartir">
+          <svg lucideShare2 class="w-4 h-4"></svg>
+        </a>
+        <a class="w-9 h-9 bg-surface-container-high rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition" href="#" aria-label="Sitio web">
+          <svg lucideGlobe class="w-4 h-4"></svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- Link columns -->
+    @for (column of footerColumns; track column.title) {
+      <div>
+        <h4 class="text-on-surface font-headline font-bold text-lg mb-4">{{ column.title }}</h4>
+        <ul class="space-y-1">
+          @for (link of column.links; track link.label) {
+            <li>
+              <a class="text-on-surface-variant hover:text-primary text-sm font-medium transition block py-1" [href]="link.href">
+                {{ link.label }}
+              </a>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    <!-- Social column (Síguenos) -->
+    <div>
+      <h4 class="text-on-surface font-headline font-bold text-lg mb-4">Síguenos</h4>
+      <div class="flex space-x-4">
+        <a class="w-9 h-9 bg-surface-container-high rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition" href="#" aria-label="Compartir">
+          <svg lucideShare2 class="w-4 h-4"></svg>
+        </a>
+        <a class="w-9 h-9 bg-surface-container-high rounded-full flex items-center justify-center text-on-surface-variant hover:text-primary transition" href="#" aria-label="Sitio web">
+          <svg lucideGlobe class="w-4 h-4"></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copyright bar -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-outline-variant pt-6 pb-6 text-center text-sm text-on-surface-variant">
+    © {{ year }} Directorio Concón. Todos los derechos reservados.
+  </div>
+</footer>

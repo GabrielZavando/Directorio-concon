@@ -77,39 +77,50 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 #### Colecciones Principales (Core)
 
 ```
-/empresas/{empresaId}
+places/{placeId}
   - id: string (auto-generado)
   - nombre: string
   - slug: string (único, indexado)
+  - descripcionCorta: string
   - descripcion: string
   - categoriaId: string (referencia)
+  - subcategoriaId: string (opcional, referencia a categorias.subcategorias[].slug)
   - barrioId: string (referencia)
   - direccion: string
   - telefono: string (opcional)
+  - whatsapp: string (opcional)
   - email: string (opcional)
   - sitioWeb: string (opcional)
   
-  // REDES SOCIALES FLEXIBLES (máximo 3)
+  // REDES SOCIALES (máximo 3)
   - redesSociales: array<map> (máximo 3 elementos)
-      - id: string (UUID)
-      - nombre: string (ej: "Facebook", "Instagram", "TikTok")
-      - icono: string (nombre de icono Lucide o URL)
+      - plataforma: string
       - url: string (URL completa al perfil)
-      - color: string (opcional, color hexadecimal)
   
+  // IMÁGENES AGRUPADAS
+  - imagenes: map
+      - logo?: string
+      - portada?: string
+      - galeria: array<string>
+
   // SISTEMA DE PLANES
   - planId: string ('gratuito' | 'premium')
   - planStatus: string ('activo' | 'suspendido' | 'cancelado')
   - suscripcionId: string (opcional, referencia a suscripción)
   - planExpiraAt: timestamp (opcional, fecha de expiración premium)
   
+  // HORARIOS ESTRUCTURADOS
+  - horarios?: array<HorarioDia> (array de 7 días con turnos múltiples)
+  - horariosEspeciales?: array<HorarioEspecial> (fechas especiales con turnos)
+  - abierto24x7: boolean (default: false)
+  
   // CAMPOS BÁSICOS (disponibles en ambos planes)
-  - horarios: string
-  - servicios: array<string>
+  - servicios: array<ServicioEnum> (wifi, estacionamiento, acceso-discapacidad, apto-mascotas, delivery, take-away, terraza, vista-al-mar, reservas, ninos-bienvenida)
+  - metodosPago: array<MetodoPagoEnum> (efectivo, debito, credito, transferencia, qr)
   - coordenadas: map
       - lat: number
       - lng: number
-  - logoUrl: string
+  - idiomas: array<string> (post-MVP placeholder)
   
   // CAMPOS PREMIUM (solo plan premium)
   - galeria: array<map> (galería de imágenes adicionales)
@@ -140,13 +151,15 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
   // CAMPOS DE SISTEMA
   - destacado: boolean
   - verificado: boolean
+  - fechaVerificacion: timestamp (opcional)
   - status: string (pendiente | aprobado | rechazado)
   - usuarioId: string
-  - viewCount: number (contador de visualizaciones)
-  - contactCount: number (contador de contactos)
-  - avgRating: number (rating promedio)
-  - reviewCount: number (número de reseñas)
-  - vistasPerfilMes: number (vistas este mes)
+  - vistasTotales: number (post-MVP placeholder, default: 0)
+  - valoracionGoogle: map (post-MVP placeholder)
+      - rating: number
+      - reviewsCount: number
+      - mapsLink: string
+  - fechaPublicacion: timestamp (opcional)
   - createdAt: timestamp
   - updatedAt: timestamp
   - lastViewedAt: timestamp
@@ -160,7 +173,8 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
   - color: string (color hexadecimal)
   - orden: number
   - activa: boolean
-  - empresaCount: number (número de empresas en esta categoría)
+  - subcategorias: array<Subcategoria>
+  - placeCount: number (número de places en esta categoría)
   - parentCategoryId: string (opcional, para subcategorías)
   - keywords: array<string> (palabras clave para búsqueda)
   - createdAt: timestamp
@@ -176,7 +190,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
       - lat: number
       - lng: number
   - tipo: string (urbano | rural)
-  - empresaCount: number (número de empresas en este barrio)
+  - placeCount: number (número de places en este barrio)
   - popularidad: number (0-1, basado en búsquedas)
   - caracteristicas: array<string> (playero, centro, comercial, etc.)
   - createdAt: timestamp
@@ -186,8 +200,8 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
   - id: string (UID de Auth)
   - email: string
   - nombre: string
-  - rol: string (admin | empresa | usuario)
-  - empresaId: string (opcional)
+  - rol: string (admin | owner | member)
+  - placeId: string (opcional)
   - telefono: string (opcional)
   - avatar: string (URL de avatar)
   - preferences: map
@@ -202,7 +216,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 
 /solicitudes/{solicitudId}
   - id: string
-  - empresaId: string
+  - placeId: string
   - usuarioId: string
   - tipo: string (registro | actualizacion | eliminacion)
   - status: string (pendiente | aprobado | rechazado)
@@ -221,7 +235,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 ```
 /reviews/{reviewId}
   - id: string
-  - empresaId: string
+  - placeId: string
   - usuarioId: string
   - rating: number (1-5)
   - title: string
@@ -240,9 +254,9 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 /review-responses/{responseId}
   - id: string
   - reviewId: string
-  - empresaId: string
+  - placeId: string
   - content: string
-  - respondedBy: string (usuario ID del dueño de empresa)
+  - respondedBy: string (usuario ID del dueño de place)
   - isOfficial: boolean
   - createdAt: timestamp
 ```
@@ -277,7 +291,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 
 /suscripciones/{suscripcionId}
   - id: string
-  - empresaId: string
+  - placeId: string
   - planId: string
   - usuarioId: string
   - status: string ('activa' | 'cancelada' | 'expirada' | 'suspendida')
@@ -297,7 +311,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 /pagos/{pagoId}
   - id: string
   - suscripcionId: string
-  - empresaId: string
+  - placeId: string
   - monto: number
   - currency: string ('CLP')
   - status: string ('pendiente' | 'completado' | 'fallido' | 'reembolsado')
@@ -337,7 +351,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 /accesos-recursos/{accesoId}
   - id: string
   - recursoId: string
-  - empresaId: string  
+  - placeId: string  
   - usuarioId: string
   - status: string ('activo' | 'usado' | 'expirado')
   - codigoAcceso: string (opcional, código de descuento)
@@ -352,7 +366,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
   - nombre: string (opcional, para chats grupales)
   - tipo: string ('directo' | 'grupo')
   - participantes: array<string> (IDs de usuarios)
-  - empresasParticipantes: array<string> (IDs de empresas)
+  - placesParticipantes: array<string> (IDs de places)
   - ultimoMensaje: map
       - contenido: string
       - autorId: string
@@ -365,7 +379,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
   - id: string
   - chatId: string
   - autorId: string (usuario)
-  - empresaId: string (empresa del autor)
+  - placeId: string (place del autor)
   - contenido: string
   - tipo: string ('texto' | 'imagen' | 'archivo' | 'enlace')
   - archivoUrl: string (opcional)
@@ -412,14 +426,14 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
       - subcategory: string
       - confidence: number (0-1)
   - entities: array<map>
-      - type: string (empresa | categoria | barrio | servicio | ubicacion | tiempo)
+      - type: string (place | categoria | barrio | servicio | ubicacion | tiempo)
       - value: string
       - confidence: number
       - startIndex: number
       - endIndex: number
   - suggestions: array<string>
   - relatedEmpresas: array<map>
-      - empresaId: string
+      - placeId: string
       - relevanceScore: number (0-1)
       - reason: string
   - processingTime: number (ms)
@@ -449,7 +463,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
       - searchMethod: string (text | voice | chat | filters)
       - location: map (opcional)
   - interactions: array<map>
-      - empresaId: string
+      - placeId: string
       - type: string (view | contact | recommend | share | favorite | review)
       - timestamp: timestamp
       - duration: number (ms)
@@ -472,8 +486,8 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
   - createdAt: timestamp
   - lastUpdated: timestamp
 
-/ai-empresa-embeddings/{empresaId}
-  - id: string (empresaId)
+/ai-place-embeddings/{placeId}
+  - id: string (placeId)
   - embeddings: map
       - description: array<number>
       - services: array<number>
@@ -514,7 +528,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 
 /ai-sentiment-analysis/{analysisId}
   - id: string
-  - empresaId: string
+  - placeId: string
   - sourceType: string (review | chat_mention | social_media | survey | aggregated)
   - sourceId: string (opcional)
   - sentiment: map
@@ -564,7 +578,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
 
 /ai-business-insights/{insightId}
   - id: string
-  - empresaId: string
+  - placeId: string
   - period: map
       - start: timestamp
       - end: timestamp
@@ -641,7 +655,7 @@ Instrucciones detalladas para la configuración y gestión de la base de datos u
       - locationBias: map
   - recommendationHistory: array<map>
       - recommendationId: string
-      - empresaId: string
+      - placeId: string
       - score: number
       - algorithm: string
       - reason: string
@@ -793,14 +807,14 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    function isEmpresaOwner(empresaId) {
+    function isPlaceOwner(placeId) {
       return isAuthenticated() && 
-             get(/databases/$(database)/documents/empresas/$(empresaId)).data.usuarioId == request.auth.uid;
+             get(/databases/$(database)/documents/places/$(placeId)).data.usuarioId == request.auth.uid;
     }
 
     // EMPRESAS
-    match /empresas/{empresaId} {
-      // Lectura: Cualquiera puede leer empresas aprobadas
+    match /places/{placeId} {
+      // Lectura: Cualquiera puede leer places aprobados
       allow read: if resource.data.status == 'aprobado' || 
                      isAdmin() || 
                      isOwner(resource.data.usuarioId);
@@ -854,7 +868,7 @@ service cloud.firestore {
 
     // SOLICITUDES
     match /solicitudes/{solicitudId} {
-      // Lectura: Dueño de la empresa o admin
+      // Lectura: Dueño del place o admin
       allow read: if isAdmin() || 
                      isOwner(resource.data.usuarioId);
       
@@ -874,7 +888,7 @@ service cloud.firestore {
       // Lectura: Todos pueden leer reseñas publicadas
       allow read: if resource.data.status == 'published';
       
-      // Creación: Usuario autenticado, una reseña por empresa
+      // Creación: Usuario autenticado, una reseña por place
       allow create: if isAuthenticated() && 
                        request.resource.data.usuarioId == request.auth.uid &&
                        request.resource.data.status == 'pending';
@@ -893,10 +907,10 @@ service cloud.firestore {
       // Lectura: Todos pueden leer respuestas
       allow read: if true;
       
-      // Creación: Solo dueño de empresa o admin
+      // Creación: Solo dueño de place o admin
       allow create: if isAuthenticated() && 
                        (isAdmin() || 
-                        get(/databases/$(database)/documents/empresas/$(request.resource.data.empresaId)).data.usuarioId == request.auth.uid);
+                        get(/databases/$(database)/documents/places/$(request.resource.data.placeId)).data.usuarioId == request.auth.uid);
       
       // Actualización y eliminación: Solo el autor o admin
       allow update, delete: if isAdmin() || isOwner(resource.data.respondedBy);
@@ -952,7 +966,7 @@ service cloud.firestore {
     }
 
     // AI EMPRESA EMBEDDINGS
-    match /ai-empresa-embeddings/{empresaId} {
+    match /ai-place-embeddings/{placeId} {
       // Lectura: Solo backend service o admin
       allow read: if isAdmin();
       
@@ -962,10 +976,10 @@ service cloud.firestore {
 
     // AI SENTIMENT ANALYSIS
     match /ai-sentiment-analysis/{analysisId} {
-      // Lectura: Dueño de la empresa o admin
+      // Lectura: Dueño del place o admin
       allow read: if isAdmin() || 
-                     (exists(/databases/$(database)/documents/empresas/$(resource.data.empresaId)) &&
-                      get(/databases/$(database)/documents/empresas/$(resource.data.empresaId)).data.usuarioId == request.auth.uid);
+                     (exists(/databases/$(database)/documents/places/$(resource.data.placeId)) &&
+                      get(/databases/$(database)/documents/places/$(resource.data.placeId)).data.usuarioId == request.auth.uid);
       
       // Escritura: Solo backend service
       allow create, update, delete: if isAdmin();
@@ -973,15 +987,15 @@ service cloud.firestore {
 
     // AI BUSINESS INSIGHTS
     match /ai-business-insights/{insightId} {
-      // Lectura: Dueño de la empresa o admin
+      // Lectura: Dueño del place o admin
       allow read: if isAdmin() || 
-                     (exists(/databases/$(database)/documents/empresas/$(resource.data.empresaId)) &&
-                      get(/databases/$(database)/documents/empresas/$(resource.data.empresaId)).data.usuarioId == request.auth.uid);
+                     (exists(/databases/$(database)/documents/places/$(resource.data.placeId)) &&
+                      get(/databases/$(database)/documents/places/$(resource.data.placeId)).data.usuarioId == request.auth.uid);
       
       // Actualización: Solo para feedback del usuario o admin
       allow update: if isAdmin() || 
-                       (exists(/databases/$(database)/documents/empresas/$(resource.data.empresaId)) &&
-                        get(/databases/$(database)/documents/empresas/$(resource.data.empresaId)).data.usuarioId == request.auth.uid &&
+                       (exists(/databases/$(database)/documents/places/$(resource.data.placeId)) &&
+                        get(/databases/$(database)/documents/places/$(resource.data.placeId)).data.usuarioId == request.auth.uid &&
                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedBy', 'actionsImplemented', 'feedback']));
       
       // Creación y eliminación: Solo backend service
@@ -1051,15 +1065,15 @@ service cloud.firestore {
 
     // SUSCRIPCIONES
     match /suscripciones/{suscripcionId} {
-      // Lectura: Solo el dueño de la empresa o admin
+      // Lectura: Solo el dueño del place o admin
       allow read: if isAdmin() || 
-                     (exists(/databases/$(database)/documents/empresas/$(resource.data.empresaId)) &&
-                      get(/databases/$(database)/documents/empresas/$(resource.data.empresaId)).data.usuarioId == request.auth.uid);
+                     (exists(/databases/$(database)/documents/places/$(resource.data.placeId)) &&
+                      get(/databases/$(database)/documents/places/$(resource.data.placeId)).data.usuarioId == request.auth.uid);
       
-      // Creación: Usuario autenticado para su empresa
+      // Creación: Usuario autenticado para su place
       allow create: if isAuthenticated() && 
-                       exists(/databases/$(database)/documents/empresas/$(request.resource.data.empresaId)) &&
-                       get(/databases/$(database)/documents/empresas/$(request.resource.data.empresaId)).data.usuarioId == request.auth.uid;
+                       exists(/databases/$(database)/documents/places/$(request.resource.data.placeId)) &&
+                       get(/databases/$(database)/documents/places/$(request.resource.data.placeId)).data.usuarioId == request.auth.uid;
       
       // Actualización: Solo admin (para cambios de estado) o dueño (para cancelación)
       allow update: if isAdmin() || 
@@ -1072,10 +1086,10 @@ service cloud.firestore {
 
     // PAGOS
     match /pagos/{pagoId} {
-      // Lectura: Solo el dueño de la empresa o admin
+      // Lectura: Solo el dueño del place o admin
       allow read: if isAdmin() || 
-                     (exists(/databases/$(database)/documents/empresas/$(resource.data.empresaId)) &&
-                      get(/databases/$(database)/documents/empresas/$(resource.data.empresaId)).data.usuarioId == request.auth.uid);
+                     (exists(/databases/$(database)/documents/places/$(resource.data.placeId)) &&
+                      get(/databases/$(database)/documents/places/$(resource.data.placeId)).data.usuarioId == request.auth.uid);
       
       // Escritura: Solo admin o backend service
       allow create, update, delete: if isAdmin();
@@ -1083,7 +1097,7 @@ service cloud.firestore {
 
     // RECURSOS DIGITALES
     match /recursos-digitales/{recursoId} {
-      // Lectura: Solo empresas premium pueden ver recursos
+      // Lectura: Solo places premium pueden ver recursos
       allow read: if isAdmin() || 
                      (isAuthenticated() && isPremiumUser());
       
@@ -1160,10 +1174,10 @@ service cloud.firestore {
   function isPremiumUser() {
     return isAuthenticated() && 
            exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
-           get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresaId != null &&
-           exists(/databases/$(database)/documents/empresas/$(get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresaId)) &&
-           get(/databases/$(database)/documents/empresas/$(get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresaId)).data.planId == 'premium' &&
-           get(/databases/$(database)/documents/empresas/$(get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.empresaId)).data.planStatus == 'activo';
+           get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.placeId != null &&
+           exists(/databases/$(database)/documents/places/$(get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.placeId)) &&
+           get(/databases/$(database)/documents/places/$(get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.placeId)).data.planId == 'premium' &&
+           get(/databases/$(database)/documents/places/$(get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.placeId)).data.planStatus == 'activo';
   }
 }
 ```
@@ -1206,17 +1220,17 @@ service firebase.storage {
     }
     
     // LOGOS DE EMPRESAS
-    match /empresas/{empresaId}/logo/{fileName} {
+    match /places/{placeId}/logo/{fileName} {
       // Lectura: Público (para mostrar en web)
       allow read: if true;
       
-      // Escritura: Usuario autenticado que es dueño de la empresa
+      // Escritura: Usuario autenticado que es dueño del place
       allow write: if isAuthenticated() && 
                       isValidImage() &&
-                      exists(/databases/$(database)/documents/empresas/$(empresaId)) &&
-                      get(/databases/$(database)/documents/empresas/$(empresaId)).data.usuarioId == request.auth.uid;
+                      exists(/databases/$(database)/documents/places/$(placeId)) &&
+                      get(/databases/$(database)/documents/places/$(placeId)).data.usuarioId == request.auth.uid;
       
-      // Eliminación: Dueño de la empresa o admin
+      // Eliminación: Dueño del place o admin
       allow delete: if isAuthenticated();
     }
     
@@ -1259,9 +1273,9 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
   "indexes": [
     // CORE COLLECTIONS INDEXES
     
-    // empresas - Búsquedas por categoría
+    // places - Búsquedas por categoría
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "categoriaId", "order": "ASCENDING" },
@@ -1269,9 +1283,9 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    // empresas - Búsquedas por barrio
+    // places - Búsquedas por barrio
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "barrioId", "order": "ASCENDING" },
@@ -1279,9 +1293,9 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    // empresas - Listado con destacados
+    // places - Listado con destacados
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
@@ -1289,9 +1303,9 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    // empresas - Por rating
+    // places - Por rating
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
@@ -1299,18 +1313,18 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    // empresas - Por usuario
+    // places - Por usuario
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "usuarioId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    // empresas - Verificadas
+    // places - Verificadas
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "verificado", "order": "ASCENDING" },
@@ -1387,12 +1401,12 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
     
     // REVIEWS COLLECTIONS INDEXES
     
-    // reviews - Por empresa
+    // reviews - Por place
     {
       "collectionGroup": "reviews",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "placeId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
@@ -1411,7 +1425,7 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
       "collectionGroup": "reviews",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "placeId", "order": "ASCENDING" },
         { "fieldPath": "rating", "order": "DESCENDING" }
       ]
     },
@@ -1476,12 +1490,12 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
       ]
     },
     
-    // ai-sentiment-analysis - Por empresa
+    // ai-sentiment-analysis - Por place
     {
       "collectionGroup": "ai-sentiment-analysis",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "placeId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
@@ -1495,12 +1509,12 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
       ]
     },
     
-    // ai-business-insights - Por empresa
+    // ai-business-insights - Por place
     {
       "collectionGroup": "ai-business-insights",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "placeId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
@@ -1572,12 +1586,12 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     },
-    // analytics-events - Por empresa
+    // analytics-events - Por place
     {
       "collectionGroup": "analytics-events",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "placeId", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     },
@@ -1631,12 +1645,12 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
       ]
     },
     
-    // suscripciones - Por empresa
+    // suscripciones - Por place
     {
       "collectionGroup": "suscripciones",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "placeId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
     },
@@ -1677,12 +1691,12 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    // pagos - Por empresa
+    // pagos - Por place
     {
       "collectionGroup": "pagos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "placeId", "order": "ASCENDING" },
         { "fieldPath": "fechaPago", "order": "DESCENDING" }
       ]
     },
@@ -1718,12 +1732,12 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
     },
-    // accesos-recursos - Por empresa
+    // accesos-recursos - Por place
     {
       "collectionGroup": "accesos-recursos",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "placeId", "order": "ASCENDING" },
         { "fieldPath": "fechaAcceso", "order": "DESCENDING" }
       ]
     },
@@ -1778,11 +1792,86 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
       ]
     },
     
+    // EVENTOS INDEXES
+    
+    // eventos - Por categoriaId y fechaInicio
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "categoriaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por barrioId y fechaInicio
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "barrioId", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por status, destacado y fechaInicio (listado público)
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "destacado", "order": "DESCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por slug (único)
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "slug", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por usuarioId y createdAt (mis eventos)
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "usuarioId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    // eventos - Por fechaInicio y estado (eventos próximos)
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    // eventos - Por subcategoriaId y fechaInicio
+    {
+      "collectionGroup": "eventos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subcategoriaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaInicio", "order": "ASCENDING" }
+      ]
+    },
+    // solicitudes - Por eventoId y status
+    {
+      "collectionGroup": "solicitudes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventoId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    
     // INDEXES ADICIONALES PARA EMPRESAS CON PLANES
     
-    // empresas - Por plan
+    // places - Por plan
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "planId", "order": "ASCENDING" },
@@ -1790,9 +1879,9 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
-    // empresas - Premium activas
+    // places - Premium activas
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "planId", "order": "ASCENDING" },
@@ -1800,9 +1889,9 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
         { "fieldPath": "destacado", "order": "DESCENDING" }
       ]
     },
-    // empresas - Por vencimiento de plan
+    // places - Por vencimiento de plan
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "planExpiraAt", "order": "ASCENDING" },
@@ -1813,7 +1902,7 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
   "fieldOverrides": [
     // Campos únicos que necesitan índices especiales
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "fieldPath": "slug",
       "indexes": [
         {
@@ -1854,7 +1943,7 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
     },
     // Coordenadas para geoqueries
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "fieldPath": "coordenadas.lat",
       "indexes": [
         {
@@ -1864,7 +1953,7 @@ Los índices compuestos son necesarios para queries complejas. Firebase los suge
       ]
     },
     {
-      "collectionGroup": "empresas",
+      "collectionGroup": "places",
       "fieldPath": "coordenadas.lng",
       "indexes": [
         {
@@ -1890,18 +1979,18 @@ firebase deploy --only firestore:indexes
 ### Diferencias entre Planes
 
 #### Plan Gratuito
-- ✅ Perfil básico de empresa
+- ✅ Perfil básico de place
 - ✅ Información de contacto (teléfono, email, dirección)
 - ✅ Hasta 3 redes sociales flexibles
-- ✅ Logo de empresa
+- ✅ Logo de place
 - ✅ Descripción básica y servicios
 - ✅ Ubicación en mapa
 - ✅ Horarios de atención
 - ❌ Galería de imágenes adicionales
 - ❌ Video promocional
-- ❌ Información empresarial avanzada (misión, visión, valores)
+- ❌ Información avanzada de place (misión, visión, valores)
 - ❌ Equipo de trabajo
-- ❌ Chat empresarial
+- ❌ Chat entre places
 - ❌ Acceso a recursos digitales
 - ❌ SEO avanzado
 - ❌ Estadísticas detalladas
@@ -1910,12 +1999,12 @@ firebase deploy --only firestore:indexes
 - ✅ **Todas las características del plan gratuito**
 - ✅ Galería de imágenes (hasta 10 fotos)
 - ✅ Video promocional (YouTube/Vimeo embed)
-- ✅ Información empresarial completa (misión, visión, valores)
+- ✅ Información completa de place (misión, visión, valores)
 - ✅ Perfil de equipo con fotos y descripciones
 - ✅ Certificaciones y reconocimientos
-- ✅ Chat empresarial con otros miembros premium
+- ✅ Chat entre places con otros miembros premium
 - ✅ Acceso a recursos digitales exclusivos:
-  - Software de gestión empresarial
+  - Software de gestión de places
   - Almacenamiento en la nube (100GB)
   - Descuentos en servicios de desarrollo web
   - Plantillas de marketing digital
@@ -1924,11 +2013,11 @@ firebase deploy --only firestore:indexes
 - ✅ Estadísticas detalladas del perfil
 - ✅ Edición directa del perfil (sin formularios)
 - ✅ Mayor visibilidad en búsquedas
-- ✅ Posibilidad de ser empresa destacada
+- ✅ Posibilidad de ser place destacado
 
 ### Flujo de Suscripción
 
-1. **Registro Inicial**: Todas las empresas empiezan con plan gratuito
+1. **Registro Inicial**: Todos los places empiezan con plan gratuito
 2. **Upgrade a Premium**: 
    - Usuario selecciona plan premium
    - Proceso de pago (Webpay, transferencia)
@@ -1950,7 +2039,7 @@ Los miembros premium tienen acceso a:
 
 #### Almacenamiento y Backup
 - 100GB de almacenamiento en la nube
-- Backup automático de datos empresariales
+- Backup automático de datos de place
 - Sincronización entre dispositivos
 
 #### Descuentos y Beneficios
@@ -1960,7 +2049,7 @@ Los miembros premium tienen acceso a:
 - Consultoría gratuita mensual (1 hora)
 
 #### Networking y Comunidad
-- Chat empresarial exclusivo
+- Chat entre places exclusivo
 - Eventos de networking mensuales
 - Directorio de contactos premium
 - Oportunidades de colaboración
@@ -1990,51 +2079,51 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-async function migrateEmpresas() {
-  console.log('Migrando empresas...');
+async function migratePlaces() {
+  console.log('Migrando places...');
   
-  const { data: empresas, error } = await supabase
-    .from('empresas')
+  const { data: places, error } = await supabase
+    .from('places')
     .select('*');
   
   if (error) throw error;
   
   const batch = db.batch();
   
-  for (const empresa of empresas) {
-    const docRef = db.collection('empresas').doc();
+  for (const place of places) {
+    const docRef = db.collection('places').doc();
     
     const firestoreData = {
-      nombre: empresa.nombre,
-      slug: empresa.slug,
-      descripcion: empresa.descripcion || '',
-      categoriaId: empresa.categoria_id,
-      barrioId: empresa.barrio_id,
-      direccion: empresa.direccion || '',
-      telefono: empresa.telefono || null,
-      email: empresa.email || null,
-      sitioWeb: empresa.sitio_web || null,
-      redesSociales: empresa.redes_sociales || {},
-      horarios: empresa.horarios || null,
-      servicios: empresa.servicios || [],
-      coordenadas: empresa.lat && empresa.lng ? {
-        lat: empresa.lat,
-        lng: empresa.lng
+      nombre: placeData.nombre,
+      slug: placeData.slug,
+      descripcion: placeData.descripcion || '',
+      categoriaId: placeData.categoria_id,
+      barrioId: placeData.barrio_id,
+      direccion: placeData.direccion || '',
+      telefono: placeData.telefono || null,
+      email: placeData.email || null,
+      sitioWeb: placeData.sitio_web || null,
+      redesSociales: placeData.redes_sociales || {},
+      horarios: placeData.horarios || null,
+      servicios: placeData.servicios || [],
+      coordenadas: placeData.lat && placeData.lng ? {
+        lat: placeData.lat,
+        lng: placeData.lng
       } : null,
-      logoUrl: empresa.logo_url || null,
-      destacado: empresa.destacado || false,
-      verificado: empresa.verificado || false,
-      status: empresa.status || 'pendiente',
-      usuarioId: empresa.usuario_id || '',
-      createdAt: admin.firestore.Timestamp.fromDate(new Date(empresa.created_at)),
-      updatedAt: admin.firestore.Timestamp.fromDate(new Date(empresa.updated_at)),
+      logoUrl: placeData.logo_url || null,
+      destacado: placeData.destacado || false,
+      verificado: placeData.verificado || false,
+      status: placeData.status || 'pendiente',
+      usuarioId: placeData.usuario_id || '',
+      createdAt: admin.firestore.Timestamp.fromDate(new Date(placeData.created_at)),
+      updatedAt: admin.firestore.Timestamp.fromDate(new Date(placeData.updated_at)),
     };
     
     batch.set(docRef, firestoreData);
   }
   
   await batch.commit();
-  console.log(`✅ ${empresas.length} empresas migradas`);
+  console.log(`✅ ${places.length} places migradas`);
 }
 
 async function migrateCategorias() {
@@ -2139,16 +2228,16 @@ node migrate-to-firebase.js
 ```typescript
 const firestore = this.firebaseService.getFirestore();
 
-const empresaData = {
+const placeData = {
   nombre: 'Nueva Empresa',
-  slug: 'nueva-empresa',
+  slug: 'nuevo-place',
   status: 'pendiente',
   createdAt: admin.firestore.FieldValue.serverTimestamp(),
   updatedAt: admin.firestore.FieldValue.serverTimestamp(),
 };
 
-const docRef = await firestore.collection('empresas').add(empresaData);
-console.log('Empresa creada con ID:', docRef.id);
+const docRef = await firestore.collection('places').add(placeData);
+  console.log('Place creado con ID:', docRef.id);
 ```
 
 ### Datos Iniciales de Planes y Recursos
@@ -2172,12 +2261,12 @@ async function crearPlanesIniciales() {
     {
       id: 'gratuito',
       nombre: 'Plan Gratuito',
-      descripcion: 'Perfil básico para empezar a promocionar tu empresa',
+      descripcion: 'Perfil básico para empezar a promocionar tu place',
       precio: 0,
       currency: 'CLP',
       duracion: 0, // Ilimitado
       caracteristicas: [
-        'Perfil básico de empresa',
+        'Perfil básico de place',
         'Información de contacto completa',
         'Hasta 3 redes sociales personalizables',
         'Logo y descripción',
@@ -2217,10 +2306,10 @@ async function crearPlanesIniciales() {
         'Todas las características del plan gratuito',
         'Galería de imágenes (hasta 10 fotos)',
         'Video promocional',
-        'Información empresarial completa',
+        'Información completa de place',
         'Perfil de equipo',
         'Certificaciones y reconocimientos',
-        'Chat empresarial exclusivo',
+        'Chat entre places exclusivo',
         'Recursos digitales premium',
         'SEO avanzado',
         'Estadísticas detalladas',
@@ -2245,7 +2334,7 @@ async function crearPlanesIniciales() {
         '100GB almacenamiento en la nube',
         'Descuentos en servicios',
         'Consultoría mensual gratuita',
-        'Networking empresarial',
+        'Networking de places',
         'Soporte prioritario'
       ],
       popular: true,
@@ -2283,14 +2372,14 @@ main();
 
 ```typescript
 const snapshot = await firestore
-  .collection('empresas')
+  .collection('places')
   .where('status', '==', 'aprobado')
   .where('categoriaId', '==', 'cat-123')
   .orderBy('createdAt', 'desc')
   .limit(20)
   .get();
 
-const empresas = snapshot.docs.map(doc => ({
+const places = snapshot.docs.map(doc => ({
   id: doc.id,
   ...doc.data(),
 }));
@@ -2300,8 +2389,8 @@ const empresas = snapshot.docs.map(doc => ({
 
 ```typescript
 await firestore
-  .collection('empresas')
-  .doc(empresaId)
+  .collection('places')
+  .doc(placeId)
   .update({
     nombre: 'Nombre Actualizado',
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -2312,15 +2401,15 @@ await firestore
 
 ```typescript
 await firestore
-  .collection('empresas')
-  .doc(empresaId)
+  .collection('places')
+  .doc(placeId)
   .delete();
 ```
 
 ### Transacciones
 
 ```typescript
-const docRef = firestore.collection('empresas').doc(empresaId);
+const docRef = firestore.collection('places').doc(placeId);
 
 await firestore.runTransaction(async (transaction) => {
   const doc = await transaction.get(docRef);
@@ -2357,7 +2446,7 @@ await firestore.runTransaction(async (transaction) => {
 ```typescript
 // Primera página
 let query = firestore
-  .collection('empresas')
+  .collection('places')
   .orderBy('createdAt', 'desc')
   .limit(20);
 
@@ -2373,9 +2462,9 @@ query = query.startAfter(lastVisible);
 ```typescript
 const batch = firestore.batch();
 
-empresas.forEach(empresa => {
-  const docRef = firestore.collection('empresas').doc();
-  batch.set(docRef, empresa);
+places.forEach(place => {
+  const docRef = firestore.collection('places').doc();
+  batch.set(docRef, placeData);
 });
 
 // Commit todas las operaciones

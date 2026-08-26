@@ -43,12 +43,17 @@ warn() { echo -e "  ${YELLOW}⚠${NC} $1"; ERRORS=$((ERRORS + 1)); }
 note() { echo -e "  ${YELLOW}ℹ${NC} $1"; }
 
 # Template-owned files/dirs that may be safely overwritten in the target project.
+# NOTE: The upstream template Makefile does NOT include the monorepo adaptation
+# (solid-lint target). After syncing, verify that your Makefile still has the
+# solid-lint target. If lost, re-apply the monorepo changes manually or keep
+# a local override.
 SYNC_ITEMS=(
   "ai-specs"
   "AGENTS.md"
   "specboot.sh"
   "check-refs.sh"
   "Makefile"
+  "templates"
 )
 
 sync_item() {

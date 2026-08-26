@@ -2,7 +2,7 @@
 
 ## 📋 Resumen
 
-Este documento detalla las instrucciones específicas para el desarrollo del backend del Directorio de Empresas de Concón usando **NestJS** y **Firebase** como Backend as a Service.
+Este documento detalla las instrucciones específicas para el desarrollo del backend del Directorio de Lugares de Concón usando **NestJS** y **Firebase** como Backend as a Service.
 
 ---
 
@@ -31,16 +31,16 @@ npm install @nestjs/throttler
 ```
 src/
 ├── modules/
-│   ├── empresas/
+│   ├── places/
 │   │   ├── dto/
-│   │   │   ├── create-empresa.dto.ts
-│   │   │   ├── update-empresa.dto.ts
-│   │   │   └── search-empresa.dto.ts
+│   │   │   ├── create-place.dto.ts
+│   │   │   ├── update-place.dto.ts
+│   │   │   └── search-place.dto.ts
 │   │   ├── entities/
-│   │   │   └── empresa.entity.ts
-│   │   ├── empresas.controller.ts
-│   │   ├── empresas.service.ts
-│   │   └── empresas.module.ts
+│   │   │   └── place.entity.ts
+│   │   ├── places.controller.ts
+│   │   ├── places.service.ts
+│   │   └── places.module.ts
 │   ├── categorias/
 │   │   ├── dto/
 │   │   ├── categorias.controller.ts
@@ -191,30 +191,30 @@ bootstrap();
 
 ## 🏗️ Módulos Principales
 
-### 1. Módulo de Empresas
+### 1. Módulo de Places
 
-**empresas.service.ts**:
+**places.service.ts**:
 ```typescript
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { FirebaseService } from '../../config/firebase.config';
-import { CreateEmpresaDto } from './dto/create-empresa.dto';
-import { UpdateEmpresaDto } from './dto/update-empresa.dto';
-import { SearchEmpresaDto } from './dto/search-empresa.dto';
+import { CreatePlaceDto } from './dto/create-place.dto';
+import { UpdatePlaceDto } from './dto/update-place.dto';
+import { SearchPlaceDto } from './dto/search-place.dto';
 import * as slugify from 'slugify';
 
 @Injectable()
-export class EmpresasService {
-  private readonly collection = 'empresas';
+export class PlacesService {
+  private readonly collection = 'places';
 
   constructor(private firebaseService: FirebaseService) {}
 
-  async create(createDto: CreateEmpresaDto, userId: string) {
+  async create(createDto: CreatePlaceDto, userId: string) {
     const firestore = this.firebaseService.getFirestore();
     
     // Generar slug único
     const slug = await this.generateUniqueSlug(createDto.nombre);
     
-    const empresaData = {
+    const placeData = {
       ...createDto,
       slug,
       usuarioId: userId,
@@ -225,18 +225,18 @@ export class EmpresasService {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    const docRef = await firestore.collection(this.collection).add(empresaData);
+    const docRef = await firestore.collection(this.collection).add(placeData);
     
     // Crear solicitud de aprobación
     await firestore.collection('solicitudes').add({
-      empresaId: docRef.id,
+      placeId: docRef.id,
       usuarioId: userId,
       tipo: 'registro',
       status: 'pendiente',
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { id: docRef.id, ...empresaData };
+    return { id: docRef.id, ...placeData };
   }
 
   async findAll(page: number = 1, limit: number = 20) {
@@ -251,7 +251,7 @@ export class EmpresasService {
       .limit(limit)
       .get();
 
-    const empresas = snapshot.docs.map(doc => ({
+    const places = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -263,7 +263,7 @@ export class EmpresasService {
       .get();
 
     return {
-      data: empresas,
+      data: places,
       total: totalSnapshot.data().count,
       page,
       totalPages: Math.ceil(totalSnapshot.data().count / limit),
@@ -275,7 +275,7 @@ export class EmpresasService {
     const doc = await firestore.collection(this.collection).doc(id).get();
 
     if (!doc.exists) {
-      throw new NotFoundException(`Empresa con ID ${id} no encontrada`);
+      throw new NotFoundException(`Place con ID ${id} no encontrado`);
     }
 
     return { id: doc.id, ...doc.data() };
@@ -320,7 +320,7 @@ export class EmpresasService {
     }
 
     const snapshot = await query.get();
-    let empresas = snapshot.docs.map(doc => ({
+    let places = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -328,10 +328,11 @@ export class EmpresasService {
     // Búsqueda por texto (en memoria, no óptimo para gran escala)
     if (searchDto.q) {
       const searchTerm = searchDto.q.toLowerCase();
-      empresas = empresas.filter(empresa =>
-        empresa.nombre.toLowerCase().includes(searchTerm) ||
-        empresa.descripcion?.toLowerCase().includes(searchTerm) ||
-        empresa.direccion?.toLowerCase().includes(searchTerm)
+      places = places.filter(place =>
+        place.nombre.toLowerCase().includes(searchTerm) ||
+        place.descripcion?.toLowerCase().includes(searchTerm) ||
+        place.descripcionCorta?.toLowerCase().includes(searchTerm) ||
+        place.direccion?.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -339,31 +340,31 @@ export class EmpresasService {
     const page = searchDto.page || 1;
     const limit = searchDto.limit || 20;
     const offset = (page - 1) * limit;
-    const paginatedEmpresas = empresas.slice(offset, offset + limit);
+    const paginatedPlaces = places.slice(offset, offset + limit);
 
     return {
-      data: paginatedEmpresas,
-      total: empresas.length,
+      data: paginatedPlaces,
+      total: places.length,
       page,
-      totalPages: Math.ceil(empresas.length / limit),
+      totalPages: Math.ceil(places.length / limit),
     };
   }
 
-  async update(id: string, updateDto: UpdateEmpresaDto, userId: string) {
+  async update(id: string, updateDto: UpdatePlaceDto, userId: string) {
     const firestore = this.firebaseService.getFirestore();
     const docRef = firestore.collection(this.collection).doc(id);
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      throw new NotFoundException(`Empresa con ID ${id} no encontrada`);
+      throw new NotFoundException(`Place con ID ${id} no encontrado`);
     }
 
-    const empresaData = doc.data();
+    const placeData = doc.data();
     
     // Verificar permisos (solo el dueño o admin pueden actualizar)
-    if (empresaData.usuarioId !== userId) {
+    if (placeData.usuarioId !== userId) {
       // Aquí verificar si es admin
-      throw new BadRequestException('No tienes permisos para actualizar esta empresa');
+      throw new BadRequestException('No tienes permisos para actualizar este place');
     }
 
     const updatedData = {
@@ -373,7 +374,7 @@ export class EmpresasService {
 
     await docRef.update(updatedData);
 
-    return { id, ...empresaData, ...updatedData };
+    return { id, ...placeData, ...updatedData };
   }
 
   async remove(id: string, userId: string) {
@@ -382,14 +383,14 @@ export class EmpresasService {
     const doc = await docRef.get();
 
     if (!doc.exists) {
-      throw new NotFoundException(`Empresa con ID ${id} no encontrada`);
+      throw new NotFoundException(`Place con ID ${id} no encontrado`);
     }
 
-    const empresaData = doc.data();
+    const placeData = doc.data();
     
     // Verificar permisos
-    if (empresaData.usuarioId !== userId) {
-      throw new BadRequestException('No tienes permisos para eliminar esta empresa');
+    if (placeData.usuarioId !== userId) {
+      throw new BadRequestException('No tienes permisos para eliminar este place');
     }
 
     await docRef.delete();
@@ -442,7 +443,7 @@ export class EmpresasService {
 }
 ```
 
-**empresas.controller.ts**:
+**places.controller.ts**:
 ```typescript
 import {
   Controller,
@@ -456,86 +457,122 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { EmpresasService } from './empresas.service';
-import { CreateEmpresaDto } from './dto/create-empresa.dto';
-import { UpdateEmpresaDto } from './dto/update-empresa.dto';
-import { SearchEmpresaDto } from './dto/search-empresa.dto';
+import { PlacesService } from './places.service';
+import { CreatePlaceDto } from './dto/create-place.dto';
+import { UpdatePlaceDto } from './dto/update-place.dto';
+import { SearchPlaceDto } from './dto/search-place.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
-@ApiTags('empresas')
-@Controller('empresas')
-export class EmpresasController {
-  constructor(private readonly empresasService: EmpresasService) {}
+@ApiTags('places')
+@Controller('places')
+export class PlacesController {
+  constructor(private readonly placesService: PlacesService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Crear nueva empresa' })
+  @ApiOperation({ summary: 'Crear nuevo place' })
   create(
-    @Body() createDto: CreateEmpresaDto,
+    @Body() createDto: CreatePlaceDto,
     @CurrentUser('uid') userId: string,
   ) {
-    return this.empresasService.create(createDto, userId);
+    return this.placesService.create(createDto, userId);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar empresas con paginación' })
+  @ApiOperation({ summary: 'Listar places con paginación' })
   findAll(@Query('page') page?: number, @Query('limit') limit?: number) {
-    return this.empresasService.findAll(page, limit);
+    return this.placesService.findAll(page, limit);
   }
 
   @Get('search')
-  @ApiOperation({ summary: 'Buscar empresas con filtros' })
-  search(@Query() searchDto: SearchEmpresaDto) {
-    return this.empresasService.search(searchDto);
+  @ApiOperation({ summary: 'Buscar places con filtros' })
+  search(@Query() searchDto: SearchPlaceDto) {
+    return this.placesService.search(searchDto);
   }
 
   @Get('map-data')
   @ApiOperation({ summary: 'Obtener datos para mapa interactivo' })
   getMapData() {
-    return this.empresasService.getMapData();
+    return this.placesService.getMapData();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener empresa por ID' })
+  @ApiOperation({ summary: 'Obtener place por ID' })
   findOne(@Param('id') id: string) {
-    return this.empresasService.findOne(id);
+    return this.placesService.findOne(id);
   }
 
   @Get('slug/:slug')
-  @ApiOperation({ summary: 'Obtener empresa por slug' })
+  @ApiOperation({ summary: 'Obtener place por slug' })
   findBySlug(@Param('slug') slug: string) {
-    return this.empresasService.findBySlug(slug);
+    return this.placesService.findBySlug(slug);
   }
 
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Actualizar empresa' })
+  @ApiOperation({ summary: 'Actualizar place' })
   update(
     @Param('id') id: string,
-    @Body() updateDto: UpdateEmpresaDto,
+    @Body() updateDto: UpdatePlaceDto,
     @CurrentUser('uid') userId: string,
   ) {
-    return this.empresasService.update(id, updateDto, userId);
+    return this.placesService.update(id, updateDto, userId);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Eliminar empresa' })
+  @ApiOperation({ summary: 'Eliminar place' })
   remove(@Param('id') id: string, @CurrentUser('uid') userId: string) {
-    return this.empresasService.remove(id, userId);
+    return this.placesService.remove(id, userId);
   }
 }
 ```
 
 ### 2. DTOs con Validación
 
-**dto/create-empresa.dto.ts**:
+@Get(':id')
+  @ApiOperation({ summary: 'Obtener place por ID' })
+  findOne(@Param('id') id: string) {
+    return this.placesService.findOne(id);
+  }
+
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Obtener place por slug' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.placesService.findBySlug(slug);
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Actualizar place' })
+  update(
+    @Param('id') id: string,
+    @Body() updateDto: UpdatePlaceDto,
+    @CurrentUser('uid') userId: string,
+  ) {
+    return this.placesService.update(id, updateDto, userId);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Eliminar place' })
+  remove(@Param('id') id: string, @CurrentUser('uid') userId: string) {
+    return this.placesService.remove(id, userId);
+  }
+}
+```
+
+### 2. DTOs con Validación
+
+**dto/create-place.dto.ts**:
 ```typescript
-import { IsString, IsNotEmpty, IsOptional, IsEmail, IsObject, ValidateNested, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEmail, IsObject, ValidateNested, MinLength, MaxLength, IsNumber, IsArray, IsEnum, ArrayMaxSize } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -549,40 +586,111 @@ class CoordenadasDto {
   lng: number;
 }
 
-class RedesSocialesDto {
-  @ApiPropertyOptional()
-  @IsOptional()
+class TurnoDto {
+  @ApiProperty()
   @IsString()
-  facebook?: string;
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+  apertura: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
+  @ApiProperty()
   @IsString()
-  instagram?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  twitter?: string;
+  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+  cierre: string;
 }
 
-export class CreateEmpresaDto {
-  @ApiProperty({ example: 'Restaurante La Perla' })
+class HorarioDiaDto {
+  @ApiProperty()
+  @IsEnum(['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'])
+  dia: string;
+
+  @ApiProperty()
+  @IsBoolean()
+  abierto: boolean;
+
+  @ApiProperty({ type: [TurnoDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TurnoDto)
+  turnos: TurnoDto[];
+}
+
+class HorarioEspecialDto {
+  @ApiProperty()
   @IsString()
-  @IsNotEmpty()
-  @MinLength(3)
-  @MaxLength(200)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  fecha: string;
+
+  @ApiProperty()
+  @IsString()
+  descripcion: string;
+
+  @ApiProperty({ type: [TurnoDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TurnoDto)
+  turnos: TurnoDto[];
+}
+
+class RedSocialDto {
+  @ApiProperty()
+  @IsEnum(['instagram', 'facebook', 'x-twitter', 'linkedin', 'tiktok', 'youtube'])
+  plataforma: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsUrl()
+  url: string;
+}
+
+class ImagenesDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @IsUrl()
+  logo?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @IsUrl()
+  portada?: string;
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsUrl({}, { each: true })
+  @ArrayMaxSize(10)
+  galeria: string[];
+}
+
+export class CreatePlaceDto {
+  @ApiProperty({ example: 'Restaurante El Marino' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   nombre: string;
 
-  @ApiProperty({ example: 'Restaurante de mariscos con vista al mar' })
+  @ApiProperty({ example: 'Mariscos frescos con vista al mar en Concón' })
   @IsString()
-  @IsOptional()
-  descripcion?: string;
+  @MinLength(1)
+  @MaxLength(140)
+  descripcionCorta: string;
 
-  @ApiProperty({ example: 'cat-restaurantes' })
+  @ApiProperty({ example: 'Restaurante familiar especializado en mariscos y pescados frescos...' })
+  @IsString()
+  @MinLength(10)
+  @MaxLength(2000)
+  descripcion: string;
+
+  @ApiProperty({ example: 'gastronomia' })
   @IsString()
   @IsNotEmpty()
   categoriaId: string;
+
+  @ApiPropertyOptional({ example: 'restaurantes' })
+  @IsOptional()
+  @IsString()
+  subcategoriaId?: string;
 
   @ApiProperty({ example: 'barrio-centro' })
   @IsString()
@@ -591,62 +699,107 @@ export class CreateEmpresaDto {
 
   @ApiProperty({ example: 'Av. Borgoño 12345, Concón' })
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(200)
   direccion: string;
 
-  @ApiPropertyOptional({ example: '+56912345678' })
+  @ApiPropertyOptional({ example: '+56932123456' })
   @IsOptional()
   @IsString()
+  @Matches(/^(\+56)?[2-9]\d{7,8}$/, { message: 'Formato de teléfono chileno inválido' })
   telefono?: string;
 
-  @ApiPropertyOptional({ example: 'contacto@laperla.cl' })
+  @ApiPropertyOptional({ example: '+56932123456' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^(\+56)?[2-9]\d{7,8}$/, { message: 'Formato de WhatsApp chileno inválido' })
+  whatsapp?: string;
+
+  @ApiPropertyOptional({ example: 'contacto@elmarino.cl' })
   @IsOptional()
   @IsEmail()
   email?: string;
 
-  @ApiPropertyOptional({ example: 'https://laperla.cl' })
+  @ApiPropertyOptional({ example: 'https://www.elmarino.cl' })
   @IsOptional()
-  @IsString()
+  @IsUrl()
   sitioWeb?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: [RedSocialDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RedSocialDto)
+  @ArrayMaxSize(3)
+  redesSociales?: RedSocialDto[];
+
+  @ApiPropertyOptional({ type: ImagenesDto })
   @IsOptional()
   @ValidateNested()
-  @Type(() => RedesSocialesDto)
-  redesSociales?: RedesSocialesDto;
+  @Type(() => ImagenesDto)
+  imagenes?: ImagenesDto;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: [HorarioDiaDto] })
   @IsOptional()
-  @IsString()
-  horarios?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HorarioDiaDto)
+  horarios?: HorarioDiaDto[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: [HorarioEspecialDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => HorarioEspecialDto)
+  horariosEspeciales?: HorarioEspecialDto[];
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  abierto24x7?: boolean;
+
+  @ApiPropertyOptional({ type: [String], enum: ['wifi', 'estacionamiento', 'acceso-discapacidad', 'apto-mascotas', 'delivery', 'take-away', 'terraza', 'vista-al-mar', 'reservas', 'ninos-bienvenida'] })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(['wifi', 'estacionamiento', 'acceso-discapacidad', 'apto-mascotas', 'delivery', 'take-away', 'terraza', 'vista-al-mar', 'reservas', 'ninos-bienvenida'], { each: true })
+  servicios?: string[];
+
+  @ApiPropertyOptional({ type: [String], enum: ['efectivo', 'debito', 'credito', 'transferencia', 'qr'] })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(['efectivo', 'debito', 'credito', 'transferencia', 'qr'], { each: true })
+  metodosPago?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  servicios?: string[];
+  idiomas?: string[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: CoordenadasDto })
   @IsOptional()
   @ValidateNested()
   @Type(() => CoordenadasDto)
   coordenadas?: CoordenadasDto;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ enum: ['gratuito', 'premium'] })
+  @IsEnum(['gratuito', 'premium'])
+  planId: string;
+
+  @ApiPropertyOptional({ example: 'auth-uid-ejemplo' })
   @IsOptional()
   @IsString()
-  logoUrl?: string;
+  usuarioId?: string;
 }
 ```
 
-**dto/search-empresa.dto.ts**:
+**dto/search-place.dto.ts**:
 ```typescript
-import { IsOptional, IsString, IsBoolean, IsNumber, Min, Max } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsNumber, Min, Max, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-export class SearchEmpresaDto {
-  @ApiPropertyOptional({ example: 'restaurante' })
+export class SearchPlaceDto {
+  @ApiPropertyOptional({ example: 'pizzería' })
   @IsOptional()
   @IsString()
   q?: string;
@@ -666,6 +819,11 @@ export class SearchEmpresaDto {
   @Type(() => Boolean)
   @IsBoolean()
   destacado?: boolean;
+
+  @ApiPropertyOptional({ enum: ['pendiente', 'aprobado', 'rechazado'] })
+  @IsOptional()
+  @IsEnum(['pendiente', 'aprobado', 'rechazado'])
+  status?: string;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
@@ -867,20 +1025,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
 ## 📊 Testing
 
-**empresas.service.spec.ts**:
+**places.service.spec.ts**:
 ```typescript
 import { Test, TestingModule } from '@nestjs/testing';
-import { EmpresasService } from './empresas.service';
+import { PlacesService } from './places.service';
 import { FirebaseService } from '../../config/firebase.config';
 
-describe('EmpresasService', () => {
-  let service: EmpresasService;
+describe('PlacesService', () => {
+  let service: PlacesService;
   let firebaseService: FirebaseService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        EmpresasService,
+        PlacesService,
         {
           provide: FirebaseService,
           useValue: {
@@ -890,7 +1048,7 @@ describe('EmpresasService', () => {
       ],
     }).compile();
 
-    service = module.get<EmpresasService>(EmpresasService);
+    service = module.get<PlacesService>(PlacesService);
     firebaseService = module.get<FirebaseService>(FirebaseService);
   });
 
@@ -899,19 +1057,22 @@ describe('EmpresasService', () => {
   });
 
   describe('create', () => {
-    it('should create a new empresa', async () => {
+    it('should create a new place', async () => {
       const createDto = {
-        nombre: 'Test Empresa',
+        nombre: 'Test Place',
+        descripcionCorta: 'Descripción corta de prueba',
+        descripcion: 'Descripción detallada de prueba con más de 10 caracteres',
         categoriaId: 'cat1',
         barrioId: 'bar1',
         direccion: 'Test 123',
+        planId: 'gratuito',
       };
 
       // Mock Firestore methods
       // ...
 
       const result = await service.create(createDto, 'user123');
-      expect(result.nombre).toBe('Test Empresa');
+      expect(result.nombre).toBe('Test Place');
     });
   });
 });
@@ -959,7 +1120,7 @@ nest g service modules/nuevos
 - [ ] Configurar CORS
 
 ### Módulos Core
-- [ ] Módulo de Empresas (CRUD completo)
+- [ ] Módulo de Places (CRUD completo)
 - [ ] Módulo de Categorías
 - [ ] Módulo de Barrios
 - [ ] Módulo de Autenticación

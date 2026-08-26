@@ -1,0 +1,24 @@
+{
+  "_comment": "Reference snapshot of devDependencies required by templates/ci/*.js configs. Merge into your project's package.json when instantiating. Inspect each version pin against your own stack versions before installing.",
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-plugin-sonarjs": "^0.25.0",
+    "@angular-eslint/eslint-plugin": "^18.0.0",
+    "@angular-eslint/eslint-plugin-template": "^18.0.0",
+    "@angular-eslint/schematics": "^18.0.0",
+    "@angular-eslint/builder": "^18.0.0",
+    "dependency-cruiser": "^16.0.0",
+    "madge": "^8.0.0",
+    "eslint-plugin-astro": "^1.0.0",
+    "eslint-plugin-import": "^2.29.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0"
+  },
+  "_notes": [
+    "eslint-plugin-sonarjs: complexity & duplication rules",
+    "@angular-eslint/*: Angular-specific lint incl. component structure",
+    "dependency-cruiser: enforces DIP between domain|application and infrastructure",
+    "madge: detects circular dependencies (Angular, optional)",
+    "eslint-plugin-astro + eslint-plugin-import: native Astro lint surface"
+  ]
+}
