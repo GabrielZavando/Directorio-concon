@@ -7,41 +7,33 @@ The `solicitudes` capability manages the admin approval workflow for places and 
 The system SHALL persist a `Solicitud` document in the Firestore collection `solicitudes` with the following fields:
 
 - `id: string` — Firestore document ID (auto-generated)
-- `placeId?: string` — reference to a `places` document; REQUIRED-but-nullable (XOR with `eventoId`): present when `tipo ∈ {'registro', 'actualizacion'}`, `null` when `tipo` ends in `-evento`
-- `eventoId?: string` — reference to an `eventos` document; REQUIRED-but-nullable (XOR with `placeId`): present when `tipo ∈ {'registro-evento', 'actualizacion-evento'}`, `null` otherwise
+- `placeId?: string` — reference to a `places` document; REQUIRED-but-nullable (XOR with `eventoId`): present when `tipo ∈ {'registro', 'actualizacion'}`, `null` when `tipo` ends in `-evento` (DEPRECATED — see migration note)
+- `eventoId?: string` — reference to an `eventos` document; REQUIRED-but-nullable (XOR with `placeId`): DECPRECATED — present when `tipo ∈ {'registro-evento', 'actualizacion-evento'}` (these two tipos are deprecated as of CH-04 `eventos-refactor` and will be removed in CH-05 `solicitudes-refactor`; the `eventos` module no longer creates them)
 - `usuarioId: string` — Firebase Auth UID of the publisher who triggered the solicitud (REQUIRED, never null)
-- `tipo: SolicitudTipo` — enum: `'registro' | 'actualizacion' | 'registro-evento' | 'actualizacion-evento' | 'reclamo-place'`
+- `tipo: SolicitudTipo` — enum: `'registro' | 'actualizacion' | 'registro-evento' (DEPRECATED) | 'actualizacion-evento' (DEPRECATED) | 'reclamo-place'`
 - `status: SolicitudStatus` — enum: `'pendiente' | 'aprobado' | 'rechazado'` (default `'pendiente'` on create)
-- `proposal?: Record<string, unknown>` — JSON object carrying the staged update fields; REQUIRED when `tipo === 'actualizacion-evento'`, `null` for all other `tipo` values
+- `proposal?: Record<string, unknown>` — JSON object carrying the staged update fields; REQUIRED when `tipo === 'actualizacion-evento'` (DEPRECATED), `null` for all other `tipo` values
 - `solicitanteUid?: string` — Firebase Auth UID of the caller claiming the place; REQUIRED when `tipo === 'reclamo-place'`, `null` otherwise
 - `comentarios?: string` — free text, optional publisher/admin commentary
 - `revisadoPor?: string` — Firebase Auth UID of the admin who approved/rejected the solicitud; set when `status` transitions to `'aprobado'` or `'rechazado'`; MUST reference a `usuarios` document with `rol === 'admin'`
 - `createdAt: Date` — document creation timestamp
 - `revisadoAt?: Date` — timestamp of the `aprobar`/`rechazar` action
 
-The XOR invariant (`placeId` ⊕ `eventoId`, exactly one is non-null per `tipo`) is enforced by `SolicitudesService`; this requirement repeats it for the canonical record.
+The XOR invariant (`placeId` ⊕ `eventoId`, exactly one is non-null per `tipo`) is enforced by `SolicitudesService`; the `registro-evento`/`actualizacion-evento` tipos are retained in the enum ONLY for backward-reading of legacy documents until CH-05 removes them physically.
 
-**Runtime enforcement**: this change adds the missing application-boundary check. `SolicitudesService` gains a private `assertXorConstraint(input)` invoked by both `create` and `createEventoSolicitud` **before** delegating to the repository. The check validates:
+**Runtime enforcement** (unchanged from prior changes): `SolicitudesService` gains a private `assertXorConstraint(input)` invoked by both `create` and `createEventoSolicitud` before delegating to the repository.
 
-1. Exactly one of `placeId` / `eventoId` is present (never both, never neither).
-2. The present reference matches the `tipo`: a `placeId` requires `tipo ∈ {'registro', 'actualizacion', 'reclamo-place'}`; an `eventoId` requires `tipo ∈ {'registro-evento', 'actualizacion-evento'}`.
-3. When `tipo === 'reclamo-place'`, the `solicitanteUid` field is REQUIRED and must be non-null.
+**DEPRECATION NOTE (CH-04)**: As of the `eventos-refactor` change, the `eventos` module no longer calls `solicitudService.createEventoSolicitud` and no longer injects `SOLICITUDES_SERVICE`. Therefore the two scenarios below that previously asserted auto-creation of `registro-evento`/`actualizacion-evento` are now obsolete for the `eventos` flow. The physical removal of the enum values and fields is tracked in CH-05.
 
-A violation throws `400 BadRequestException` with a domain message (`Una solicitud debe referenciar exactamente un placeId o eventoId (XOR)`), and **nothing is persisted**. The input types of both service methods widen to the domain shape (`placeId?: string; eventoId?: string`) so the invariant is expressible and testable at the service boundary.
+#### Scenario: No auto-create solicitud on POST /eventos (changed by eventos-refactor)
+- **WHEN** a publisher sends `POST /api/v1/eventos` and the evento is persisted with `activo: true` and `estadoVerificacion: 'pendiente'`
+- **THEN** NO `solicitud` document is auto-created (the evento is visible immediately without admin approval)
+- **AND** the owner can still have their evento verified later via `POST /api/v1/eventos/{id}/verificar` (admin action), which does not create a `solicitud`
 
-#### Scenario: No auto-create solicitud on POST /places (removed by places-refactor)
-- **WHEN** a publisher sends `POST /api/v1/places` and the place is persisted with `activo: true` and `estadoVerificacion: 'pendiente'`
-- **THEN** NO `solicitud` document is auto-created (the place is visible immediately without admin approval)
-- **AND** the owner can later claim admin-created places via `POST /places/{id}/reclamar` (creates `reclamo-place` solicitud)
-
-#### Scenario: Auto-create solicitud on POST /eventos
-- **WHEN** a publisher sends `POST /api/v1/eventos` and the event is persisted with `status: 'pendiente'` and `estado: 'borrador'`
-- **THEN** a `solicitud` document is auto-created with `tipo: 'registro-evento'`, `status: 'pendiente'`, `eventoId` pointing to the new event, `placeId: null`, `usuarioId` set to the publisher's UID, `proposal: null`
-
-#### Scenario: Auto-create solicitud on PUT /eventos/{id} when event is approved
-- **WHEN** a publisher (the event's owner or an admin) sends `PUT /api/v1/eventos/{id}` for an event with `status: 'aprobado'`
-- **THEN** the event document is NOT modified in-place
-- **AND** a `solicitud` is auto-created with `tipo: 'actualizacion-evento'`, `status: 'pendiente'`, `eventoId` pointing to the event, `usuarioId` set to the editor's UID, `proposal: { ...updateFields }` (a JSON object carrying the staged change)
+#### Scenario: No staged solicitud on PUT /eventos/{id} when event is verified (changed by eventos-refactor)
+- **WHEN** a publisher (the event's owner or an admin) sends `PUT /api/v1/eventos/{id}` for an evento with `estadoVerificacion: 'verificado'`
+- **THEN** the evento document IS modified in-place (with `estadoVerificacion` reverted to `'pendiente'` and a `cambios[]` entry appended)
+- **AND** NO `solicitud` is auto-created (the legacy `actualizacion-evento` flow is removed)
 
 #### Scenario: Reject solicitud with both placeId and eventoId set (XOR violation)
 - **WHEN** `SolicitudesService.create` is called with both `placeId` and `eventoId` non-null
@@ -60,10 +52,6 @@ A violation throws `400 BadRequestException` with a domain message (`Una solicit
 
 #### Scenario: Valid place solicitud passes the constraint
 - **WHEN** `SolicitudesService.create` is called with `placeId` set, `eventoId` absent, and `tipo ∈ {'registro', 'actualizacion', 'reclamo-place'}`
-- **THEN** the service delegates to the repository and the solicitud is persisted
-
-#### Scenario: Valid evento solicitud passes the constraint
-- **WHEN** `SolicitudesService.createEventoSolicitud` is called with `eventoId` set, `placeId` absent, and `tipo: 'registro-evento'`
 - **THEN** the service delegates to the repository and the solicitud is persisted
 
 ### Requirement: `revisadoPor` resolver — rol `'admin'`

@@ -1,10 +1,7 @@
-# eventos Specification
+# eventos Specification (CH-04 delta)
 
-## Purpose
-The `eventos` capability provides time-bound activity listings for the Directorio de Concón — festivals, ferias, conciertos, carreras, talleres, ferias patrias, etc. — alongside the existing `places` entity. Publishers (rol `'owner'`) and admins record an event once with category (reusing the existing `eventos` category + its 10 seeded subcategories), barrio (reusing the existing `barrios` collection), exact GPS coordinates, date/time range, pricing, accessibility, target audience and noise level. An admin approves the event through the standard `solicitudes` workflow (extended with the `tipo` values `'registro-evento'` and `'actualizacion-evento'`, plus an optional `eventoId` reference). Approved events become publicly discoverable via search, slug lookup, and a lightweight `/map-data` endpoint for an interactive map. The frontend delivers a creation/edit form (publisher and admin), public list, ficha with map, and "My Events"/admin panels — all reusing the existing SPA shell, reusable search component, layout base, and `@angular/google-maps`.
+## MODIFIED Requirements
 
----
-## Requirements
 ### Requirement: Evento entity schema
 The system SHALL persist an `Evento` document in the Firestore collection `eventos` with the following fields:
 
@@ -33,8 +30,8 @@ The system SHALL persist an `Evento` document in the Firestore collection `event
 - `activo: boolean` — default `true`; drives public visibility (replaces legacy `status`). A public visitor only sees eventos with `activo: true`
 - `estadoVerificacion: EstadoVerificacion` — `'pendiente' | 'verificado' | 'rechazado'` (default `'pendiente'` on create); drives the "Verificado" badge
 - `motivoRechazoVerificacion?: string` — required when `estadoVerificacion === 'rechazado'`; reason recorded by admin
-- `cambios?: CambioEvento[]` — audit history; each entry `{ campo: string; valorAnterior: unknown; valorNuevo: unknown; fecha: Date; usuarioId: string }`; populated when an edit reverts a verified evento to `pendiente` (and on any update where a field value actually changes)
-- `estado: EventoEstado` — `'borrador' | 'programado' | 'en_curso' | 'finalizado' | 'cancelado' | 'suspendido'`; the event's own lifecycle (set by the publisher/admin). On create the system SHALL set `estado: 'programado'` so the evento is immediately visible in the public list (which defaults to `estado: 'programado'`)
+- `cambios?: CambioEvento[]` — audit history; each entry `{ campo: string; valorAnterior: unknown; valorNuevo: unknown; fecha: Date; usuarioId: string }`; populated on every update (and explicitly when an edit reverts a verified evento to `pendiente`)
+- `estado: EventoEstado` — `'borrador' | 'programado' | 'en_curso' | 'finalizado' | 'cancelado' | 'suspendido'`; the event's own lifecycle (set by the publisher/admin)
 - `destacado: boolean` — default `false`; admin-toggled for home/list highlighting
 - `usuarioId: string` — Firebase Auth UID of the creator; REQUIRED, set from the verified token (never accepted in the body)
 - `vistasTotales: number` — defaults to `0`
@@ -48,7 +45,7 @@ The legacy fields `status`, `verificado`, `placeId`, `ubicacionNombre`, `ubicaci
 - **GIVEN** no evento with slug `festival-verano-concon-2025` exists
 - **AND** an authenticated user with rol `'owner'` and UID `uid-owner-001`
 - **WHEN** the user sends `POST /api/v1/eventos` with valid `nombre`, `descripcionCorta`, `descripcion`, `subcategoriaId: 'festivales-culturales'`, `barrioId`, `organizador`, `ubicacion: { direccion: 'Av. Marina 123', coordenadas: { lat: -32.91, lng: -71.54 } }`, `fechaInicio`, `fechaFin`, `precioTipo: 'gratis'`, `precioValor: 0`, `publicoObjetivo: ['todos','familia']`, `nivelRuido: 'medio'`
-- **THEN** the response is `201` and the evento is created with `activo: true`, `estadoVerificacion: 'pendiente'`, `estado: 'programado'`, `categoriaId: 'eventos'`, `slug: 'festival-verano-concon-2025'`, `usuarioId: 'uid-owner-001'`, `destacado: false`, `vistasTotales: 0`
+- **THEN** the response is `201` and the evento is created with `activo: true`, `estadoVerificacion: 'pendiente'`, `estado: 'borrador'`, `categoriaId: 'eventos'`, `slug: 'festival-verano-concon-2025'`, `usuarioId: 'uid-owner-001'`, `destacado: false`, `vistasTotales: 0`
 - **AND** NO `solicitud` is auto-created (the evento is publicly visible immediately)
 
 #### Scenario: Create evento as admin does not auto-verify
@@ -98,6 +95,10 @@ The legacy fields `status`, `verificado`, `placeId`, `ubicacionNombre`, `ubicaci
 - **WHEN** a user sends `POST /api/v1/eventos` with `placeId: 'place-xyz'`
 - **THEN** the ValidationPipe (forbidNonWhitelisted) rejects with `400` — `placeId` is no longer a valid field on `CreateEventoDto`
 
+#### Scenario: Create evento with ubicacion object persisted
+- **WHEN** a user sends `POST /api/v1/eventos` with `ubicacion: { nombreLugar: 'Playa Amarilla', direccion: 'Av. Costanera 10', coordenadas: { lat: -32.9, lng: -71.5 } }`
+- **THEN** the response is `201` and the persisted evento has `ubicacion.nombreLugar === 'Playa Amarilla'`, `ubicacion.direccion === 'Av. Costanera 10'`, `ubicacion.coordenadas.lat === -32.9`
+
 ### Requirement: Public listing and visibility
 The system SHALL expose `GET /api/v1/eventos`, `GET /api/v1/eventos/map-data`, `GET /api/v1/eventos/{id}`, and `GET /api/v1/eventos/slug/{slug}` as anonymous-accessible (no auth) endpoints. The list and map-data endpoints MUST return only eventos with `activo: true`. The by-id and by-slug endpoints MUST return `404` for eventos whose `activo` is `false` (any `estadoVerificacion` — pending, verified, or rejected eventos are invisible if inactive). The list endpoint MUST support filters by `subcategoriaId`, `barrioId`, `fechaDesde`, `fechaHasta`, `precioTipo`, `estado`, `destacado`, `estadoVerificacion`, free-text `q`, and cursor pagination (`page`, `limit`), returning `{ data, meta }` consistent with `places`. The `estado` filter MUST default to `'programado'` when omitted. The map-data endpoint MUST return only lightweight fields (`id, slug, nombre, coordenadas, subcategoriaId, barrioId, fechaInicio`). The `estadoVerificacion` field MUST be included in every evento response (list, by-id, by-slug, map-data).
 
@@ -144,7 +145,7 @@ The system SHALL expose `GET /api/v1/eventos`, `GET /api/v1/eventos/map-data`, `
 - **AND** only eventos with `activo: true` are included
 
 ### Requirement: Update of evento
-The system SHALL expose `PUT /api/v1/eventos/{id}` behind auth (rol `'owner'` or `'admin'`). A publisher with rol `'owner'` MUST be allowed to update only their own eventos (`evento.usuarioId === verified token uid`); any other case MUST return `403`. An admin with rol `'admin'` MUST be allowed to update any evento. The update SHALL apply changes in-place directly (no staged solicitud). If the target evento has `estadoVerificacion === 'verificado'` BEFORE the update, the update MUST additionally set `estadoVerificacion: 'pendiente'` (reversion) in the same write, and MUST append a `CambioEvento` entry to `cambios[]` for each changed field (recording `campo`, `valorAnterior`, `valorNuevo`, `fecha`, `usuarioId`). The `categoriaId` field MUST NOT be modifiable (it is not listed in `UpdateEventoDto`). Updates to a non-existent evento MUST return `404`. The `ubicacion` field MAY be updated as a whole object. Date fields `fechaInicio`/`fechaFin` are supplied as ISO strings in the DTO and MUST be persisted as `Date` timestamps (the system converts them at the update boundary; no server error SHALL occur).
+The system SHALL expose `PUT /api/v1/eventos/{id}` behind auth (rol `'owner'` or `'admin'`). A publisher with rol `'owner'` MUST be allowed to update only their own eventos (`evento.usuarioId === verified token uid`); any other case MUST return `403`. An admin with rol `'admin'` MUST be allowed to update any evento. The update SHALL apply changes in-place directly (no staged solicitud). If the target evento has `estadoVerificacion === 'verificado'` BEFORE the update, the update MUST additionally set `estadoVerificacion: 'pendiente'` (reversion) in the same write, and MUST append a `CambioEvento` entry to `cambios[]` for each changed field (recording `campo`, `valorAnterior`, `valorNuevo`, `fecha`, `usuarioId`). The `categoriaId` field MUST NOT be modifiable (it is not listed in `UpdateEventoDto`). Updates to a non-existent evento MUST return `404`. The `ubicacion` field MAY be updated as a whole object.
 
 #### Scenario: Publisher edits own evento applies in-place
 - **GIVEN** an evento with `estadoVerificacion: 'pendiente'` and `usuarioId: 'uid-owner-001'`
@@ -159,13 +160,6 @@ The system SHALL expose `PUT /api/v1/eventos/{id}` behind auth (rol `'owner'` or
 - **THEN** the response is `200` with the evento showing the new `ubicacion.direccion` AND `estadoVerificacion: 'pendiente'`
 - **AND** `cambios[]` has a new entry for `ubicacion.direccion` (or `ubicacion`) with `valorAnterior`, `valorNuevo`, `usuarioId: 'uid-owner-001'`
 - **AND** no `solicitud` is created
-
-#### Scenario: Publisher updates fechaInicio/fechaFin persists without error
-- **GIVEN** an evento with `estadoVerificacion: 'pendiente'` and `usuarioId: 'uid-owner-001'`
-- **AND** a verified token for `uid-owner-001` (rol `'owner'`)
-- **WHEN** the publisher sends `PUT /api/v1/eventos/{id}` with `{ fechaInicio: '2025-03-01T18:00:00Z', fechaFin: '2025-03-01T22:00:00Z' }`
-- **THEN** the response is `200` and the persisted `fechaInicio`/`fechaFin` are `Date` timestamps equal to the supplied instants (no `500`)
-- **AND** `updatedAt` is refreshed
 
 #### Scenario: Publisher cannot edit another publisher's evento
 - **GIVEN** an evento with `usuarioId: 'uid-owner-001'`
@@ -209,45 +203,6 @@ The system SHALL expose `DELETE /api/v1/eventos/{id}` behind auth (rol `'owner'`
 - **WHEN** `uid-admin-001` sends `DELETE /api/v1/eventos/{id}`
 - **THEN** the response is `200` with `{ deleted: true, id, activo: false }`
 
-### Requirement: Event creator is the responsable (rol `owner` or `admin`)
-The system SHALL treat `eventos.usuarioId` as the event's **responsable** — the authenticated publisher who created the event. The `usuarioId` is set from the verified Firebase Auth JWT and is REQUIRED on every `Evento` document.
-
-A user with rol `'owner'` is permitted to `POST /api/v1/eventos` (creating an event with `usuarioId === token.uid`). A user with rol `'admin'` is likewise permitted. A user with rol `'member'` is **denied** with `403`. ~~Until the `auth + usuarios` change ships, the existing provisional authentication (header `x-usuario-id`) continues to function; the runtime enforcement of the `member`-denial lives in the future `RolesGuard` introduced by `auth`.~~
-
-This change **removes the provisional `x-usuario-id` header** and replaces it with the verified JWT. The `POST /eventos`, `PUT /eventos/{id}`, and `DELETE /eventos/{id}` endpoints are decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner', 'admin')`. The controller reads `usuarioId` from `@CurrentUser() user: AuthContext` (`user.uid`) instead of `@Headers("x-usuario-id")`. The `x-usuario-id` and `x-rol` headers are removed from the controller. The read endpoints (`GET /eventos`, `GET /eventos/map-data`, `GET /eventos/{id}`, `GET /eventos/slug/{slug}`) remain anonymous-accessible (no guards) — they continue returning only `status: 'aprobado'` events to anonymous visitors as before.
-
-This requirement updates the legacy terminology `'empresa'` (used in the original `eventos-crud` spec) to the new enum value `'owner'`. Functionally identical — `'empresa'` was the old name for the same role.
-
-#### Scenario: Owner creates event — allowed
-- **GIVEN** an authenticated user with rol `'owner'` and UID `uid-owner-001` (verified by `JwtAuthGuard`)
-- **WHEN** the user sends `POST /api/v1/eventos` with `Authorization: Bearer <idToken>` and valid fields (NO `x-usuario-id` header)
-- **THEN** the event is created with `usuarioId: 'uid-owner-001'`, `status: 'pendiente'`, `estado: 'borrador'`
-- **AND** a `solicitud` tipo `'registro-evento'` is auto-created with `usuarioId: 'uid-owner-001'`
-
-#### Scenario: Member creates event — denied at runtime (rule enforced)
-- **GIVEN** an authenticated user with rol `'member'` and UID `uid-member-001` (verified by `JwtAuthGuard`)
-- **WHEN** the user sends `POST /api/v1/eventos` with `Authorization: Bearer <idToken>` and valid fields
-- **THEN** the response is `403` with error: `rol 'member' is not allowed to perform this operation`
-- **AND** nothing is persisted
-- ~~**NOTE** Until the future `auth + usuarios` change ships, the runtime Guard is not present; the provisional `x-usuario-id` header at `eventos.controller.ts` does not enforce the role check. The spec records the rule so the enforcement is unambiguous when `auth` lands.~~ (the runtime `RolesGuard` now enforces this — the note is removed)
-
-#### Scenario: Admin creates event — allowed
-- **GIVEN** an authenticated user with rol `'admin'` (verified by `JwtAuthGuard`)
-- **WHEN** the user sends `POST /api/v1/eventos` with `Authorization: Bearer <idToken>` and valid fields
-- **THEN** the event is created with `usuarioId === admin.uid`, `status: 'pendiente'`, `estado: 'borrador'`, `verificado: false`
-- **AND** a `solicitud` tipo `'registro-evento'` is auto-created (the admin does not bypass the approval queue by creating — they bypass it by approving their own solicitud)
-
-#### Scenario: Anonymous attempt to create an event — denied with 401
-- **WHEN** a caller with no `Authorization` header sends `POST /api/v1/eventos`
-- **THEN** the response is `401` (the `JwtAuthGuard` rejects before `RolesGuard` runs)
-- **AND** no document is persisted
-
-#### Scenario: x-usuario-id header is silently ignored
-- **GIVEN** an authenticated `owner` with UID `uid-owner-001`
-- **WHEN** the owner sends `POST /api/v1/eventos` with `Authorization: Bearer <idToken>` AND `x-usuario-id: uid-spoofed-999`
-- **THEN** the controller reads `usuarioId` from the verified `user.uid` (`'uid-owner-001'`) — the `x-usuario-id` header is not bound and is silently ignored
-- **AND** the persisted `evento.usuarioId` is `'uid-owner-001'` (the spoofed header value is NOT used)
-
 ### Requirement: Cross-catalog validation in evento create and update
 The system SHALL validate at create and update time that `subcategoriaId` (required) and `barrioId` referenced by an `Evento` document resolve to existing and `activo: true` documents in the `categorias` and `barrios` collections respectively. `subcategoriaId` MUST be one of the slugs present in the `eventos` categoria's `subcategorias` array with `activo: true`. Validation MUST only fire when the corresponding field is being set or modified.
 
@@ -278,20 +233,22 @@ The system SHALL validate at create and update time that `subcategoriaId` (requi
 - **THEN** the evento is updated successfully
 - **AND** no validation against the categorias collection is performed
 
+## REMOVED Requirements
+
+### Requirement: `eventos.placeId` is an optional reference with no ownership invariant
+**Reason**: The `placeId` field coupled an evento to a `places` document and required validation that the referenced place had `status: 'aprobado'`. This added an unnecessary invariant and an extra dependency between two aggregates. The business flow (decision #4) does not require an evento to be linked to a place; the evento declares its own venue via the `ubicacion` object. The field is fully replaced by `ubicacion`.
+**Migration**: Eventos that previously referenced a `placeId` must migrate to carrying their venue directly in `ubicacion` (the migration script `migrate-eventos-verificacion.ts` drops `placeId` and reconstructs `ubicacion` from the legacy flat `ubicacionNombre`/`ubicacionDireccion`/`coordenadas` fields). Clients MUST stop sending `placeId` on `CreateEventoDto`/`UpdateEventoDto` (the `ValidationPipe` with `forbidNonWhitelisted` rejects it with `400`).
+
+## ADDED Requirements
+
 ### Requirement: Admin verification of evento
-The system SHALL expose `POST /api/v1/eventos/{id}/verificar` behind auth with rol `'admin'`. The request body is `{ resultado: 'verificado' | 'rechazado', motivo?: string }`. When `resultado === 'verificado'`, the evento's `estadoVerificacion` becomes `'verificado'`, `fechaPublicacion` is set to the current time, and `activo` becomes `true` (the evento is made publicly visible; any prior `motivoRechazoVerificacion` is cleared). When `resultado === 'rechazado'`, the `motivo` field is REQUIRED (validation error `400` if absent); the evento's `estadoVerificacion` becomes `'rechazado'`, `activo` becomes `false`, and `motivoRechazoVerificacion` is set to `motivo`. Verification of a non-existent evento MUST return `404`.
+The system SHALL expose `POST /api/v1/eventos/{id}/verificar` behind auth with rol `'admin'`. The request body is `{ resultado: 'verificado' | 'rechazado', motivo?: string }`. When `resultado === 'verificado'`, the evento's `estadoVerificacion` becomes `'verificado'` and `fechaPublicacion` is set to the current time (no change to `activo`). When `resultado === 'rechazado'`, the `motivo` field is REQUIRED (validation error `400` if absent); the evento's `estadoVerificacion` becomes `'rechazado'`, `activo` becomes `false`, and `motivoRechazoVerificacion` is set to `motivo`. Verification of a non-existent evento MUST return `404`.
 
 #### Scenario: Admin verifies evento
 - **GIVEN** an evento with `estadoVerificacion: 'pendiente'` and `activo: true`
 - **WHEN** an admin sends `POST /api/v1/eventos/{id}/verificar` with `{ resultado: 'verificado' }`
 - **THEN** the response is `200` with `estadoVerificacion: 'verificado'`, `activo: true`, `fechaPublicacion` populated
 - **AND** the evento is now publicly visible with the "Verificado" badge
-
-#### Scenario: Admin re-verifies a previously rejected evento (restores visibility)
-- **GIVEN** an evento with `estadoVerificacion: 'rechazado'`, `activo: false`, `motivoRechazoVerificacion: 'Falta documentación'`
-- **WHEN** an admin sends `POST /api/v1/eventos/{id}/verificar` with `{ resultado: 'verificado' }`
-- **THEN** the response is `200` with `estadoVerificacion: 'verificado'`, `activo: true`, `motivoRechazoVerificacion` cleared (null/undefined)
-- **AND** the evento is now publicly visible again
 
 #### Scenario: Admin rejects evento without motivo returns 400
 - **WHEN** an admin sends `POST /api/v1/eventos/{id}/verificar` with `{ resultado: 'rechazado' }` (no `motivo`)
@@ -311,4 +268,3 @@ The system SHALL expose `POST /api/v1/eventos/{id}/verificar` behind auth with r
 #### Scenario: Anonymous cannot verify evento
 - **WHEN** a caller with no `Authorization` header sends `POST /api/v1/eventos/{id}/verificar`
 - **THEN** the response is `401`
-

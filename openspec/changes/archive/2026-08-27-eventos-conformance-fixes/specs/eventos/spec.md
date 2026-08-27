@@ -1,10 +1,7 @@
-# eventos Specification
+# eventos Specification (eventos-conformance-fixes delta)
 
-## Purpose
-The `eventos` capability provides time-bound activity listings for the Directorio de Concón — festivals, ferias, conciertos, carreras, talleres, ferias patrias, etc. — alongside the existing `places` entity. Publishers (rol `'owner'`) and admins record an event once with category (reusing the existing `eventos` category + its 10 seeded subcategories), barrio (reusing the existing `barrios` collection), exact GPS coordinates, date/time range, pricing, accessibility, target audience and noise level. An admin approves the event through the standard `solicitudes` workflow (extended with the `tipo` values `'registro-evento'` and `'actualizacion-evento'`, plus an optional `eventoId` reference). Approved events become publicly discoverable via search, slug lookup, and a lightweight `/map-data` endpoint for an interactive map. The frontend delivers a creation/edit form (publisher and admin), public list, ficha with map, and "My Events"/admin panels — all reusing the existing SPA shell, reusable search component, layout base, and `@angular/google-maps`.
+## MODIFIED Requirements
 
----
-## Requirements
 ### Requirement: Evento entity schema
 The system SHALL persist an `Evento` document in the Firestore collection `eventos` with the following fields:
 
@@ -98,51 +95,6 @@ The legacy fields `status`, `verificado`, `placeId`, `ubicacionNombre`, `ubicaci
 - **WHEN** a user sends `POST /api/v1/eventos` with `placeId: 'place-xyz'`
 - **THEN** the ValidationPipe (forbidNonWhitelisted) rejects with `400` — `placeId` is no longer a valid field on `CreateEventoDto`
 
-### Requirement: Public listing and visibility
-The system SHALL expose `GET /api/v1/eventos`, `GET /api/v1/eventos/map-data`, `GET /api/v1/eventos/{id}`, and `GET /api/v1/eventos/slug/{slug}` as anonymous-accessible (no auth) endpoints. The list and map-data endpoints MUST return only eventos with `activo: true`. The by-id and by-slug endpoints MUST return `404` for eventos whose `activo` is `false` (any `estadoVerificacion` — pending, verified, or rejected eventos are invisible if inactive). The list endpoint MUST support filters by `subcategoriaId`, `barrioId`, `fechaDesde`, `fechaHasta`, `precioTipo`, `estado`, `destacado`, `estadoVerificacion`, free-text `q`, and cursor pagination (`page`, `limit`), returning `{ data, meta }` consistent with `places`. The `estado` filter MUST default to `'programado'` when omitted. The map-data endpoint MUST return only lightweight fields (`id, slug, nombre, coordenadas, subcategoriaId, barrioId, fechaInicio`). The `estadoVerificacion` field MUST be included in every evento response (list, by-id, by-slug, map-data).
-
-#### Scenario: Public list returns only active eventos
-- **GIVEN** eventos in three states: `evento-A` with `activo: true`, `evento-B` with `activo: false` (estadoVerificacion `pendiente`), `evento-C` with `activo: false` (estadoVerificacion `verificado`)
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos`
-- **THEN** the response is `200` with `{ data: [evento-A], meta: {...} }`
-- **AND** `evento-B` and `evento-C` are not included (both inactive)
-
-#### Scenario: Public list supports filters
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos?subcategoriaId=festivales-culturales&barrioId=higuerillas&fechaDesde=2025-02-01&fechaHasta=2025-02-28&precioTipo=gratis&estado=programado`
-- **THEN** the response is `200` with only active eventos matching all of: `subcategoriaId`, `barrioId`, `fechaInicio` within `[fechaDesde, fechaHasta]`, `precioTipo`, and `estado`
-
-#### Scenario: Public list defaults estado to 'programado'
-- **GIVEN** active eventos with various `estado` values (`programado`, `en_curso`, `finalizado`)
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos` without `estado` query
-- **THEN** the response includes only eventos with `estado: 'programado'` (the default)
-- **AND** `finalizado` and `en_curso` eventos are not included unless explicitly queried
-
-#### Scenario: Public list filter estadoVerificacion=pendiente (admin queue)
-- **WHEN** an admin (or anonymous in this scenario's filter semantics) sends `GET /api/v1/eventos?estadoVerificacion=pendiente`
-- **THEN** the response is `200` with only active eventos whose `estadoVerificacion === 'pendiente'`
-
-#### Scenario: Anonymous GET by id rejects inactive evento
-- **GIVEN** an evento with `activo: false` and id `evt-123`
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/evt-123`
-- **THEN** the response is `404`
-
-#### Scenario: Anonymous GET by slug rejects inactive evento
-- **GIVEN** an evento with `activo: false` and slug `festival-inactivo`
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/slug/festival-inactivo`
-- **THEN** the response is `404`
-
-#### Scenario: Anonymous GET by id returns active evento (any estadoVerificacion)
-- **GIVEN** an evento with `activo: true` and id `evt-456`
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/evt-456`
-- **THEN** the response is `200` with the full evento document (including `estadoVerificacion` and `ubicacion`)
-
-#### Scenario: Map data returns only lightweight fields of active eventos
-- **GIVEN** active eventos with various `barrioId` and `subcategoriaId`
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/map-data`
-- **THEN** the response is `200` with an array where each item has exactly `{ id, slug, nombre, coordenadas, subcategoriaId, barrioId, fechaInicio }`
-- **AND** no item includes `descripcion`, `organizador`, `precioValor`, etc.
-- **AND** only eventos with `activo: true` are included
-
 ### Requirement: Update of evento
 The system SHALL expose `PUT /api/v1/eventos/{id}` behind auth (rol `'owner'` or `'admin'`). A publisher with rol `'owner'` MUST be allowed to update only their own eventos (`evento.usuarioId === verified token uid`); any other case MUST return `403`. An admin with rol `'admin'` MUST be allowed to update any evento. The update SHALL apply changes in-place directly (no staged solicitud). If the target evento has `estadoVerificacion === 'verificado'` BEFORE the update, the update MUST additionally set `estadoVerificacion: 'pendiente'` (reversion) in the same write, and MUST append a `CambioEvento` entry to `cambios[]` for each changed field (recording `campo`, `valorAnterior`, `valorNuevo`, `fecha`, `usuarioId`). The `categoriaId` field MUST NOT be modifiable (it is not listed in `UpdateEventoDto`). Updates to a non-existent evento MUST return `404`. The `ubicacion` field MAY be updated as a whole object. Date fields `fechaInicio`/`fechaFin` are supplied as ISO strings in the DTO and MUST be persisted as `Date` timestamps (the system converts them at the update boundary; no server error SHALL occur).
 
@@ -188,96 +140,6 @@ The system SHALL expose `PUT /api/v1/eventos/{id}` behind auth (rol `'owner'` or
 - **WHEN** sends `PUT /api/v1/eventos/evt-inexistente` with any body
 - **THEN** the response is `404`
 
-### Requirement: Deletion of evento
-The system SHALL expose `DELETE /api/v1/eventos/{id}` behind auth (rol `'owner'` or `'admin'`). A publisher with rol `'owner'` MUST be allowed to delete only their own eventos; any other case MUST return `403`. An admin with rol `'admin'` MUST be allowed to delete any evento. The delete SHALL be a soft-delete: the evento document remains but its `activo` field is set to `false` (so it disappears from the public directory while remaining for audit). The response SHALL be `200` with `{ deleted: true, id, activo: false }`. A successful soft-delete MUST cause subsequent public `GET` (by-id, by-slug, list, map-data) to return `404`/`omit` the evento.
-
-#### Scenario: Publisher soft-deletes own evento
-- **GIVEN** an evento with `usuarioId: 'uid-owner-001'` and `activo: true`
-- **WHEN** `uid-owner-001` sends `DELETE /api/v1/eventos/{id}`
-- **THEN** the response is `200` with `{ deleted: true, id, activo: false }`
-- **AND** a subsequent `GET /api/v1/eventos/{id}` returns `404` (because `activo: false`)
-
-#### Scenario: Publisher cannot delete another publisher's evento
-- **GIVEN** an evento with `usuarioId: 'uid-owner-001'`
-- **AND** a verified token for `uid-owner-002` (rol `'owner'`)
-- **WHEN** `uid-owner-002` sends `DELETE /api/v1/eventos/{id}`
-- **THEN** the response is `403`
-
-#### Scenario: Admin soft-deletes any evento
-- **GIVEN** an evento with `usuarioId: 'uid-owner-001'` and `activo: true`
-- **AND** a verified token for `uid-admin-001` (rol `'admin'`)
-- **WHEN** `uid-admin-001` sends `DELETE /api/v1/eventos/{id}`
-- **THEN** the response is `200` with `{ deleted: true, id, activo: false }`
-
-### Requirement: Event creator is the responsable (rol `owner` or `admin`)
-The system SHALL treat `eventos.usuarioId` as the event's **responsable** — the authenticated publisher who created the event. The `usuarioId` is set from the verified Firebase Auth JWT and is REQUIRED on every `Evento` document.
-
-A user with rol `'owner'` is permitted to `POST /api/v1/eventos` (creating an event with `usuarioId === token.uid`). A user with rol `'admin'` is likewise permitted. A user with rol `'member'` is **denied** with `403`. ~~Until the `auth + usuarios` change ships, the existing provisional authentication (header `x-usuario-id`) continues to function; the runtime enforcement of the `member`-denial lives in the future `RolesGuard` introduced by `auth`.~~
-
-This change **removes the provisional `x-usuario-id` header** and replaces it with the verified JWT. The `POST /eventos`, `PUT /eventos/{id}`, and `DELETE /eventos/{id}` endpoints are decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner', 'admin')`. The controller reads `usuarioId` from `@CurrentUser() user: AuthContext` (`user.uid`) instead of `@Headers("x-usuario-id")`. The `x-usuario-id` and `x-rol` headers are removed from the controller. The read endpoints (`GET /eventos`, `GET /eventos/map-data`, `GET /eventos/{id}`, `GET /eventos/slug/{slug}`) remain anonymous-accessible (no guards) — they continue returning only `status: 'aprobado'` events to anonymous visitors as before.
-
-This requirement updates the legacy terminology `'empresa'` (used in the original `eventos-crud` spec) to the new enum value `'owner'`. Functionally identical — `'empresa'` was the old name for the same role.
-
-#### Scenario: Owner creates event — allowed
-- **GIVEN** an authenticated user with rol `'owner'` and UID `uid-owner-001` (verified by `JwtAuthGuard`)
-- **WHEN** the user sends `POST /api/v1/eventos` with `Authorization: Bearer <idToken>` and valid fields (NO `x-usuario-id` header)
-- **THEN** the event is created with `usuarioId: 'uid-owner-001'`, `status: 'pendiente'`, `estado: 'borrador'`
-- **AND** a `solicitud` tipo `'registro-evento'` is auto-created with `usuarioId: 'uid-owner-001'`
-
-#### Scenario: Member creates event — denied at runtime (rule enforced)
-- **GIVEN** an authenticated user with rol `'member'` and UID `uid-member-001` (verified by `JwtAuthGuard`)
-- **WHEN** the user sends `POST /api/v1/eventos` with `Authorization: Bearer <idToken>` and valid fields
-- **THEN** the response is `403` with error: `rol 'member' is not allowed to perform this operation`
-- **AND** nothing is persisted
-- ~~**NOTE** Until the future `auth + usuarios` change ships, the runtime Guard is not present; the provisional `x-usuario-id` header at `eventos.controller.ts` does not enforce the role check. The spec records the rule so the enforcement is unambiguous when `auth` lands.~~ (the runtime `RolesGuard` now enforces this — the note is removed)
-
-#### Scenario: Admin creates event — allowed
-- **GIVEN** an authenticated user with rol `'admin'` (verified by `JwtAuthGuard`)
-- **WHEN** the user sends `POST /api/v1/eventos` with `Authorization: Bearer <idToken>` and valid fields
-- **THEN** the event is created with `usuarioId === admin.uid`, `status: 'pendiente'`, `estado: 'borrador'`, `verificado: false`
-- **AND** a `solicitud` tipo `'registro-evento'` is auto-created (the admin does not bypass the approval queue by creating — they bypass it by approving their own solicitud)
-
-#### Scenario: Anonymous attempt to create an event — denied with 401
-- **WHEN** a caller with no `Authorization` header sends `POST /api/v1/eventos`
-- **THEN** the response is `401` (the `JwtAuthGuard` rejects before `RolesGuard` runs)
-- **AND** no document is persisted
-
-#### Scenario: x-usuario-id header is silently ignored
-- **GIVEN** an authenticated `owner` with UID `uid-owner-001`
-- **WHEN** the owner sends `POST /api/v1/eventos` with `Authorization: Bearer <idToken>` AND `x-usuario-id: uid-spoofed-999`
-- **THEN** the controller reads `usuarioId` from the verified `user.uid` (`'uid-owner-001'`) — the `x-usuario-id` header is not bound and is silently ignored
-- **AND** the persisted `evento.usuarioId` is `'uid-owner-001'` (the spoofed header value is NOT used)
-
-### Requirement: Cross-catalog validation in evento create and update
-The system SHALL validate at create and update time that `subcategoriaId` (required) and `barrioId` referenced by an `Evento` document resolve to existing and `activo: true` documents in the `categorias` and `barrios` collections respectively. `subcategoriaId` MUST be one of the slugs present in the `eventos` categoria's `subcategorias` array with `activo: true`. Validation MUST only fire when the corresponding field is being set or modified.
-
-#### Scenario: Create evento rejects nonexistent subcategoria
-- **WHEN** the categoria `eventos` does not have a subcategoria with slug `inexistente`
-- **AND** an admin or owner sends `POST /api/v1/eventos` with `subcategoriaId: "inexistente"`
-- **THEN** the response is `400` with error "Subcategoría inválida o inactiva"
-
-#### Scenario: Create evento rejects inactive subcategoria
-- **WHEN** the categoria `eventos` contains a subcategoria `festivales-culturales` with `activo: false`
-- **AND** an admin or owner sends `POST /api/v1/eventos` with `subcategoriaId: "festivales-culturales"`
-- **THEN** the response is `400` with error "Subcategoría inválida o inactiva"
-
-#### Scenario: Create evento rejects inactive barrio
-- **WHEN** the barrios collection contains a barrio with slug `montemar` and `activo: false`
-- **AND** an admin or owner sends `POST /api/v1/eventos` with `barrioId: "montemar"`
-- **THEN** the response is `400` with error "Barrio inválido o inactivo"
-
-#### Scenario: Update evento changing subcategoriaId to inactive rejects
-- **WHEN** an evento exists with `subcategoriaId: "festivales-culturales"` (currently `activo: true`)
-- **AND** an admin or owner sends `PUT /api/v1/eventos/{id}` with `{ subcategoriaId: "ferias-gastronomicas" }`
-- **AND** subcategoria `ferias-gastronomicas` has `activo: false`
-- **THEN** the response is `400` with error "Subcategoría inválida o inactiva"
-
-#### Scenario: Update evento touching organizador only does not re-validate catalog
-- **WHEN** an evento exists with `subcategoriaId: "festivales-culturales"` (currently `activo: false`)
-- **AND** an admin or owner sends `PUT /api/v1/eventos/{id}` with only `{ organizador: "Nuevo Org" }`
-- **THEN** the evento is updated successfully
-- **AND** no validation against the categorias collection is performed
-
 ### Requirement: Admin verification of evento
 The system SHALL expose `POST /api/v1/eventos/{id}/verificar` behind auth with rol `'admin'`. The request body is `{ resultado: 'verificado' | 'rechazado', motivo?: string }`. When `resultado === 'verificado'`, the evento's `estadoVerificacion` becomes `'verificado'`, `fechaPublicacion` is set to the current time, and `activo` becomes `true` (the evento is made publicly visible; any prior `motivoRechazoVerificacion` is cleared). When `resultado === 'rechazado'`, the `motivo` field is REQUIRED (validation error `400` if absent); the evento's `estadoVerificacion` becomes `'rechazado'`, `activo` becomes `false`, and `motivoRechazoVerificacion` is set to `motivo`. Verification of a non-existent evento MUST return `404`.
 
@@ -311,4 +173,3 @@ The system SHALL expose `POST /api/v1/eventos/{id}/verificar` behind auth with r
 #### Scenario: Anonymous cannot verify evento
 - **WHEN** a caller with no `Authorization` header sends `POST /api/v1/eventos/{id}/verificar`
 - **THEN** the response is `401`
-
