@@ -53,6 +53,47 @@ components:
         lng:
           type: number
 
+    Ubicacion:
+      type: object
+      required: [direccion, coordenadas]
+      properties:
+        nombreLugar:
+          type: string
+          maxLength: 200
+          nullable: true
+        direccion:
+          type: string
+          maxLength: 200
+        coordenadas:
+          $ref: '#/components/schemas/Coordenadas'
+
+    CambioEvento:
+      type: object
+      required: [campo, valorAnterior, valorNuevo, fecha, usuarioId]
+      properties:
+        campo:
+          type: string
+        valorAnterior:
+          nullable: true
+        valorNuevo:
+          nullable: true
+        fecha:
+          type: string
+          format: date-time
+        usuarioId:
+          type: string
+
+    VerificarEvento:
+      type: object
+      required: [resultado]
+      properties:
+        resultado:
+          type: string
+          enum: [verificado, rechazado]
+        motivo:
+          type: string
+          description: Required when resultado === 'rechazado'.
+
     Turno:
       type: object
       required: [apertura, cierre]
@@ -452,13 +493,8 @@ components:
           type: string
           format: uri
           nullable: true
-        ubicacionNombre:
-          type: string
-          nullable: true
-        ubicacionDireccion:
-          type: string
-        coordenadas:
-          $ref: '#/components/schemas/Coordenadas'
+        ubicacion:
+          $ref: '#/components/schemas/Ubicacion'
         fechaInicio:
           type: string
           format: date-time
@@ -495,19 +531,28 @@ components:
           items:
             type: string
             enum: [acceso-silla-ruedas, banos-accesibles, estacionamiento-reservado, interprete-senas, material-braille, rampa-acceso]
-        status:
+        activo:
+          type: boolean
+          description: Public visibility flag. Replaces legacy `status`. Public discovery only returns eventos with activo:true.
+        estadoVerificacion:
           type: string
-          enum: [pendiente, aprobado, rechazado]
+          enum: [pendiente, verificado, rechazado]
+          description: Verification state. 'verificado' = green badge, 'rechazado' = evento deactivated (activo:false).
+        motivoRechazoVerificacion:
+          type: string
+          nullable: true
+          description: Required when estadoVerificacion === 'rechazado'.
+        cambios:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CambioEvento'
+          description: Audit trail; populated on every PUT (and explicitly when a verified evento is reverted to pendiente).
         estado:
           type: string
           enum: [borrador, programado, en_curso, finalizado, cancelado, suspendido]
         destacado:
           type: boolean
-        verificado:
-          type: boolean
-        placeId:
-          type: string
-          nullable: true
         usuarioId:
           type: string
         vistasTotales:
@@ -526,7 +571,7 @@ components:
 
     CreateEvento:
       type: object
-      required: [nombre, descripcionCorta, descripcion, subcategoriaId, barrioId, organizador, ubicacionDireccion, coordenadas, fechaInicio, fechaFin, precioTipo, precioValor, publicoObjetivo, nivelRuido]
+      required: [nombre, descripcionCorta, descripcion, subcategoriaId, barrioId, organizador, ubicacion, fechaInicio, fechaFin, precioTipo, precioValor, publicoObjetivo, nivelRuido]
       properties:
         nombre:
           type: string
@@ -555,15 +600,8 @@ components:
           type: string
           format: uri
           nullable: true
-        ubicacionNombre:
-          type: string
-          maxLength: 200
-          nullable: true
-        ubicacionDireccion:
-          type: string
-          maxLength: 200
-        coordenadas:
-          $ref: '#/components/schemas/Coordenadas'
+        ubicacion:
+          $ref: '#/components/schemas/Ubicacion'
         fechaInicio:
           type: string
           format: date-time
@@ -602,9 +640,6 @@ components:
           items:
             type: string
             enum: [acceso-silla-ruedas, banos-accesibles, estacionamiento-reservado, interprete-senas, material-braille, rampa-acceso]
-        placeId:
-          type: string
-          nullable: true
 
     UpdateEvento:
       type: object
@@ -629,15 +664,8 @@ components:
           type: string
           format: uri
           nullable: true
-        ubicacionNombre:
-          type: string
-          maxLength: 200
-          nullable: true
-        ubicacionDireccion:
-          type: string
-          maxLength: 200
-        coordenadas:
-          $ref: '#/components/schemas/Coordenadas'
+        ubicacion:
+          $ref: '#/components/schemas/Ubicacion'
         fechaInicio:
           type: string
           format: date-time
@@ -677,11 +705,6 @@ components:
             enum: [acceso-silla-ruedas, banos-accesibles, estacionamiento-reservado, interprete-senas, material-braille, rampa-acceso]
         destacado:
           type: boolean
-        verificado:
-          type: boolean
-        placeId:
-          type: string
-          nullable: true
 
     EventoMapDataItem:
       type: object
@@ -734,6 +757,10 @@ components:
           type: string
           enum: [borrador, programado, en_curso, finalizado, cancelado, suspendido]
           default: programado
+        estadoVerificacion:
+          type: string
+          enum: [pendiente, verificado, rechazado]
+          description: Filter by verification state. Used by the admin verification queue (GET /eventos?estadoVerificacion=pendiente).
         destacado:
           type: boolean
 
@@ -1795,7 +1822,7 @@ paths:
 
   /eventos:
     get:
-      summary: Listar eventos (paginado, filtros, solo status aprobado)
+      summary: Listar eventos (paginado, filtros, solo activos)
       security: []
       parameters:
         - name: page
@@ -1828,12 +1855,16 @@ paths:
         - name: estado
           in: query
           schema: { type: string, enum: [borrador, programado, en_curso, finalizado, cancelado, suspendido], default: programado }
+        - name: estadoVerificacion
+          in: query
+          schema: { type: string, enum: [pendiente, verificado, rechazado] }
+          description: Filter by verification state (admin verification queue when 'pendiente').
         - name: destacado
           in: query
           schema: { type: boolean }
       responses:
         "200":
-          description: Lista de eventos
+          description: Lista de eventos (solo activos)
           content:
             application/json:
               schema:
@@ -1852,10 +1883,15 @@ paths:
       description: |
         Authenticated. `rol === 'owner'` or `rol === 'admin'` (enforced by
         `RolesGuard`). `eventos.usuarioId` is sourced from the verified JWT
-        `uid` (via `@CurrentUser()`). The provisional `x-usuario-id` header
-        (auth debt from `roles-rename`) is removed by the `auth-usuarios`
-        change — any such header is silently ignored. Body MUST NOT include
-        `usuarioId` (forbidNonWhitelisted — `400`).
+        `uid` (via `@CurrentUser()`). Body MUST NOT include `usuarioId`
+        (forbidNonWhitelisted — `400`).
+
+        **CHANGED (change `eventos-refactor`)**: the evento is created with
+        `activo: true` and `estadoVerificacion: 'pendiente'` and is publicly
+        visible IMMEDIATELY. NO `solicitudes` document is auto-created
+        (the legacy `registro-evento` flow was removed). The venue is provided
+        via the `ubicacion` object (replaces legacy `ubicacionNombre`/
+        `ubicacionDireccion`/`coordenadas`/`placeId`).
       requestBody:
         required: true
         content:
@@ -1864,7 +1900,7 @@ paths:
               $ref: '#/components/schemas/CreateEvento'
       responses:
         "201":
-          description: Evento creado — `usuarioId` set from the verified JWT uid
+          description: Evento creado — `usuarioId` set from the verified JWT uid, activo:true, estadoVerificacion:'pendiente', no solicitud created
           content:
             application/json:
               schema:
@@ -1896,7 +1932,7 @@ paths:
 
   /eventos/{id}:
     get:
-      summary: Obtener evento por id (solo status aprobado para público)
+      summary: Obtener evento por id (solo activos para público)
       security: []
       parameters:
         - name: id
@@ -1922,6 +1958,12 @@ paths:
         (`evento.usuarioId === verified JWT uid`); otherwise `403`. Admin
         can update any evento. `usuarioId` is sourced from the JWT (via
         `@CurrentUser()`) — the `x-usuario-id` header is removed.
+
+        **CHANGED (change `eventos-refactor`)**: updates apply in-place
+        (no staged `solicitudes`). If the evento was `estadoVerificacion:
+        'verificado'` before the edit, it is reverted to `'pendiente'` in the
+        same write and the diff is recorded in `cambios[]`. The `ubicacion`
+        object is updated as a whole.
       parameters:
         - name: id
           in: path
@@ -1935,7 +1977,7 @@ paths:
               $ref: '#/components/schemas/UpdateEvento'
       responses:
         "200":
-          description: Evento actualizado
+          description: Evento actualizado (posible reversión a pendiente + cambios[] si estaba verificado)
           content:
             application/json:
               schema:
@@ -1949,7 +1991,7 @@ paths:
         "404":
           $ref: '#/components/schemas/Error'
     delete:
-      summary: Eliminar evento
+      summary: Eliminar evento (soft-delete)
       security:
         - bearerAuth: []
       description: |
@@ -1957,9 +1999,10 @@ paths:
         `RolesGuard`). Owner can only delete their own eventos; otherwise
         `403`. Admin can delete any evento.
 
-        **BREAKING (change `auth-usuarios`)**: the `x-usuario-id` and `x-rol`
-        request headers from the original `eventos-crud` implementation are
-        removed; callers MUST send `Authorization: Bearer <idToken>`.
+        **CHANGED (change `eventos-refactor`)**: this is a SOFT delete. The
+        document is NOT removed; its `activo` field is set to `false`, so it
+        disappears from public discovery while remaining for audit. No `409`
+        for pending solicitudes (eventos no longer create solicitudes).
       parameters:
         - name: id
           in: path
@@ -1967,7 +2010,7 @@ paths:
           schema: { type: string }
       responses:
         "200":
-          description: Eliminado
+          description: Soft-deleted (activo:false)
           content:
             application/json:
               schema:
@@ -1977,19 +2020,18 @@ paths:
                     type: boolean
                   id:
                     type: string
+                  activo:
+                    type: boolean
         "401":
           $ref: '#/components/schemas/Error'
         "403":
           $ref: '#/components/schemas/Error'
         "404":
           $ref: '#/components/schemas/Error'
-        "409":
-          description: "No se puede eliminar: existen solicitudes pendientes asociadas"
-          $ref: '#/components/schemas/Error'
 
   /eventos/slug/{slug}:
     get:
-      summary: Obtener evento por slug (solo status aprobado para público)
+      summary: Obtener evento por slug (solo activos para público)
       security: []
       parameters:
         - name: slug
@@ -2003,6 +2045,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Evento'
+        "404":
+          $ref: '#/components/schemas/Error'
+
+  /eventos/{id}/verificar:
+    post:
+      summary: Verificar/rechazar evento (admin)
+      security:
+        - bearerAuth: []
+      description: |
+        Admin-only (`rol === 'admin'`, enforced by `RolesGuard`). Verifies or
+        rejects an evento. On `resultado: 'verificado'`: sets
+        `estadoVerificacion: 'verificado'` + `fechaPublicacion: <now>` (badge).
+        On `resultado: 'rechazado'`: `motivo` is REQUIRED (validation `400` if
+        absent); sets `estadoVerificacion: 'rechazado'`, `activo: false`,
+        `motivoRechazoVerificacion: motivo` (evento hidden from public).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificarEvento'
+      responses:
+        "200":
+          description: Evento actualizado (verificado o rechazado)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evento'
+        "400":
+          description: "motivo requerido cuando resultado === 'rechazado'"
+          $ref: '#/components/schemas/Error'
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`
+          $ref: '#/components/schemas/Error'
         "404":
           $ref: '#/components/schemas/Error'
 
