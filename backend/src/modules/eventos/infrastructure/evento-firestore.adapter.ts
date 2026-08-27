@@ -6,6 +6,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { FirebaseService } from "@/common/services/firebase.service";
 import type {
+  EventoMapDataItem,
   EventoRepositoryInterface,
   EventoReadRepositoryInterface,
   EventoWriteRepositoryInterface,
@@ -68,7 +69,15 @@ export class EventoFirestoreAdapter
   }
 
   // -------------------------------------------------------------------------
-  // findAllPublic (cursor-based pagination, only approved)
+  // findBySlugAdmin (includes inactive/unverified — admin only)
+  // -------------------------------------------------------------------------
+
+  async findBySlugAdmin(slug: string): Promise<Evento | null> {
+    return this.findBySlug(slug);
+  }
+
+  // -------------------------------------------------------------------------
+  // findAllPublic (cursor-based pagination, only active + verified)
   // -------------------------------------------------------------------------
 
   async findAllPublic(filters: EventoSearchFilters): Promise<PaginatedEventos> {
@@ -77,6 +86,10 @@ export class EventoFirestoreAdapter
       barrioId,
       precioTipo,
       estado = "programado",
+      estadoVerificacion,
+      fechaDesde,
+      fechaHasta,
+      destacado,
       page = 1,
       limit = 20,
     } = filters;
@@ -85,8 +98,14 @@ export class EventoFirestoreAdapter
       .getFirestore()
       .collection(COLLECTION);
 
-    // Always filter by approved status for public queries
-    query = query.where("status", "==", "aprobado");
+    // Public queries only expose active eventos (any estadoVerificacion).
+    query = query.where("activo", "==", true);
+
+    // The verification-state filter is applied only when explicitly requested
+    // (e.g. the admin queue `?estadoVerificacion=pendiente`).
+    if (estadoVerificacion) {
+      query = query.where("estadoVerificacion", "==", estadoVerificacion);
+    }
 
     // Estado filter (defaults to "programado")
     query = query.where("estado", "==", estado);
@@ -100,6 +119,15 @@ export class EventoFirestoreAdapter
     }
     if (precioTipo) {
       query = query.where("precioTipo", "==", precioTipo);
+    }
+    if (fechaDesde) {
+      query = query.where("fechaInicio", ">=", new Date(fechaDesde));
+    }
+    if (fechaHasta) {
+      query = query.where("fechaInicio", "<=", new Date(fechaHasta));
+    }
+    if (typeof destacado === "boolean") {
+      query = query.where("destacado", "==", destacado);
     }
 
     // Ordering by fechaInicio ascending
@@ -145,7 +173,7 @@ export class EventoFirestoreAdapter
   }
 
   // -------------------------------------------------------------------------
-  // findAllAdmin (no status restriction)
+  // findAllAdmin (no activo/verificacion restriction by default)
   // -------------------------------------------------------------------------
 
   async findAllAdmin(filters: EventoSearchFilters): Promise<PaginatedEventos> {
@@ -154,6 +182,8 @@ export class EventoFirestoreAdapter
       subcategoriaId,
       barrioId,
       estado,
+      estadoVerificacion,
+      activo,
       page = 1,
       limit = 20,
     } = filters;
@@ -162,7 +192,13 @@ export class EventoFirestoreAdapter
       .getFirestore()
       .collection(COLLECTION);
 
-    // Optional filters (no status default — admin sees all)
+    // Optional filters (admin sees all states unless explicitly scoped)
+    if (typeof activo === "boolean") {
+      query = query.where("activo", "==", activo);
+    }
+    if (estadoVerificacion) {
+      query = query.where("estadoVerificacion", "==", estadoVerificacion);
+    }
     if (categoriaId) {
       query = query.where("categoriaId", "==", categoriaId);
     }
@@ -216,6 +252,7 @@ export class EventoFirestoreAdapter
     const now = this.firebase.getCurrentTimestamp();
     const data = {
       ...toEventoPersistence(this.firebase, evento as unknown as Evento),
+      activo: evento.activo ?? true,
       createdAt: now,
       updatedAt: now,
     };
@@ -246,7 +283,8 @@ export class EventoFirestoreAdapter
   }
 
   // -------------------------------------------------------------------------
-  // delete
+  // delete (hard delete — kept for administrative purge; removal is via soft
+  // delete in the service layer using update({ activo: false }))
   // -------------------------------------------------------------------------
 
   async delete(id: string): Promise<void> {
@@ -254,31 +292,26 @@ export class EventoFirestoreAdapter
   }
 
   // -------------------------------------------------------------------------
-  // listMapData
+  // listMapData (active eventos with lightweight marker fields)
   // -------------------------------------------------------------------------
 
-  async listMapData(): Promise<
-    Pick<
-      Evento,
-      "id" | "nombre" | "slug" | "coordenadas" | "categoriaId" | "fechaInicio"
-    >[]
-  > {
+  async listMapData(): Promise<EventoMapDataItem[]> {
     const snapshot = await this.firebase.getDocuments(COLLECTION, [
-      { field: "status", operator: "==", value: "aprobado" },
+      { field: "activo", operator: "==", value: true },
     ]);
 
     return snapshot.docs
       .map((doc) => {
         const data = doc.data() as EventoFirestoreDoc;
+        const evento = toEventoDomain(this.firebase, doc.id, data);
         return {
-          id: doc.id,
-          nombre: data.nombre,
-          slug: data.slug,
-          coordenadas: data.coordenadas,
-          categoriaId: data.categoriaId,
-          fechaInicio: this.firebase.timestampToDate(
-            data.fechaInicio as FirebaseFirestore.Timestamp,
-          )!,
+          id: evento.id,
+          nombre: evento.nombre,
+          slug: evento.slug,
+          coordenadas: evento.ubicacion.coordenadas,
+          subcategoriaId: evento.subcategoriaId,
+          barrioId: evento.barrioId,
+          fechaInicio: evento.fechaInicio,
         };
       })
       .filter((item) => item.coordenadas !== undefined);

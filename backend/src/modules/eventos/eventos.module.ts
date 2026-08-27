@@ -2,7 +2,7 @@
  * Eventos module — Clean Architecture wiring.
  *
  * - Domain: pure types and interfaces (no imports from infrastructure)
- * - Application: EventosService + EventoValidator + EventoApprovalHandler
+ * - Application: EventosService + EventoValidator + NotificacionesPort
  * - Infrastructure: controller + Firestore adapter (concrete implementations)
  */
 import { Module } from "@nestjs/common";
@@ -11,16 +11,14 @@ import { EventosService } from "./application/eventos.service";
 import { EventoValidator } from "./application/evento-validator";
 import { EventoFirestoreAdapter } from "./infrastructure/evento-firestore.adapter";
 import { EVENTO_REPOSITORY } from "./domain/evento-repository.token";
+import { NOTIFICACIONES_PORT } from "./application/notificaciones.port";
+import { NoopNotificacionesAdapter } from "./infrastructure/notificaciones.noop.adapter";
 import { FirebaseService } from "@/common/services/firebase.service";
-import { SolicitudesModule } from "../solicitudes/solicitudes.module";
-import { SolicitudesService } from "../solicitudes/application/solicitudes.service";
-import { EventoApprovalHandlerImpl } from "./application/evento-approval.handler";
-import { EVENTO_APPROVAL_HANDLER } from "../solicitudes/application/approval-handlers";
 import { AuthModule } from "../auth/auth.module";
 import { CategoriasModule } from "../categorias/categorias.module";
 
 @Module({
-  imports: [SolicitudesModule, AuthModule, CategoriasModule],
+  imports: [AuthModule, CategoriasModule],
   controllers: [EventosController],
   providers: [
     EventosService,
@@ -29,7 +27,6 @@ import { CategoriasModule } from "../categorias/categorias.module";
       useFactory: (firebase: FirebaseService) => new EventoValidator(firebase),
       inject: [FirebaseService],
     },
-    EventoApprovalHandlerImpl,
     {
       provide: EventoFirestoreAdapter,
       useFactory: (firebase: FirebaseService) =>
@@ -41,12 +38,9 @@ import { CategoriasModule } from "../categorias/categorias.module";
       useExisting: EventoFirestoreAdapter,
     },
     {
-      provide: EventosService.SOLICITUDES_SERVICE,
-      useExisting: SolicitudesService,
-    },
-    {
-      provide: EVENTO_APPROVAL_HANDLER,
-      useExisting: EventoApprovalHandlerImpl,
+      // No-op in CH-04; real implementation lands in CH-06 (notificaciones-real)
+      provide: NOTIFICACIONES_PORT,
+      useClass: NoopNotificacionesAdapter,
     },
   ],
   exports: [EventosService],

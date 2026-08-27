@@ -5,6 +5,22 @@
  * DIP: domain/application never import infrastructure — they depend on these.
  */
 import type { Evento } from "./evento.entity";
+import type { Coordenadas } from "./coordenadas.vo";
+
+/**
+ * Lightweight projection returned by `listMapData` for the map markers endpoint.
+ * Exactly the fields required by the public API contract (no `ubicacion`/
+ * `categoriaId` wrappers): `coordenadas` is lifted from `ubicacion.coordenadas`.
+ */
+export interface EventoMapDataItem {
+  id: string;
+  slug: string;
+  nombre: string;
+  coordenadas: Coordenadas;
+  subcategoriaId: string;
+  barrioId: string;
+  fechaInicio: Date;
+}
 
 /** Filters for the search endpoints (GET /eventos). */
 export interface EventoSearchFilters {
@@ -12,8 +28,11 @@ export interface EventoSearchFilters {
   categoriaId?: string;
   subcategoriaId?: string;
   barrioId?: string;
-  status?: string;
+  /** Public visibility filter. Defaults to `true` in the read paths. */
+  activo?: boolean;
   estado?: string;
+  /** Verification-state filter (used by the admin verification queue). */
+  estadoVerificacion?: string;
   precioTipo?: string;
   fechaDesde?: string;
   fechaHasta?: string;
@@ -37,12 +56,7 @@ export interface EventoReadRepositoryInterface {
   findAllAdmin(filters: EventoSearchFilters): Promise<PaginatedEventos>;
   findById(id: string): Promise<Evento | null>;
   findBySlug(slug: string): Promise<Evento | null>;
-  listMapData(): Promise<
-    Pick<
-      Evento,
-      "id" | "nombre" | "slug" | "coordenadas" | "categoriaId" | "fechaInicio"
-    >[]
-  >;
+  listMapData(): Promise<EventoMapDataItem[]>;
 }
 
 // ---------------------------------------------------------------------------

@@ -150,7 +150,9 @@ describe("EventoValidator", () => {
       precioValor: 0,
       publicoObjetivo: ["familia"],
     });
-    expect(errors.some((e) => e.includes("subcategoriaId"))).toBe(true);
+    expect(
+      errors.some((e) => e.includes("Subcategoría inválida o inactiva")),
+    ).toBe(true);
   });
 
   it("accepts valid subcategoriaId", async () => {
@@ -162,7 +164,9 @@ describe("EventoValidator", () => {
         precioValor: 0,
         publicoObjetivo: ["familia"],
       });
-      expect(errors.some((e) => e.includes("subcategoriaId"))).toBe(false);
+      expect(
+        errors.some((e) => e.includes("Subcategoría inválida o inactiva")),
+      ).toBe(false);
     }
   });
 
@@ -179,7 +183,9 @@ describe("EventoValidator", () => {
       precioValor: 0,
       publicoObjetivo: ["familia"],
     });
-    expect(errors.some((e) => e.includes("Barrio"))).toBe(true);
+    expect(errors.some((e) => e.includes("Barrio inválido o inactivo"))).toBe(
+      true,
+    );
   });
 
   it("accepts existing barrio", async () => {
@@ -194,59 +200,9 @@ describe("EventoValidator", () => {
       precioValor: 0,
       publicoObjetivo: ["familia"],
     });
-    expect(errors.some((e) => e.includes("Barrio"))).toBe(false);
-  });
-
-  // =========================================================================
-  // validatePlaceId
-  // =========================================================================
-  it("rejects non-existent placeId", async () => {
-    mockFirebaseService.getDocument.mockImplementation(() =>
-      Promise.resolve({ exists: false } as any),
+    expect(errors.some((e) => e.includes("Barrio inválido o inactivo"))).toBe(
+      false,
     );
-
-    const errors = await validator.validateCreate({
-      placeId: "non-existent-place",
-      subcategoriaId: "ferias-gastronomicas",
-      barrioId: "centro",
-      precioTipo: "gratis",
-      precioValor: 0,
-      publicoObjetivo: ["familia"],
-    });
-    expect(errors.some((e) => e.includes("Place"))).toBe(true);
-  });
-
-  it("rejects placeId with non-approved status", async () => {
-    mockFirebaseService.getDocument.mockImplementation(() =>
-      Promise.resolve({
-        exists: true,
-        data: () => ({ status: "pendiente" }),
-      } as any),
-    );
-
-    const errors = await validator.validateCreate({
-      placeId: "place-pendiente",
-      subcategoriaId: "ferias-gastronomicas",
-      barrioId: "centro",
-      precioTipo: "gratis",
-      precioValor: 0,
-      publicoObjetivo: ["familia"],
-    });
-    expect(
-      errors.some((e) => e.includes("Place") || e.includes("aprobado")),
-    ).toBe(true);
-  });
-
-  it("accepts placeId with approved status", async () => {
-    const errors = await validator.validateCreate({
-      placeId: "place-aprobado",
-      subcategoriaId: "ferias-gastronomicas",
-      barrioId: "centro",
-      precioTipo: "gratis",
-      precioValor: 0,
-      publicoObjetivo: ["familia"],
-    });
-    expect(errors.some((e) => e.includes("Place"))).toBe(false);
   });
 
   // =========================================================================

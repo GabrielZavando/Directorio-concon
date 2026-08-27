@@ -5,10 +5,11 @@
  * `eventos.service.ts`. These functions take their collaborators as explicit
  * arguments (no hidden `this` dependency) so they stay trivially testable.
  */
-import { ConflictException, Logger } from "@nestjs/common";
+import { ConflictException } from "@nestjs/common";
 import type { Evento } from "../domain/evento.entity";
+import type { CambioEvento } from "../domain/cambio-evento.interface";
+import type { Ubicacion } from "../domain/ubicacion.vo";
 import type { CatalogValidator } from "../../categorias/application/catalog-validator.service";
-import type { SolicitudesServiceInterface } from "./solicitudes-service.interface";
 
 // ---------------------------------------------------------------------------
 // DTO types (mirrors what the controller receives after validation)
@@ -23,9 +24,7 @@ export interface CreateEventoServiceDto {
   organizador: string;
   organizadorContacto?: string;
   organizadorWeb?: string;
-  ubicacionNombre?: string;
-  ubicacionDireccion: string;
-  coordenadas: { lat: number; lng: number };
+  ubicacion: Ubicacion;
   fechaInicio: string;
   fechaFin: string;
   precioTipo: string;
@@ -39,6 +38,12 @@ export interface CreateEventoServiceDto {
 }
 
 export type UpdateEventoServiceDto = Partial<CreateEventoServiceDto>;
+
+/** Body for the admin verification endpoint. */
+export interface VerificarEventoServiceDto {
+  resultado: "verificado" | "rechazado";
+  motivo?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Slug helper
@@ -76,7 +81,7 @@ export async function validateEventoCatalogReferences(
 }
 
 // ---------------------------------------------------------------------------
-// Patch builder for non-approved updates
+// Patch builder for updates (in-place; no staged solicitud)
 // ---------------------------------------------------------------------------
 
 export async function buildEventoPatch(
@@ -89,6 +94,16 @@ export async function buildEventoPatch(
     ...dto,
     updatedAt: new Date(),
   } as unknown as Partial<Evento> & { updatedAt: Date };
+
+  // DTO date fields arrive as ISO strings; the persistence layer expects
+  // `Date` instances (Firestore Timestamps). Convert at this boundary so the
+  // adapter never receives a raw string (which would crash dateToTimestamp).
+  if (dto.fechaInicio) {
+    patch.fechaInicio = new Date(dto.fechaInicio);
+  }
+  if (dto.fechaFin) {
+    patch.fechaFin = new Date(dto.fechaFin);
+  }
 
   if (dto.nombre && dto.nombre !== existing.nombre) {
     const newSlug = slugify(dto.nombre);
@@ -103,32 +118,48 @@ export async function buildEventoPatch(
 }
 
 // ---------------------------------------------------------------------------
-// Staged update for already-approved eventos (creates a solicitud)
+// Change diff — computes CambioEvento[] for the fields present in the DTO
 // ---------------------------------------------------------------------------
 
-export async function stageApprovedUpdate(
-  id: string,
+export function computeChanges(
+  existing: Evento,
   dto: UpdateEventoServiceDto,
   usuarioId: string,
-  existing: Evento,
-  collaborators: {
-    solicitudService: SolicitudesServiceInterface;
-    logger: Logger;
-  },
-): Promise<Evento> {
-  const { solicitudService, logger } = collaborators;
-  const now = new Date();
-  await solicitudService.createEventoSolicitud({
-    eventoId: id,
-    usuarioId,
-    tipo: "actualizacion-evento",
-    status: "pendiente",
-    proposal: dto as Record<string, unknown>,
-    createdAt: now,
-  });
+): CambioEvento[] {
+  const cambios: CambioEvento[] = [];
+  const fecha = new Date();
+  const keys = Object.keys(dto) as (keyof UpdateEventoServiceDto)[];
 
-  logger.log(
-    `Evento update staged via solicitud: ${id} (${JSON.stringify(dto)})`,
-  );
-  return existing;
+  for (const key of keys) {
+    const nuevo = (dto as Record<string, unknown>)[key];
+    if (nuevo === undefined) {
+      continue;
+    }
+    const anterior = (existing as unknown as Record<string, unknown>)[key];
+    // Date fields are supplied as ISO strings in the DTO but stored as `Date`
+    // in the domain entity. Compare by value (getTime) so re-sending the same
+    // instant does not produce a spurious `cambios` entry.
+    const dateKeys = ["fechaInicio", "fechaFin", "fechaPublicacion"];
+    const normalizedAnterior =
+      dateKeys.includes(key as string) && anterior
+        ? new Date(anterior as string | Date).getTime()
+        : anterior;
+    const normalizedNuevo =
+      dateKeys.includes(key as string) && nuevo
+        ? new Date(nuevo as string | Date).getTime()
+        : nuevo;
+    if (
+      JSON.stringify(normalizedAnterior) !== JSON.stringify(normalizedNuevo)
+    ) {
+      cambios.push({
+        campo: key as string,
+        valorAnterior: anterior,
+        valorNuevo: nuevo,
+        fecha,
+        usuarioId,
+      });
+    }
+  }
+
+  return cambios;
 }

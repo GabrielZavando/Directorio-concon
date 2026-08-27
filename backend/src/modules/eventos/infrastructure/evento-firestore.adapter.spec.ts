@@ -9,6 +9,7 @@ jest.mock("@/common/services/firebase.service", () => ({
 }));
 
 import { EventoFirestoreAdapter } from "./evento-firestore.adapter";
+import type { Evento } from "../domain/evento.entity";
 
 // ---------------------------------------------------------------------------
 // Mock factory
@@ -43,8 +44,11 @@ function makeFirestoreDoc(overrides: Record<string, unknown> = {}) {
     barrioId: "centro",
     organizador: "Municipalidad de Concón",
     organizadorContacto: "+56912345678",
-    ubicacionDireccion: "Av. Borgoño 1234, Concón",
-    coordenadas: { lat: -32.998, lng: -71.518 },
+    ubicacion: {
+      nombreLugar: undefined,
+      direccion: "Av. Borgoño 1234, Concón",
+      coordenadas: { lat: -32.998, lng: -71.518 },
+    },
     fechaInicio: { toDate: () => new Date("2026-08-15T10:00:00Z") },
     fechaFin: { toDate: () => new Date("2026-08-17T22:00:00Z") },
     precioTipo: "gratis",
@@ -52,12 +56,13 @@ function makeFirestoreDoc(overrides: Record<string, unknown> = {}) {
     precioMoneda: "CLP",
     publicoObjetivo: ["familia", "todos"],
     nivelRuido: "alto",
-    status: "aprobado",
     estado: "programado",
     destacado: false,
-    verificado: false,
+    estadoVerificacion: "verificado",
+    activo: true,
     usuarioId: "user-1",
     vistasTotales: 0,
+    cambios: [],
     createdAt: { toDate: () => new Date("2026-01-01") },
     updatedAt: { toDate: () => new Date("2026-01-01") },
     ...overrides,
@@ -77,9 +82,6 @@ describe("EventoFirestoreAdapter", () => {
     adapter = new EventoFirestoreAdapter(mockFirebase as never);
   });
 
-  // =========================================================================
-  // findById
-  // =========================================================================
   describe("findById", () => {
     it("returns an Evento when document exists", async () => {
       mockFirebase.getDocument.mockResolvedValue({
@@ -94,6 +96,10 @@ describe("EventoFirestoreAdapter", () => {
       expect(result!.id).toBe("evento-1");
       expect(result!.nombre).toBe("Feria Gastronómica de Concón");
       expect(result!.createdAt).toBeInstanceOf(Date);
+      expect(result!.ubicacion.coordenadas).toEqual({
+        lat: -32.998,
+        lng: -71.518,
+      });
     });
 
     it("returns null when document does not exist", async () => {
@@ -108,9 +114,6 @@ describe("EventoFirestoreAdapter", () => {
     });
   });
 
-  // =========================================================================
-  // findBySlug
-  // =========================================================================
   describe("findBySlug", () => {
     it("returns an Evento when slug matches", async () => {
       mockFirebase.getDocuments.mockResolvedValue({
@@ -132,16 +135,12 @@ describe("EventoFirestoreAdapter", () => {
     });
   });
 
-  // =========================================================================
-  // create
-  // =========================================================================
   describe("create", () => {
     it("creates a document and returns Evento with id", async () => {
       mockFirebase.getCurrentTimestamp.mockReturnValue({
         toDate: () => new Date("2026-06-01"),
       });
       mockFirebase.createDocument.mockResolvedValue({ id: "new-evento" });
-      // Simulate a subsequent findById returning the created doc
       mockFirebase.getDocument.mockResolvedValue({
         exists: true,
         id: "new-evento",
@@ -157,21 +156,24 @@ describe("EventoFirestoreAdapter", () => {
         subcategoriaId: "ferias-gastronomicas",
         barrioId: "centro",
         organizador: "Municipalidad de Concón",
-        ubicacionDireccion: "Av. Borgoño 1234",
-        coordenadas: { lat: -32.998, lng: -71.518 },
+        ubicacion: {
+          direccion: "Av. Borgoño 1234",
+          coordenadas: { lat: -32.998, lng: -71.518 },
+        },
         fechaInicio: new Date("2026-08-15T10:00:00Z"),
         fechaFin: new Date("2026-08-17T22:00:00Z"),
         precioTipo: "gratis" as const,
         precioValor: 0,
         precioMoneda: "CLP" as const,
-        publicoObjetivo: ["familia", "todos"] as any,
+        publicoObjetivo: ["familia", "todos"] as Evento["publicoObjetivo"],
         nivelRuido: "alto" as const,
-        status: "pendiente" as const,
-        estado: "borrador" as const,
+        estado: "programado" as const,
         destacado: false,
-        verificado: false,
+        estadoVerificacion: "pendiente" as const,
+        activo: true,
         usuarioId: "user-1",
         vistasTotales: 0,
+        cambios: [],
       };
 
       const result = await adapter.create(input);
@@ -184,9 +186,6 @@ describe("EventoFirestoreAdapter", () => {
     });
   });
 
-  // =========================================================================
-  // delete
-  // =========================================================================
   describe("delete", () => {
     it("delegates to firebase.deleteDocument", async () => {
       mockFirebase.deleteDocument.mockResolvedValue(undefined);
@@ -200,11 +199,8 @@ describe("EventoFirestoreAdapter", () => {
     });
   });
 
-  // =========================================================================
-  // listMapData
-  // =========================================================================
   describe("listMapData", () => {
-    it("returns approved eventos with coordinates", async () => {
+    it("returns active eventos with lightweight marker fields", async () => {
       mockFirebase.getDocuments.mockResolvedValue({
         docs: [
           {
@@ -212,8 +208,12 @@ describe("EventoFirestoreAdapter", () => {
             data: () => ({
               nombre: "Evento 1",
               slug: "evento-1",
-              coordenadas: { lat: -33.0, lng: -71.5 },
-              categoriaId: "eventos",
+              subcategoriaId: "ferias-gastronomicas",
+              barrioId: "centro",
+              ubicacion: {
+                direccion: "X",
+                coordenadas: { lat: -33.0, lng: -71.5 },
+              },
               fechaInicio: { toDate: () => new Date("2026-08-15") },
             }),
           },
@@ -222,7 +222,9 @@ describe("EventoFirestoreAdapter", () => {
             data: () => ({
               nombre: "Evento 2",
               slug: "evento-2",
-              categoriaId: "eventos",
+              subcategoriaId: "ferias-gastronomicas",
+              barrioId: "centro",
+              ubicacion: { direccion: "Y" },
               fechaInicio: { toDate: () => new Date("2026-08-16") },
               // No coordenadas — should be filtered out
             }),
@@ -235,12 +237,12 @@ describe("EventoFirestoreAdapter", () => {
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe("e1");
       expect(result[0].coordenadas).toEqual({ lat: -33.0, lng: -71.5 });
+      expect(result[0].subcategoriaId).toBe("ferias-gastronomicas");
+      expect(result[0].barrioId).toBe("centro");
+      expect((result[0] as { ubicacion?: unknown }).ubicacion).toBeUndefined();
     });
   });
 
-  // =========================================================================
-  // update
-  // =========================================================================
   describe("update", () => {
     it("updates document and returns updated Evento", async () => {
       const existingDoc = makeFirestoreDoc();
@@ -275,9 +277,6 @@ describe("EventoFirestoreAdapter", () => {
     });
   });
 
-  // =========================================================================
-  // findAllPublic
-  // =========================================================================
   describe("findAllPublic", () => {
     function makeQueryMock() {
       return {
@@ -291,7 +290,7 @@ describe("EventoFirestoreAdapter", () => {
       };
     }
 
-    it("returns paginated approved eventos only", async () => {
+    it("returns paginated active eventos only (no forced verificado)", async () => {
       const mockQuery = makeQueryMock();
       mockFirebase.getFirestore.mockReturnValue({
         collection: jest.fn().mockReturnValue(mockQuery),
@@ -301,9 +300,67 @@ describe("EventoFirestoreAdapter", () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].id).toBe("evento-1");
-      expect(result.data[0].status).toBe("aprobado");
-      // Verify query has status filter
-      expect(mockQuery.where).toHaveBeenCalledWith("status", "==", "aprobado");
+      expect(mockQuery.where).toHaveBeenCalledWith("activo", "==", true);
+      // estadoVerificacion must NOT be forced when not provided
+      const verificacionCalls = (
+        mockQuery.where as jest.Mock
+      ).mock.calls.filter((c: unknown[]) => c[0] === "estadoVerificacion");
+      expect(verificacionCalls.length).toBe(0);
+    });
+
+    it("applies estadoVerificacion filter when provided (admin queue)", async () => {
+      const mockQuery = makeQueryMock();
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue(mockQuery),
+      });
+
+      await adapter.findAllPublic({
+        page: 1,
+        limit: 20,
+        estadoVerificacion: "pendiente",
+      });
+
+      expect(mockQuery.where).toHaveBeenCalledWith(
+        "estadoVerificacion",
+        "==",
+        "pendiente",
+      );
+    });
+
+    it("filters by fechaDesde / fechaHasta", async () => {
+      const mockQuery = makeQueryMock();
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue(mockQuery),
+      });
+
+      await adapter.findAllPublic({
+        page: 1,
+        limit: 20,
+        fechaDesde: "2026-08-01T00:00:00Z",
+        fechaHasta: "2026-08-31T23:59:59Z",
+      });
+
+      expect(mockQuery.where).toHaveBeenCalledWith(
+        "fechaInicio",
+        ">=",
+        new Date("2026-08-01T00:00:00Z"),
+      );
+      expect(mockQuery.where).toHaveBeenCalledWith(
+        "fechaInicio",
+        "<=",
+        new Date("2026-08-31T23:59:59Z"),
+      );
+    });
+
+    it("filters by destacado", async () => {
+      const mockQuery = makeQueryMock();
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue(mockQuery),
+      });
+
+      await adapter.findAllPublic({ page: 1, limit: 20, destacado: true });
+
+      expect(mockQuery.where).toHaveBeenCalledWith("destacado", "==", true);
     });
 
     it("filters by subcategoriaId", async () => {
@@ -331,11 +388,7 @@ describe("EventoFirestoreAdapter", () => {
         collection: jest.fn().mockReturnValue(mockQuery),
       });
 
-      await adapter.findAllPublic({
-        page: 1,
-        limit: 20,
-        barrioId: "bosques",
-      });
+      await adapter.findAllPublic({ page: 1, limit: 20, barrioId: "bosques" });
 
       expect(mockQuery.where).toHaveBeenCalledWith("barrioId", "==", "bosques");
     });
@@ -346,11 +399,7 @@ describe("EventoFirestoreAdapter", () => {
         collection: jest.fn().mockReturnValue(mockQuery),
       });
 
-      await adapter.findAllPublic({
-        page: 1,
-        limit: 20,
-        precioTipo: "gratis",
-      });
+      await adapter.findAllPublic({ page: 1, limit: 20, precioTipo: "gratis" });
 
       expect(mockQuery.where).toHaveBeenCalledWith(
         "precioTipo",
@@ -365,11 +414,7 @@ describe("EventoFirestoreAdapter", () => {
         collection: jest.fn().mockReturnValue(mockQuery),
       });
 
-      await adapter.findAllPublic({
-        page: 1,
-        limit: 20,
-        estado: "programado",
-      });
+      await adapter.findAllPublic({ page: 1, limit: 20, estado: "programado" });
 
       expect(mockQuery.where).toHaveBeenCalledWith(
         "estado",
@@ -419,14 +464,10 @@ describe("EventoFirestoreAdapter", () => {
 
       await adapter.findAllPublic({ page: 2, limit: 10 });
 
-      // Should call startAfter with a cursor document
       expect(mockQuery.startAfter).toHaveBeenCalled();
     });
   });
 
-  // =========================================================================
-  // findAllAdmin
-  // =========================================================================
   describe("findAllAdmin", () => {
     function makeQueryMock() {
       return {
@@ -435,15 +476,22 @@ describe("EventoFirestoreAdapter", () => {
         limit: jest.fn().mockReturnThis(),
         get: jest.fn().mockResolvedValue({
           docs: [
-            { id: "e1", data: () => makeFirestoreDoc({ status: "aprobado" }) },
-            { id: "e2", data: () => makeFirestoreDoc({ status: "pendiente" }) },
+            {
+              id: "e1",
+              data: () =>
+                makeFirestoreDoc({ estadoVerificacion: "verificado" }),
+            },
+            {
+              id: "e2",
+              data: () => makeFirestoreDoc({ estadoVerificacion: "pendiente" }),
+            },
           ],
         }),
         startAfter: jest.fn().mockReturnThis(),
       };
     }
 
-    it("returns all eventos regardless of status", async () => {
+    it("returns all eventos regardless of estadoVerificacion", async () => {
       const mockQuery = makeQueryMock();
       mockFirebase.getFirestore.mockReturnValue({
         collection: jest.fn().mockReturnValue(mockQuery),
@@ -452,9 +500,8 @@ describe("EventoFirestoreAdapter", () => {
       const result = await adapter.findAllAdmin({ page: 1, limit: 50 });
 
       expect(result.data).toHaveLength(2);
-      // Admin query should NOT filter by status="aprobado"
       const statusCalls = (mockQuery.where as jest.Mock).mock.calls.filter(
-        (c: string[]) => c[0] === "status",
+        (c: unknown[]) => c[0] === "status",
       );
       expect(statusCalls.length).toBe(0);
     });
@@ -484,31 +531,29 @@ describe("EventoFirestoreAdapter", () => {
         collection: jest.fn().mockReturnValue(mockQuery),
       });
 
-      await adapter.findAllAdmin({
-        page: 1,
-        limit: 20,
-        estado: "borrador",
-      });
+      await adapter.findAllAdmin({ page: 1, limit: 20, estado: "programado" });
 
-      expect(mockQuery.where).toHaveBeenCalledWith("estado", "==", "borrador");
+      expect(mockQuery.where).toHaveBeenCalledWith(
+        "estado",
+        "==",
+        "programado",
+      );
     });
 
     it("handles cursor-based pagination for admin page > 1", async () => {
-      // Override get to return cursor position doc for the offset query
       const mockQuery = makeQueryMock();
       const mockCursorSnapshot = {
         empty: false,
         docs: [{ id: "cursor-doc" }, { id: "cursor-last" }],
       };
-      // First call to get() is for cursor offset, second is for data
       mockQuery.get
-        .mockResolvedValueOnce(mockCursorSnapshot as any)
+        .mockResolvedValueOnce(mockCursorSnapshot as never)
         .mockResolvedValueOnce({
           docs: [
             { id: "e1", data: () => makeFirestoreDoc() },
             { id: "e2", data: () => makeFirestoreDoc() },
           ],
-        } as any);
+        } as never);
       mockFirebase.getFirestore.mockReturnValue({
         collection: jest.fn().mockReturnValue(mockQuery),
       });
@@ -520,9 +565,6 @@ describe("EventoFirestoreAdapter", () => {
     });
   });
 
-  // =========================================================================
-  // toPersistence date conversions (create with Date fields)
-  // =========================================================================
   describe("create with date fields", () => {
     it("converts Date fields to Firestore timestamps", async () => {
       mockFirebase.getCurrentTimestamp.mockReturnValue({
@@ -544,26 +586,28 @@ describe("EventoFirestoreAdapter", () => {
         subcategoriaId: "ferias-gastronomicas",
         barrioId: "centro",
         organizador: "Org",
-        ubicacionDireccion: "Dir",
-        coordenadas: { lat: -33, lng: -71 },
+        ubicacion: {
+          direccion: "Dir",
+          coordenadas: { lat: -33, lng: -71 },
+        },
         fechaInicio: new Date("2026-08-15T10:00:00Z"),
         fechaFin: new Date("2026-08-17T22:00:00Z"),
         precioTipo: "gratis" as const,
         precioValor: 0,
         precioMoneda: "CLP" as const,
-        publicoObjetivo: ["familia"] as any,
+        publicoObjetivo: ["familia"] as Evento["publicoObjetivo"],
         nivelRuido: "bajo" as const,
-        status: "pendiente" as const,
-        estado: "borrador" as const,
+        estado: "programado" as const,
         destacado: false,
-        verificado: false,
+        estadoVerificacion: "pendiente" as const,
+        activo: true,
         usuarioId: "user-1",
         vistasTotales: 0,
+        cambios: [],
       };
 
       await adapter.create(input);
 
-      // Verify dateToTimestamp was called for fechaInicio and fechaFin
       expect(mockFirebase.dateToTimestamp).toHaveBeenCalledWith(
         input.fechaInicio,
       );

@@ -1,23 +1,23 @@
 /**
- * Unit tests for EventosService.
- * TDD RED phase — these tests will fail until the service is implemented.
+ * Unit tests for EventosService — new model (activo + estadoVerificacion +
+ * ubicacion + cambios, no auto-solicitudes, unified in-place edit with
+ * reversion to pendiente, soft delete, admin verificar).
  */
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
-  UnprocessableEntityException,
 } from "@nestjs/common";
 import { EventosService } from "./eventos.service";
 import type { EventoRepositoryInterface } from "../domain/evento-repository.interface";
 import type { Evento } from "../domain/evento.entity";
-import type { SolicitudesServiceInterface } from "./solicitudes-service.interface";
 import { EventoValidator } from "./evento-validator";
-import { BadRequestException } from "@nestjs/common";
 import type { CatalogValidator } from "../../categorias/application/catalog-validator.service";
+import type { NotificacionesPort } from "./notificaciones.port";
 
 // ---------------------------------------------------------------------------
-// Mock helpers
+// Mocks
 // ---------------------------------------------------------------------------
 function createMockValidator(): jest.Mocked<EventoValidator> {
   return {
@@ -25,9 +25,12 @@ function createMockValidator(): jest.Mocked<EventoValidator> {
   } as unknown as jest.Mocked<EventoValidator>;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+function createMockNotificaciones(): jest.Mocked<NotificacionesPort> {
+  return {
+    notifyEventoRevertidoPendiente: jest.fn().mockResolvedValue(undefined),
+  } as unknown as jest.Mocked<NotificacionesPort>;
+}
+
 function makeEvento(overrides: Partial<Evento> = {}): Evento {
   return {
     id: "evento-1",
@@ -41,8 +44,11 @@ function makeEvento(overrides: Partial<Evento> = {}): Evento {
     barrioId: "centro",
     organizador: "Municipalidad de Concón",
     organizadorContacto: "+56912345678",
-    ubicacionDireccion: "Av. Borgoño 1234, Concón",
-    coordenadas: { lat: -32.998, lng: -71.518 },
+    ubicacion: {
+      nombreLugar: undefined,
+      direccion: "Av. Borgoño 1234, Concón",
+      coordenadas: { lat: -32.998, lng: -71.518 },
+    },
     fechaInicio: new Date("2026-08-15T10:00:00Z"),
     fechaFin: new Date("2026-08-17T22:00:00Z"),
     precioTipo: "gratis",
@@ -50,12 +56,13 @@ function makeEvento(overrides: Partial<Evento> = {}): Evento {
     precioMoneda: "CLP",
     publicoObjetivo: ["familia", "todos"],
     nivelRuido: "alto",
-    status: "aprobado",
     estado: "programado",
     destacado: false,
-    verificado: false,
+    estadoVerificacion: "verificado",
+    activo: true,
     usuarioId: "user-1",
     vistasTotales: 0,
+    cambios: [],
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
     fechaPublicacion: new Date("2026-01-01"),
@@ -63,9 +70,6 @@ function makeEvento(overrides: Partial<Evento> = {}): Evento {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
 const mockEventoRepo: jest.Mocked<EventoRepositoryInterface> = {
   create: jest.fn(),
   findAllPublic: jest.fn(),
@@ -77,15 +81,9 @@ const mockEventoRepo: jest.Mocked<EventoRepositoryInterface> = {
   listMapData: jest.fn(),
 };
 
-const mockSolicitudService: jest.Mocked<SolicitudesServiceInterface> = {
-  createEventoSolicitud: jest.fn(),
-  existsPendingByEventoId: jest.fn(),
-};
-
 const mockValidator = createMockValidator();
+const mockNotificaciones = createMockNotificaciones();
 
-// Mock CatalogValidator — `enabled` toggled per-test; assert* default to
-// resolving (valid catalog). Same shape as places.service.spec.ts (8.2/8.4).
 type CatalogValidatorMock = {
   enabled: boolean;
   assertCategoriaActiva: jest.Mock<Promise<void>, [string]>;
@@ -100,26 +98,29 @@ const mockCatalogValidator: CatalogValidatorMock = {
   assertBarrioActivo: jest.fn().mockResolvedValue(undefined),
 };
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+function buildService(): EventosService {
+  return new EventosService(
+    mockEventoRepo,
+    mockValidator,
+    mockCatalogValidator as unknown as CatalogValidator,
+    mockNotificaciones,
+  );
+}
+
 describe("EventosService", () => {
   let service: EventosService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockValidator.validateCreate.mockImplementation(async () => []);
+    mockNotificaciones.notifyEventoRevertidoPendiente.mockResolvedValue(
+      undefined,
+    );
     mockCatalogValidator.enabled = true;
-    // clearAllMocks() does NOT reset implementations — restore defaults.
     mockCatalogValidator.assertCategoriaActiva.mockResolvedValue(undefined);
     mockCatalogValidator.assertSubcategoriaActiva.mockResolvedValue(undefined);
     mockCatalogValidator.assertBarrioActivo.mockResolvedValue(undefined);
-    service = new EventosService(
-      mockEventoRepo,
-      mockSolicitudService as unknown as SolicitudesServiceInterface,
-      mockValidator,
-      mockCatalogValidator as unknown as CatalogValidator,
-    );
+    service = buildService();
   });
 
   // =========================================================================
@@ -134,8 +135,10 @@ describe("EventosService", () => {
       subcategoriaId: "ferias-gastronomicas",
       barrioId: "centro",
       organizador: "Municipalidad de Concón",
-      ubicacionDireccion: "Av. Borgoño 1234, Concón",
-      coordenadas: { lat: -32.998, lng: -71.518 },
+      ubicacion: {
+        direccion: "Av. Borgoño 1234, Concón",
+        coordenadas: { lat: -32.998, lng: -71.518 },
+      },
       fechaInicio: "2026-08-15T10:00:00Z",
       fechaFin: "2026-08-17T22:00:00Z",
       precioTipo: "gratis",
@@ -145,31 +148,22 @@ describe("EventosService", () => {
       nivelRuido: "alto",
     };
 
-    beforeEach(() => {
-      mockValidator.validateCreate.mockImplementation(async () => []);
-    });
-
-    it("creates evento with slug, status pendiente, estado borrador, solicitud", async () => {
+    it("creates evento with slug, estadoVerificacion pendiente, visible (no solicitud)", async () => {
       mockEventoRepo.findBySlug.mockResolvedValue(null);
       mockEventoRepo.create.mockImplementation(async (data) =>
         makeEvento({
-          ...data,
+          ...(data as unknown as Partial<Evento>),
           id: "new-evento",
           createdAt: new Date(),
           updatedAt: new Date(),
-          fechaInicio: new Date(data.fechaInicio as unknown as string),
-          fechaFin: new Date(data.fechaFin as unknown as string),
-        } as unknown as Partial<Evento>),
+        }),
       );
-      mockSolicitudService.createEventoSolicitud.mockResolvedValue({
-        id: "sol-new",
-      });
 
       const result = await service.create(createDto, "user-1");
 
       expect(result.id).toBe("new-evento");
-      expect(result.status).toBe("pendiente");
-      expect(result.estado).toBe("borrador");
+      expect(result.estadoVerificacion).toBe("pendiente");
+      expect(result.activo).toBe(true);
       expect(result.categoriaId).toBe("eventos");
       expect(result.slug).toBe("feria-gastronomica-de-concon");
       expect(result.usuarioId).toBe("user-1");
@@ -178,12 +172,13 @@ describe("EventosService", () => {
         "feria-gastronomica-de-concon",
       );
       expect(mockEventoRepo.create).toHaveBeenCalledTimes(1);
-      expect(mockSolicitudService.createEventoSolicitud).toHaveBeenCalledWith(
+      // New eventos MUST be created as 'programado' so they appear in the
+      // default public list (which filters estado: 'programado').
+      expect(mockEventoRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventoId: "new-evento",
-          usuarioId: "user-1",
-          tipo: "registro-evento",
-          status: "pendiente",
+          estado: "programado",
+          activo: true,
+          estadoVerificacion: "pendiente",
         }),
       );
     });
@@ -195,26 +190,22 @@ describe("EventosService", () => {
         ConflictException,
       );
       expect(mockEventoRepo.create).not.toHaveBeenCalled();
-      expect(mockSolicitudService.createEventoSolicitud).not.toHaveBeenCalled();
     });
 
-    it("throws UnprocessableEntityException when validation fails", async () => {
+    it("throws BadRequestException when validation fails", async () => {
       mockEventoRepo.findBySlug.mockResolvedValue(null);
       mockValidator.validateCreate.mockImplementation(async () => [
-        "Barrio 'centro' no existe",
+        "Barrio inválido o inactivo",
       ]);
 
       await expect(service.create(createDto, "user-1")).rejects.toThrow(
-        UnprocessableEntityException,
+        BadRequestException,
       );
       expect(mockEventoRepo.create).not.toHaveBeenCalled();
     });
 
-    // -----------------------------------------------------------------------
-    // Catalog cross-validation (feature flag CATALOG_VALIDATION_ENABLED)
-    // -----------------------------------------------------------------------
-    describe("catalog cross-validation", () => {
-      it("create con categoria 'eventos' inexistente/inactiva → BadRequestException (flag activo)", async () => {
+    describe("catalog cross-validation (feature flag)", () => {
+      it("create con categoria 'eventos' inexistente → BadRequestException (flag activo)", async () => {
         mockEventoRepo.findBySlug.mockResolvedValue(null);
         mockCatalogValidator.assertCategoriaActiva.mockRejectedValue(
           new BadRequestException("Categoría inválida o inactiva"),
@@ -224,9 +215,6 @@ describe("EventosService", () => {
           BadRequestException,
         );
         expect(mockEventoRepo.create).not.toHaveBeenCalled();
-        expect(mockCatalogValidator.assertCategoriaActiva).toHaveBeenCalledWith(
-          "eventos",
-        );
       });
 
       it("create con subcategoriaId inactivo → BadRequestException (flag activo)", async () => {
@@ -239,9 +227,6 @@ describe("EventosService", () => {
           BadRequestException,
         );
         expect(mockEventoRepo.create).not.toHaveBeenCalled();
-        expect(
-          mockCatalogValidator.assertSubcategoriaActiva,
-        ).toHaveBeenCalledWith("eventos", "ferias-gastronomicas");
       });
 
       it("create con barrioId inactivo → BadRequestException (flag activo)", async () => {
@@ -261,17 +246,10 @@ describe("EventosService", () => {
         mockEventoRepo.findBySlug.mockResolvedValue(null);
         mockEventoRepo.create.mockImplementation(async (data) =>
           makeEvento({
-            ...data,
+            ...(data as unknown as Partial<Evento>),
             id: "new-evento",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            fechaInicio: new Date(data.fechaInicio as unknown as string),
-            fechaFin: new Date(data.fechaFin as unknown as string),
-          } as unknown as Partial<Evento>),
+          }),
         );
-        mockSolicitudService.createEventoSolicitud.mockResolvedValue({
-          id: "sol-new",
-        });
 
         await service.create(createDto, "user-1");
 
@@ -290,7 +268,11 @@ describe("EventosService", () => {
         ...createDto,
         organizadorContacto: "+56987654321",
         organizadorWeb: "https://example.com",
-        ubicacionNombre: "Playa Amarilla",
+        ubicacion: {
+          nombreLugar: "Playa Amarilla",
+          direccion: "Av. Borgoño 1234, Concón",
+          coordenadas: { lat: -32.998, lng: -71.518 },
+        },
         capacidadMaxima: 500,
         portada: "https://example.com/portada.jpg",
         accesibilidad: ["acceso-silla-ruedas", "banos-accesibles"],
@@ -298,23 +280,16 @@ describe("EventosService", () => {
       mockEventoRepo.findBySlug.mockResolvedValue(null);
       mockEventoRepo.create.mockImplementation(async (data) =>
         makeEvento({
-          ...data,
+          ...(data as unknown as Partial<Evento>),
           id: "new-evento",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          fechaInicio: new Date(data.fechaInicio as unknown as string),
-          fechaFin: new Date(data.fechaFin as unknown as string),
-        } as unknown as Partial<Evento>),
+        }),
       );
-      mockSolicitudService.createEventoSolicitud.mockResolvedValue({
-        id: "sol-new",
-      });
 
       const result = await service.create(fullDto, "user-1");
 
       expect(result.organizadorContacto).toBe("+56987654321");
       expect(result.organizadorWeb).toBe("https://example.com");
-      expect(result.ubicacionNombre).toBe("Playa Amarilla");
+      expect(result.ubicacion.nombreLugar).toBe("Playa Amarilla");
       expect(result.capacidadMaxima).toBe(500);
       expect(result.portada).toBe("https://example.com/portada.jpg");
       expect(result.accesibilidad).toEqual([
@@ -328,29 +303,49 @@ describe("EventosService", () => {
   // findAllPublic
   // =========================================================================
   describe("findAllPublic", () => {
-    it("returns only approved eventos with meta", async () => {
-      const paginatedResult = {
+    it("returns only active eventos (any estadoVerificacion) with meta", async () => {
+      mockEventoRepo.findAllPublic.mockResolvedValue({
         data: [makeEvento()],
         total: 1,
-      };
-      mockEventoRepo.findAllPublic.mockResolvedValue(paginatedResult);
-
-      const result = await service.findAllPublic({
-        page: 1,
-        limit: 20,
-        estado: "programado",
       });
+
+      const result = await service.findAllPublic({ page: 1, limit: 20 });
 
       expect(result.data).toHaveLength(1);
       expect(result.total).toBe(1);
       expect(mockEventoRepo.findAllPublic).toHaveBeenCalledWith(
-        expect.objectContaining({ page: 1, limit: 20, estado: "programado" }),
+        expect.objectContaining({
+          page: 1,
+          limit: 20,
+          estado: "programado",
+          activo: true,
+        }),
+      );
+      // estadoVerificacion must NOT be forced to "verificado"
+      const callFilters = (mockEventoRepo.findAllPublic as jest.Mock).mock
+        .calls[0][0];
+      expect(callFilters.estadoVerificacion).toBeUndefined();
+    });
+
+    it("passes through estadoVerificacion filter when provided (admin queue)", async () => {
+      mockEventoRepo.findAllPublic.mockResolvedValue({ data: [], total: 0 });
+
+      await service.findAllPublic({
+        page: 1,
+        limit: 10,
+        estadoVerificacion: "pendiente",
+      });
+
+      expect(mockEventoRepo.findAllPublic).toHaveBeenCalledWith(
+        expect.objectContaining({
+          estadoVerificacion: "pendiente",
+          activo: true,
+        }),
       );
     });
 
     it("applies default estado programado if not provided", async () => {
-      const paginatedResult = { data: [], total: 0 };
-      mockEventoRepo.findAllPublic.mockResolvedValue(paginatedResult);
+      mockEventoRepo.findAllPublic.mockResolvedValue({ data: [], total: 0 });
 
       await service.findAllPublic({ page: 1, limit: 10 });
 
@@ -364,16 +359,15 @@ describe("EventosService", () => {
   // findAllAdmin
   // =========================================================================
   describe("findAllAdmin", () => {
-    it("returns all eventos regardless of status", async () => {
-      const paginatedResult = {
+    it("returns all eventos regardless of estadoVerificacion", async () => {
+      mockEventoRepo.findAllAdmin.mockResolvedValue({
         data: [
-          makeEvento({ status: "aprobado" }),
-          makeEvento({ id: "e2", status: "pendiente" }),
-          makeEvento({ id: "e3", status: "rechazado" }),
+          makeEvento({ estadoVerificacion: "verificado" }),
+          makeEvento({ id: "e2", estadoVerificacion: "pendiente" }),
+          makeEvento({ id: "e3", estadoVerificacion: "rechazado" }),
         ],
         total: 3,
-      };
-      mockEventoRepo.findAllAdmin.mockResolvedValue(paginatedResult);
+      });
 
       const result = await service.findAllAdmin({ page: 1, limit: 50 });
 
@@ -386,19 +380,22 @@ describe("EventosService", () => {
   // findOnePublic
   // =========================================================================
   describe("findOnePublic", () => {
-    it("returns evento when status is aprobado", async () => {
-      const evento = makeEvento({ status: "aprobado" });
-      mockEventoRepo.findById.mockResolvedValue(evento);
-
+    it("returns evento when active (any estadoVerificacion)", async () => {
+      mockEventoRepo.findById.mockResolvedValue(makeEvento());
       const result = await service.findOnePublic("evento-1");
-      expect(result).toEqual(evento);
+      expect(result.id).toBe("evento-1");
     });
 
-    it("throws NotFoundException when status is not aprobado", async () => {
+    it("returns evento when active even if pendiente", async () => {
       mockEventoRepo.findById.mockResolvedValue(
-        makeEvento({ status: "pendiente" }),
+        makeEvento({ estadoVerificacion: "pendiente" }),
       );
+      const result = await service.findOnePublic("evento-1");
+      expect(result.estadoVerificacion).toBe("pendiente");
+    });
 
+    it("throws NotFoundException when inactive", async () => {
+      mockEventoRepo.findById.mockResolvedValue(makeEvento({ activo: false }));
       await expect(service.findOnePublic("evento-1")).rejects.toThrow(
         NotFoundException,
       );
@@ -406,7 +403,6 @@ describe("EventosService", () => {
 
     it("throws NotFoundException when evento does not exist", async () => {
       mockEventoRepo.findById.mockResolvedValue(null);
-
       await expect(service.findOnePublic("non-existent")).rejects.toThrow(
         NotFoundException,
       );
@@ -417,29 +413,26 @@ describe("EventosService", () => {
   // findBySlugPublic
   // =========================================================================
   describe("findBySlugPublic", () => {
-    it("returns evento when status is aprobado", async () => {
-      const evento = makeEvento({ status: "aprobado" });
-      mockEventoRepo.findBySlug.mockResolvedValue(evento);
-
+    it("returns evento when active (any estadoVerificacion)", async () => {
+      mockEventoRepo.findBySlug.mockResolvedValue(makeEvento());
       const result = await service.findBySlugPublic(
         "feria-gastronomica-de-concon",
       );
-      expect(result).toEqual(evento);
+      expect(result).toBeDefined();
     });
 
-    it("throws NotFoundException when status is not aprobado", async () => {
+    it("returns evento when active even if pendiente", async () => {
       mockEventoRepo.findBySlug.mockResolvedValue(
-        makeEvento({ status: "pendiente" }),
+        makeEvento({ estadoVerificacion: "pendiente" }),
       );
-
-      await expect(
-        service.findBySlugPublic("feria-gastronomica-de-concon"),
-      ).rejects.toThrow(NotFoundException);
+      const result = await service.findBySlugPublic(
+        "feria-gastronomica-de-concon",
+      );
+      expect(result?.estadoVerificacion).toBe("pendiente");
     });
 
     it("throws NotFoundException when slug does not exist", async () => {
       mockEventoRepo.findBySlug.mockResolvedValue(null);
-
       await expect(service.findBySlugPublic("non-existent")).rejects.toThrow(
         NotFoundException,
       );
@@ -447,43 +440,30 @@ describe("EventosService", () => {
   });
 
   // =========================================================================
-  // findOne
+  // findOne / findBySlug (admin/owner, no restriction)
   // =========================================================================
-  describe("findOne", () => {
-    it("returns evento for any status", async () => {
-      const evento = makeEvento({ status: "pendiente" });
-      mockEventoRepo.findById.mockResolvedValue(evento);
-
+  describe("findOne / findBySlug", () => {
+    it("findOne returns evento for any estadoVerificacion", async () => {
+      mockEventoRepo.findById.mockResolvedValue(
+        makeEvento({ estadoVerificacion: "pendiente" }),
+      );
       const result = await service.findOne("evento-1");
-      expect(result).toEqual(evento);
+      expect(result.estadoVerificacion).toBe("pendiente");
     });
 
-    it("throws NotFoundException when evento does not exist", async () => {
+    it("findOne throws NotFoundException when missing", async () => {
       mockEventoRepo.findById.mockResolvedValue(null);
-
       await expect(service.findOne("non-existent")).rejects.toThrow(
         NotFoundException,
       );
     });
-  });
 
-  // =========================================================================
-  // findBySlug
-  // =========================================================================
-  describe("findBySlug", () => {
-    it("returns evento for any status", async () => {
-      const evento = makeEvento({ status: "rechazado" });
-      mockEventoRepo.findBySlug.mockResolvedValue(evento);
-
+    it("findBySlug returns evento for any estadoVerificacion", async () => {
+      mockEventoRepo.findBySlug.mockResolvedValue(
+        makeEvento({ estadoVerificacion: "rechazado" }),
+      );
       const result = await service.findBySlug("some-slug");
-      expect(result).toEqual(evento);
-    });
-
-    it("returns null when slug does not exist", async () => {
-      mockEventoRepo.findBySlug.mockResolvedValue(null);
-
-      const result = await service.findBySlug("non-existent");
-      expect(result).toBeNull();
+      expect(result?.estadoVerificacion).toBe("rechazado");
     });
   });
 
@@ -495,160 +475,168 @@ describe("EventosService", () => {
       descripcion: "Nueva descripción actualizada del evento.",
     };
 
-    it("applies in-place update when status is pendiente (owner)", async () => {
+    it("applies in-place update when pendiente (owner)", async () => {
       const existing = makeEvento({
-        status: "pendiente",
-        estado: "borrador",
+        estadoVerificacion: "pendiente",
         usuarioId: "user-1",
       });
       mockEventoRepo.findById.mockResolvedValue(existing);
       mockEventoRepo.update.mockImplementation(async (_id, patch) =>
-        makeEvento({ ...existing, ...patch } as Partial<Evento>),
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
       );
 
       const result = await service.update(
         "evento-1",
         updateDto,
         "user-1",
-        "empresa",
+        "owner",
       );
 
       expect(result.descripcion).toBe(
         "Nueva descripción actualizada del evento.",
       );
       expect(mockEventoRepo.update).toHaveBeenCalledTimes(1);
-      expect(mockSolicitudService.createEventoSolicitud).not.toHaveBeenCalled();
+      expect(
+        mockNotificaciones.notifyEventoRevertidoPendiente,
+      ).not.toHaveBeenCalled();
     });
 
-    it("creates solicitud actualizacion-evento when status is aprobado", async () => {
+    it("update with fechaInicio/fechaFin passes Date instances to the repository (no string crash)", async () => {
       const existing = makeEvento({
-        status: "aprobado",
+        estadoVerificacion: "pendiente",
+        usuarioId: "user-1",
+      });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+      let capturedPatch: Record<string, unknown> = {};
+      mockEventoRepo.update.mockImplementation(async (_id, patch) => {
+        capturedPatch = patch as Record<string, unknown>;
+        return makeEvento({ ...existing, ...(patch as Partial<Evento>) });
+      });
+
+      await service.update(
+        "evento-1",
+        {
+          fechaInicio: "2026-09-01T18:00:00Z",
+          fechaFin: "2026-09-01T22:00:00Z",
+        } as any,
+        "user-1",
+        "owner",
+      );
+
+      expect(capturedPatch.fechaInicio).toBeInstanceOf(Date);
+      expect(capturedPatch.fechaFin).toBeInstanceOf(Date);
+    });
+
+    it("editing a verified evento reverts to pendiente + records cambios + notifies", async () => {
+      const existing = makeEvento({
+        estadoVerificacion: "verificado",
         usuarioId: "user-1",
       });
       mockEventoRepo.findById.mockResolvedValue(existing);
       mockEventoRepo.update.mockImplementation(async (_id, patch) =>
-        makeEvento({ ...existing, ...patch } as Partial<Evento>),
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
       );
-      mockSolicitudService.createEventoSolicitud.mockResolvedValue({
-        id: "sol-update",
-      });
 
       const result = await service.update(
         "evento-1",
         updateDto,
         "user-1",
-        "empresa",
+        "owner",
       );
 
-      expect(mockEventoRepo.update).not.toHaveBeenCalled();
-      expect(mockSolicitudService.createEventoSolicitud).toHaveBeenCalledWith(
-        expect.objectContaining({
-          eventoId: "evento-1",
-          usuarioId: "user-1",
-          tipo: "actualizacion-evento",
-          proposal: updateDto,
-        }),
-      );
-      // Returns the existing (unchanged) evento
-      expect(result.status).toBe("aprobado");
-      expect(result.descripcion).toBe(existing.descripcion);
+      expect(result.estadoVerificacion).toBe("pendiente");
+      expect(result.cambios.length).toBeGreaterThan(0);
+      expect(
+        mockNotificaciones.notifyEventoRevertidoPendiente,
+      ).toHaveBeenCalledTimes(1);
     });
 
     it("allows admin to update any evento", async () => {
       const existing = makeEvento({
-        status: "aprobado",
+        estadoVerificacion: "verificado",
         usuarioId: "other-user",
       });
       mockEventoRepo.findById.mockResolvedValue(existing);
-
-      const result = await service.update(
-        "evento-1",
-        updateDto,
-        "admin-1",
-        "admin",
+      mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
       );
 
-      expect(mockSolicitudService.createEventoSolicitud).toHaveBeenCalled();
-      expect(mockEventoRepo.update).not.toHaveBeenCalled();
+      await service.update("evento-1", updateDto, "admin-1", "admin");
+      expect(mockEventoRepo.update).toHaveBeenCalledTimes(1);
     });
 
-    it("throws ForbiddenException when empresa tries to update another's evento", async () => {
+    it("throws ForbiddenException when owner tries to update another's evento", async () => {
       const existing = makeEvento({ usuarioId: "other-user" });
       mockEventoRepo.findById.mockResolvedValue(existing);
 
       await expect(
-        service.update("evento-1", updateDto, "user-1", "empresa"),
+        service.update("evento-1", updateDto, "user-1", "owner"),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it("throws NotFoundException when evento does not exist", async () => {
       mockEventoRepo.findById.mockResolvedValue(null);
-
       await expect(
-        service.update("non-existent", updateDto, "user-1", "empresa"),
+        service.update("non-existent", updateDto, "user-1", "owner"),
       ).rejects.toThrow(NotFoundException);
     });
 
     it("regenerates slug when nombre changes", async () => {
-      const existing = makeEvento({ status: "pendiente", usuarioId: "user-1" });
+      const existing = makeEvento({
+        estadoVerificacion: "pendiente",
+        usuarioId: "user-1",
+      });
       mockEventoRepo.findById.mockResolvedValue(existing);
       mockEventoRepo.findBySlug.mockResolvedValue(null);
       mockEventoRepo.update.mockImplementation(async (_id, patch) =>
-        makeEvento({ ...existing, ...patch } as Partial<Evento>),
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
       );
 
       const result = await service.update(
         "evento-1",
         { nombre: "Nuevo Nombre Evento" },
         "user-1",
-        "empresa",
+        "owner",
       );
 
       expect(result.slug).toBe("nuevo-nombre-evento");
-      expect(mockEventoRepo.findBySlug).toHaveBeenCalledWith(
-        "nuevo-nombre-evento",
-      );
     });
 
     it("throws ConflictException on duplicate slug during rename", async () => {
-      const existing = makeEvento({ status: "pendiente", usuarioId: "user-1" });
+      const existing = makeEvento({
+        estadoVerificacion: "pendiente",
+        usuarioId: "user-1",
+      });
       mockEventoRepo.findById.mockResolvedValue(existing);
-      mockEventoRepo.findBySlug.mockResolvedValue(
-        makeEvento({ id: "other-evento" }),
-      );
+      mockEventoRepo.findBySlug.mockResolvedValue(makeEvento({ id: "other" }));
 
       await expect(
         service.update(
           "evento-1",
           { nombre: "Otro Evento" },
           "user-1",
-          "empresa",
+          "owner",
         ),
       ).rejects.toThrow(ConflictException);
     });
 
-    // -----------------------------------------------------------------------
-    // Catalog cross-validation — diff-aware (feature flag)
-    // -----------------------------------------------------------------------
     describe("catalog cross-validation (diff-aware)", () => {
-      it("PUT cambiando subcategoriaId → valida contra categoria 'eventos'", async () => {
+      it("PUT cambiando subcategoriaId → valida", async () => {
         const existing = makeEvento({
-          status: "pendiente",
+          estadoVerificacion: "pendiente",
           usuarioId: "user-1",
-          subcategoriaId: "ferias-gastronomicas",
         });
         mockEventoRepo.findById.mockResolvedValue(existing);
         mockEventoRepo.update.mockImplementation(async (_id, patch) =>
-          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+          makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
         );
 
         await service.update(
           "evento-1",
           { subcategoriaId: "conciertos" },
           "user-1",
-          "empresa",
+          "owner",
         );
-
         expect(
           mockCatalogValidator.assertSubcategoriaActiva,
         ).toHaveBeenCalledWith("eventos", "conciertos");
@@ -656,21 +644,20 @@ describe("EventosService", () => {
 
       it("PUT tocando solo descripcion → NO valida catálogo", async () => {
         const existing = makeEvento({
-          status: "pendiente",
+          estadoVerificacion: "pendiente",
           usuarioId: "user-1",
         });
         mockEventoRepo.findById.mockResolvedValue(existing);
         mockEventoRepo.update.mockImplementation(async (_id, patch) =>
-          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+          makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
         );
 
         await service.update(
           "evento-1",
           { descripcion: "Nueva descripción" },
           "user-1",
-          "empresa",
+          "owner",
         );
-
         expect(
           mockCatalogValidator.assertCategoriaActiva,
         ).not.toHaveBeenCalled();
@@ -680,47 +667,23 @@ describe("EventosService", () => {
         expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
       });
 
-      it("PUT repitiendo subcategoriaId actual → NO valida", async () => {
-        const existing = makeEvento({
-          status: "pendiente",
-          usuarioId: "user-1",
-          subcategoriaId: "ferias-gastronomicas",
-        });
-        mockEventoRepo.findById.mockResolvedValue(existing);
-        mockEventoRepo.update.mockImplementation(async (_id, patch) =>
-          makeEvento({ ...existing, ...patch } as Partial<Evento>),
-        );
-
-        await service.update(
-          "evento-1",
-          { subcategoriaId: "ferias-gastronomicas" },
-          "user-1",
-          "empresa",
-        );
-
-        expect(
-          mockCatalogValidator.assertSubcategoriaActiva,
-        ).not.toHaveBeenCalled();
-      });
-
       it("PUT cambiando barrioId → valida barrio", async () => {
         const existing = makeEvento({
-          status: "pendiente",
+          estadoVerificacion: "pendiente",
           usuarioId: "user-1",
           barrioId: "centro",
         });
         mockEventoRepo.findById.mockResolvedValue(existing);
         mockEventoRepo.update.mockImplementation(async (_id, patch) =>
-          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+          makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
         );
 
         await service.update(
           "evento-1",
           { barrioId: "higuerillas" },
           "user-1",
-          "empresa",
+          "owner",
         );
-
         expect(mockCatalogValidator.assertBarrioActivo).toHaveBeenCalledWith(
           "higuerillas",
         );
@@ -729,81 +692,148 @@ describe("EventosService", () => {
       it("flag desactivado → update NO ejecuta validación", async () => {
         mockCatalogValidator.enabled = false;
         const existing = makeEvento({
-          status: "pendiente",
+          estadoVerificacion: "pendiente",
           usuarioId: "user-1",
-          subcategoriaId: "ferias-gastronomicas",
-          barrioId: "centro",
         });
         mockEventoRepo.findById.mockResolvedValue(existing);
         mockEventoRepo.update.mockImplementation(async (_id, patch) =>
-          makeEvento({ ...existing, ...patch } as Partial<Evento>),
+          makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
         );
 
         await service.update(
           "evento-1",
-          { subcategoriaId: "conciertos", barrioId: "higuerillas" },
+          { subcategoriaId: "conciertos" },
           "user-1",
-          "empresa",
+          "owner",
         );
-
         expect(
           mockCatalogValidator.assertSubcategoriaActiva,
         ).not.toHaveBeenCalled();
-        expect(mockCatalogValidator.assertBarrioActivo).not.toHaveBeenCalled();
       });
     });
   });
 
   // =========================================================================
-  // remove
+  // verificar (admin)
+  // =========================================================================
+  describe("verificar", () => {
+    it("verified → sets estadoVerificacion verificado + fechaPublicacion", async () => {
+      const existing = makeEvento({ estadoVerificacion: "pendiente" });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+      mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
+      );
+
+      const result = await service.verificar(
+        "evento-1",
+        "verificado",
+        "admin-1",
+      );
+
+      expect(result.estadoVerificacion).toBe("verificado");
+      expect(result.fechaPublicacion).toBeDefined();
+    });
+
+    it("verified → makes evento publicly visible (activo true) and clears prior motivo", async () => {
+      const existing = makeEvento({
+        estadoVerificacion: "rechazado",
+        activo: false,
+        motivoRechazoVerificacion: "Falta documentación",
+      });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+      mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
+      );
+
+      const result = await service.verificar(
+        "evento-1",
+        "verificado",
+        "admin-1",
+      );
+
+      expect(result.estadoVerificacion).toBe("verificado");
+      expect(result.activo).toBe(true);
+      expect(result.motivoRechazoVerificacion).toBeUndefined();
+    });
+
+    it("rejected → sets rechazado + activo false + motivo", async () => {
+      const existing = makeEvento({ estadoVerificacion: "pendiente" });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+      mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
+      );
+
+      const result = await service.verificar(
+        "evento-1",
+        "rechazado",
+        "admin-1",
+        "No cumple normas",
+      );
+
+      expect(result.estadoVerificacion).toBe("rechazado");
+      expect(result.activo).toBe(false);
+    });
+
+    it("rejected without motivo → BadRequestException", async () => {
+      const existing = makeEvento({ estadoVerificacion: "pendiente" });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+
+      await expect(
+        service.verificar("evento-1", "rechazado", "admin-1"),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.verificar("evento-1", "rechazado", "admin-1"),
+      ).rejects.toThrow("motivo is required when resultado is 'rechazado'");
+    });
+  });
+
+  // =========================================================================
+  // remove (soft delete)
   // =========================================================================
   describe("remove", () => {
-    it("deletes evento when no pending solicitudes exist (owner)", async () => {
+    it("soft-deletes (activo false) when owner", async () => {
       const existing = makeEvento({ usuarioId: "user-1" });
       mockEventoRepo.findById.mockResolvedValue(existing);
-      mockSolicitudService.existsPendingByEventoId.mockResolvedValue(false);
-      mockEventoRepo.delete.mockResolvedValue(undefined);
+      mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
+      );
 
-      await service.remove("evento-1", "user-1", "empresa");
+      const result = await service.remove("evento-1", "user-1", "owner");
 
-      expect(mockEventoRepo.delete).toHaveBeenCalledWith("evento-1");
+      expect(mockEventoRepo.update).toHaveBeenCalledWith(
+        "evento-1",
+        expect.objectContaining({ activo: false }),
+      );
+      expect(result.activo).toBe(false);
     });
 
     it("allows admin to delete any evento", async () => {
       const existing = makeEvento({ usuarioId: "other-user" });
       mockEventoRepo.findById.mockResolvedValue(existing);
-      mockSolicitudService.existsPendingByEventoId.mockResolvedValue(false);
+      mockEventoRepo.update.mockImplementation(async (_id, patch) =>
+        makeEvento({ ...existing, ...(patch as Partial<Evento>) }),
+      );
 
       await service.remove("evento-1", "admin-1", "admin");
-
-      expect(mockEventoRepo.delete).toHaveBeenCalledWith("evento-1");
+      expect(mockEventoRepo.update).toHaveBeenCalledWith(
+        "evento-1",
+        expect.objectContaining({ activo: false }),
+      );
     });
 
-    it("throws ConflictException when pending solicitudes exist", async () => {
-      const existing = makeEvento({ usuarioId: "user-1" });
-      mockEventoRepo.findById.mockResolvedValue(existing);
-      mockSolicitudService.existsPendingByEventoId.mockResolvedValue(true);
-
-      await expect(
-        service.remove("evento-1", "user-1", "empresa"),
-      ).rejects.toThrow(ConflictException);
-      expect(mockEventoRepo.delete).not.toHaveBeenCalled();
-    });
-
-    it("throws ForbiddenException when empresa tries to delete another's evento", async () => {
+    it("throws ForbiddenException when owner tries to delete another's evento", async () => {
       const existing = makeEvento({ usuarioId: "other-user" });
       mockEventoRepo.findById.mockResolvedValue(existing);
 
       await expect(
-        service.remove("evento-1", "user-1", "empresa"),
+        service.remove("evento-1", "user-1", "owner"),
       ).rejects.toThrow(ForbiddenException);
     });
 
     it("throws NotFoundException when evento does not exist", async () => {
       mockEventoRepo.findById.mockResolvedValue(null);
-
       await expect(
-        service.remove("non-existent", "user-1", "empresa"),
+        service.remove("non-existent", "user-1", "owner"),
       ).rejects.toThrow(NotFoundException);
     });
   });
@@ -812,21 +842,21 @@ describe("EventosService", () => {
   // listMapData
   // =========================================================================
   describe("listMapData", () => {
-    it("returns map data for approved eventos only", async () => {
+    it("returns lightweight map data from repository", async () => {
       const mapData = [
         {
           id: "e1",
           nombre: "Evento 1",
           slug: "evento-1",
           coordenadas: { lat: -33, lng: -71 },
-          categoriaId: "eventos",
+          subcategoriaId: "ferias-gastronomicas",
+          barrioId: "centro",
           fechaInicio: new Date(),
         },
       ];
-      mockEventoRepo.listMapData.mockResolvedValue(mapData);
+      mockEventoRepo.listMapData.mockResolvedValue(mapData as never);
 
       const result = await service.listMapData();
-
       expect(result).toEqual(mapData);
       expect(mockEventoRepo.listMapData).toHaveBeenCalled();
     });

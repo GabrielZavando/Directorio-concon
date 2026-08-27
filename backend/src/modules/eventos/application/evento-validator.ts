@@ -52,7 +52,6 @@ export class EventoValidator {
     precioTipo?: string;
     precioValor?: number;
     publicoObjetivo?: string[];
-    placeId?: string;
   }): Promise<string[]> {
     const errors: string[] = [];
 
@@ -75,13 +74,8 @@ export class EventoValidator {
         data.barrioId,
       );
       if (!barrioExists) {
-        errors.push(`Barrio '${data.barrioId}' no existe`);
+        errors.push("Barrio inválido o inactivo");
       }
-    }
-
-    // Validate placeId (if present) references an approved place
-    if (data.placeId) {
-      errors.push(...(await this.validatePlaceId(data.placeId)));
     }
 
     return errors;
@@ -128,29 +122,13 @@ export class EventoValidator {
   }
 
   private validateSubcategoria(subcategoriaId?: string): string[] {
-    if (!subcategoriaId) return ["subcategoriaId es requerido"];
+    if (!subcategoriaId) return ["Subcategoría inválida o inactiva"];
     if (
       !EVENTO_SUBCATEGORIAS.includes(
         subcategoriaId as (typeof EVENTO_SUBCATEGORIAS)[number],
       )
     ) {
-      return [
-        `subcategoriaId '${subcategoriaId}' no es válida. Valores permitidos: ${EVENTO_SUBCATEGORIAS.join(", ")}`,
-      ];
-    }
-    return [];
-  }
-
-  private async validatePlaceId(placeId: string): Promise<string[]> {
-    const doc = await this.firebaseService.getDocument("places", placeId);
-    if (!doc.exists) {
-      return [`Place '${placeId}' no existe`];
-    }
-    const placeData = doc.data();
-    if (placeData?.status !== "aprobado") {
-      return [
-        `Place '${placeId}' debe tener status 'aprobado' (actual: ${placeData?.status})`,
-      ];
+      return ["Subcategoría inválida o inactiva"];
     }
     return [];
   }
