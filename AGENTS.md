@@ -37,12 +37,14 @@ Skills live in `ai-specs/skills/`. When a request matches one of the triggers be
 | --- | --- | --- |
 | `enrich-us` | Ticket is vague or poorly formed | **Only before `/plan-change`** if the ticket lacks acceptance criteria or context. Skip if ticket is already well-formed. |
 | `code-auditing` | Something went wrong during implementation | **Rescue tool only**: use via `/adversarial-review` when tests fail unexpectedly or implementation diverges from spec. Not part of standard cycle. |
+| `show-spec-working` | Debug command registered in `.opencode/commands/` | **Debug tool**: use `/show-spec-working` when the agent is confused about current tasks, the user wants to see progress, verification fails, or before `/apply` to confirm the right task. Read-only. |
+| `explain` | User asks "why did you do X?" or needs decision context | **On-demand**: use when explaining technical decisions, tradeoffs, or rationale. Not part of standard cycle. |
 
 For extended detail (phases, full descriptions, examples) see `ai-specs/README.md` — that file is for humans and is not auto-loaded, so it can go deeper than this table without duplicating what agents need at request time.
 
 ## Custom commands (OpenCode)
 
-The following custom commands are defined in `opencode.json` for the SDD workflow:
+The following custom commands are defined in `.opencode/commands/` (auto-loaded by OpenCode) for the SDD workflow:
 
 ### Standard cycle
 
@@ -61,6 +63,8 @@ The following custom commands are defined in `opencode.json` for the SDD workflo
 | --- | --- | --- |
 | `/enrich-us TICKET-ID` | Enrich a vague user story before planning | Only for poorly formed tickets without acceptance criteria |
 | `/adversarial-review` | Systematic code quality audit | Rescue tool: use when tests fail unexpectedly or implementation diverges from spec |
+| `/show-spec-working` | Show current OpenSpec working state | Debug tool: task progress, verification status, or pre-`/apply` confirmation |
+| `/explain` | Explain technical decisions and tradeoffs | On-demand: when the user asks "why did you do X?" or needs rationale |
 
 ## Non-negotiable rules
 
