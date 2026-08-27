@@ -11,13 +11,42 @@
 | CH-03 | places-refactor | ✅ DONE | `archive/2026-08-26-places-refactor` |
 | CH-04 | eventos-refactor | ✅ DONE | `archive/2026-08-27-eventos-refactor` (backend completo; cobertura módulo eventos ≥90%; eliminación física de tipos evento en `solicitudes` diferida a CH-05) |
 | CH-04b | eventos-conformance-fixes | ✅ DONE | `archive/2026-08-27-eventos-conformance-fixes` (rescue post-audit: create `estado:'programado'`, `verificar` restaura `activo:true`, `buildEventoPatch` convierte fechas a `Date`, normaliza `cambios`, migration `estado:'programado'` + sin null-island) |
-| CH-04c | eventos-location-model | ⬜ PENDING | — (modelar que un evento puede ser presencial, online o híbrido; ver notas de decisión abajo) |
+| CH-04c | eventos-location-model | ⬜ PENDING | — (modelar modalidad presencial/online/híbrido + ubicacion propia; ver brief abajo) |
 
-> **CH-04c — Decisión de diseño (2026-08-27):** Se modelará con `modalidad: 'presencial' | 'online' | 'hibrido'`.
-> - `ubicacion` (dirección + coordenadas) requerido solo cuando `modalidad !== 'online'`; un evento `online` NO exige dirección ni coordenadas.
-> - **NO se reintroduce `placeId`** (se mantiene el diseño de CH-04: el evento es dueño de su `ubicacion`). Si el directorio quiere mostrar "este evento ocurre en el place X", se resuelve por coincidencia de coordenadas/dirección o un futuro change de enriquecimiento, no por FK.
-> - El mapa (`/map-data`) solo incluye eventos con `coordenadas` presentes (filtro ya existente).
-> - Cambia el `Ubicacion` VO (hoy `direccion` requerido) → `direccion` opcional y `ubicacion` opcional a nivel evento según `modalidad`. Requiere spec delta en `openspec/specs/eventos`. |
+### CH-04c — eventos-location-model (change para próxima sesión)
+
+**Objetivo:** Permitir que un evento declare su forma de realización: presencial (en un lugar con
+dirección y coordenadas), online (sin lugar físico) o híbrido (online + coordenadas propias para
+el mapa). Hoy el VO `Ubicacion` exige `direccion`, por lo que un evento online no queda bien
+representado y no hay forma de decir "este evento ocurre en un place del directorio".
+
+**Alcance (3 casos):**
+1. **Vinculado a un place** — el evento puede indicar que ocurre *en* un `place` del directorio
+   (mostrado por coincidencia de coordenadas/dirección; ver decisión de `placeId` abajo).
+2. **Virtual / online** — sin lugar físico: `ubicacion` opcional, no requiere dirección ni coordenadas.
+3. **Coordenadas propias** — híbrido o presencial con `coordenadas` específicas para pintarse en el mapa.
+
+**Decisión de diseño (2026-08-27):**
+- Se modela con `modalidad: 'presencial' | 'online' | 'hibrido'`.
+- `ubicacion` (dirección + coordenadas) requerido solo cuando `modalidad !== 'online'`; un evento
+  `online` NO exige dirección ni coordenadas.
+- **NO se reintroduce `placeId`** (se mantiene el diseño de CH-04: el evento es dueño de su
+  `ubicacion`). El vínculo con un `place` se resuelve por coincidencia de coordenadas/dirección o
+  un futuro change de enriquecimiento, no por FK.
+- El mapa (`GET /eventos/map-data`) ya filtra eventos sin `coordenadas` → solo los con ubicación
+  geográfica aparecen.
+- Cambia el VO `Ubicacion` (hoy `direccion` requerido) → `direccion` opcional y `ubicacion` opcional
+  a nivel evento según `modalidad`.
+
+**Tareas sugeridas (para `/plan-change eventos-location-model`):**
+- [ ] Agregar `modalidad` al `Evento` entity + enum.
+- [ ] Hacer `Ubicacion.direccion` opcional y `ubicacion` opcional en `Evento` según `modalidad`.
+- [ ] Actualizar `CreateEventoDto`/`UpdateEventoDto` (validación: si `modalidad !== 'online'`, `ubicacion` requerido).
+- [ ] Actualizar `evento-firestore.adapter` (persistencia/lectura) y `map-data` (ya filtra sin coordenadas).
+- [ ] Spec delta en `openspec/specs/eventos` (requirement "Evento entity schema" + escenarios de create/update online).
+- [ ] Tests: create online sin ubicacion; create presencial con ubicacion; validación de obligatoriedad.
+
+**Cómo arrancar:** `npx openspec propose eventos-location-model` (o `/plan-change`) y seguir SDD (specs → TDD). |
 | CH-05 | solicitudes-refactor | ⬜ PENDING | — |
 | CH-06 | notificaciones | ⬜ PENDING | — |
 | CH-07 | favoritos | ⬜ PENDING | — |
