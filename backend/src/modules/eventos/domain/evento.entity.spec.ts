@@ -4,19 +4,28 @@
  * and that required/optional fields behave as expected at type level.
  */
 import type { Evento } from "./evento.entity";
-import type { EventoStatus } from "./evento-status.enum";
+import type { EstadoVerificacion } from "./estado-verificacion";
 import type { EventoEstado } from "./evento-estado.enum";
 import type { PrecioTipo } from "./precio-tipo.enum";
 import type { PrecioMoneda } from "./precio-moneda.enum";
 import type { PublicoObjetivoEnum } from "./publico-objetivo.enum";
 import type { NivelRuido } from "./nivel-ruido.enum";
+import type { Ubicacion } from "./ubicacion.vo";
+import type { CambioEvento } from "./cambio-evento.interface";
 
 describe("Evento entity", () => {
+  const ubicacion: Ubicacion = {
+    nombreLugar: "Playa Amarilla",
+    direccion: "Av. Borgoño 1234, Concón",
+    coordenadas: { lat: -32.998, lng: -71.518 },
+  };
+
   /**
-   * Compile-time test: a valid Evento object should satisfy the interface.
-   * If this fails to compile, the interface has a structural issue.
+   * Compile-time test: a valid Evento object with the new model
+   * (activo + estadoVerificacion + ubicacion + cambios[]) should satisfy
+   * the interface. If this fails to compile, the interface has a structural issue.
    */
-  it("compiles a valid Evento object", () => {
+  it("compiles a valid Evento object (new model)", () => {
     const evento: Evento = {
       id: "test-id",
       nombre: "Feria Gastronómica de Concón",
@@ -29,8 +38,7 @@ describe("Evento entity", () => {
       barrioId: "centro",
       organizador: "Municipalidad de Concón",
       organizadorContacto: "+56912345678",
-      ubicacionDireccion: "Av. Borgoño 1234, Concón",
-      coordenadas: { lat: -32.998, lng: -71.518 },
+      ubicacion,
       fechaInicio: new Date("2026-08-15T10:00:00Z"),
       fechaFin: new Date("2026-08-17T22:00:00Z"),
       precioTipo: "gratis",
@@ -38,10 +46,11 @@ describe("Evento entity", () => {
       precioMoneda: "CLP",
       publicoObjetivo: ["familia", "todos"],
       nivelRuido: "alto",
-      status: "aprobado",
+      activo: true,
+      estadoVerificacion: "verificado",
+      cambios: [],
       estado: "programado",
       destacado: true,
-      verificado: true,
       usuarioId: "auth-uid-123",
       vistasTotales: 0,
       createdAt: new Date(),
@@ -50,12 +59,13 @@ describe("Evento entity", () => {
     };
 
     expect(evento.id).toBe("test-id");
-    expect(evento.nombre).toBe("Feria Gastronómica de Concón");
     expect(evento.categoriaId).toBe("eventos");
     expect(evento.precioTipo).toBe("gratis");
     expect(evento.precioValor).toBe(0);
-    expect(evento.status).toBe("aprobado");
+    expect(evento.activo).toBe(true);
+    expect(evento.estadoVerificacion).toBe("verificado");
     expect(evento.estado).toBe("programado");
+    expect(evento.ubicacion.direccion).toBe("Av. Borgoño 1234, Concón");
   });
 
   it("allows optional fields to be undefined", () => {
@@ -69,8 +79,10 @@ describe("Evento entity", () => {
       subcategoriaId: "talleres-y-clases-abiertas",
       barrioId: "bosques",
       organizador: "Organizador Test",
-      ubicacionDireccion: "Calle Falsa 123",
-      coordenadas: { lat: -33.0, lng: -71.5 },
+      ubicacion: {
+        direccion: "Calle Falsa 123",
+        coordenadas: { lat: -33.0, lng: -71.5 },
+      },
       fechaInicio: new Date("2026-09-01T10:00:00Z"),
       fechaFin: new Date("2026-09-01T18:00:00Z"),
       precioTipo: "pago",
@@ -78,42 +90,45 @@ describe("Evento entity", () => {
       precioMoneda: "CLP",
       publicoObjetivo: ["adultos"],
       nivelRuido: "bajo",
-      status: "pendiente",
+      activo: true,
+      estadoVerificacion: "pendiente",
       estado: "borrador",
       destacado: false,
-      verificado: false,
       usuarioId: "auth-uid-456",
       vistasTotales: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
-    // All optional fields should be undefined
     expect(evento.organizadorContacto).toBeUndefined();
     expect(evento.organizadorWeb).toBeUndefined();
-    expect(evento.ubicacionNombre).toBeUndefined();
     expect(evento.capacidadMaxima).toBeUndefined();
     expect(evento.portada).toBeUndefined();
     expect(evento.accesibilidad).toBeUndefined();
-    expect(evento.placeId).toBeUndefined();
+    expect(evento.motivoRechazoVerificacion).toBeUndefined();
+    expect(evento.cambios).toBeUndefined();
     expect(evento.fechaPublicacion).toBeUndefined();
   });
 
-  it("supports all EventoStatus values", () => {
-    const statuses: EventoStatus[] = ["pendiente", "aprobado", "rechazado"];
-    statuses.forEach((status) => {
+  it("supports all EstadoVerificacion values", () => {
+    const values: EstadoVerificacion[] = [
+      "pendiente",
+      "verificado",
+      "rechazado",
+    ];
+    values.forEach((estadoVerificacion) => {
       const evento: Evento = {
         id: "id",
         nombre: "Test Evento",
         slug: "test-evento",
         descripcionCorta: "Corta",
-        descripcion: "Descripción larga del evento para testing de status.",
+        descripcion:
+          "Descripción larga del evento para testing de estadoVerificacion.",
         categoriaId: "eventos",
         subcategoriaId: "conciertos-y-shows",
         barrioId: "reñaca-alto",
         organizador: "Org",
-        ubicacionDireccion: "Dir",
-        coordenadas: { lat: 0, lng: 0 },
+        ubicacion: { direccion: "Dir", coordenadas: { lat: 0, lng: 0 } },
         fechaInicio: new Date(),
         fechaFin: new Date(Date.now() + 86400000),
         precioTipo: "donacion",
@@ -121,16 +136,16 @@ describe("Evento entity", () => {
         precioMoneda: "CLP",
         publicoObjetivo: ["todos"],
         nivelRuido: "medio",
-        status,
+        activo: true,
+        estadoVerificacion,
         estado: "programado",
         destacado: false,
-        verificado: false,
         usuarioId: "uid",
         vistasTotales: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      expect(evento.status).toBe(status);
+      expect(evento.estadoVerificacion).toBe(estadoVerificacion);
     });
   });
 
@@ -154,8 +169,7 @@ describe("Evento entity", () => {
         subcategoriaId: "deportes-y-competencias",
         barrioId: "la-boca",
         organizador: "Org",
-        ubicacionDireccion: "Dir",
-        coordenadas: { lat: 0, lng: 0 },
+        ubicacion: { direccion: "Dir", coordenadas: { lat: 0, lng: 0 } },
         fechaInicio: new Date(),
         fechaFin: new Date(Date.now() + 86400000),
         precioTipo: "invitacion",
@@ -163,10 +177,10 @@ describe("Evento entity", () => {
         precioMoneda: "USD",
         publicoObjetivo: ["adultos"],
         nivelRuido: "alto",
-        status: "aprobado",
+        activo: true,
+        estadoVerificacion: "pendiente",
         estado,
         destacado: false,
-        verificado: false,
         usuarioId: "uid",
         vistasTotales: 0,
         createdAt: new Date(),
@@ -174,5 +188,45 @@ describe("Evento entity", () => {
       };
       expect(evento.estado).toBe(estado);
     });
+  });
+
+  it("records a CambioEvento entry in cambios[]", () => {
+    const cambio: CambioEvento = {
+      campo: "ubicacion.direccion",
+      valorAnterior: "Dir vieja",
+      valorNuevo: "Dir nueva",
+      fecha: new Date(),
+      usuarioId: "uid-owner-001",
+    };
+    const evento: Evento = {
+      id: "id",
+      nombre: "Test",
+      slug: "test",
+      descripcionCorta: "Corta",
+      descripcion: "Descripción del evento para testing de cambios.",
+      categoriaId: "eventos",
+      subcategoriaId: "festivales-culturales",
+      barrioId: "centro",
+      organizador: "Org",
+      ubicacion: { direccion: "Dir nueva", coordenadas: { lat: 0, lng: 0 } },
+      fechaInicio: new Date(),
+      fechaFin: new Date(Date.now() + 86400000),
+      precioTipo: "gratis",
+      precioValor: 0,
+      precioMoneda: "CLP",
+      publicoObjetivo: ["todos"],
+      nivelRuido: "medio",
+      activo: true,
+      estadoVerificacion: "pendiente",
+      cambios: [cambio],
+      estado: "programado",
+      destacado: false,
+      usuarioId: "uid-owner-001",
+      vistasTotales: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    expect(evento.cambios?.[0].campo).toBe("ubicacion.direccion");
+    expect(evento.cambios?.[0].usuarioId).toBe("uid-owner-001");
   });
 });

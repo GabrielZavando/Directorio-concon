@@ -23,7 +23,8 @@
   "seed:places": "ts-node -r tsconfig-paths/register scripts/seed-places.ts",
   "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
   "audit-refs": "ts-node -r tsconfig-paths/register scripts/audit-refs.ts",
-  "migrate:places": "ts-node -r tsconfig-paths/register scripts/migrate-places-verificacion.ts"
+    "migrate:places": "ts-node -r tsconfig-paths/register scripts/migrate-places-verificacion.ts",
+    "migrate:eventos": "ts-node -r tsconfig-paths/register scripts/migrate-eventos-verificacion.ts"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^3.1.3",

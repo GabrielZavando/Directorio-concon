@@ -152,9 +152,9 @@
 
 > **Nota (módulo places — cambio por `places-refactor`):** la solicitud auto-creada al crear un place fue **eliminada**. El place se crea con `activo: true` y es visible públicamente inmediatamente. La verificación del owner se hace vía `POST /places/:id/reclamar` (crea solicitud `reclamo-place`), y la verificación admin vía `POST /places/:id/verificar`.
 >
-> **Nota (módulo eventos):** al crear un evento (`POST /api/v1/eventos`) se genera automáticamente un documento `solicitudes` con `tipo: 'registro-evento'` y `status: 'pendiente'`, `eventoId` apuntando al nuevo evento. Al actualizar un evento aprobado se genera `tipo: 'actualizacion-evento'` con `proposal` conteniendo los campos staging (no se aplican in-place hasta el approval del admin).
+> **Nota (módulo eventos — cambio por `eventos-refactor`):** la auto-creación de solicitudes al crear/actualizar eventos fue **eliminada**. El evento se crea con `activo: true` y `estadoVerificacion: 'pendiente'`, y es visible públicamente inmediatamente. El owner edita su evento en cualquier momento (edición in-place); si el evento estaba `verificado`, la edición lo revierte a `pendiente` (mismo write) y registra el diff en `cambios[]`. La verificación admin se hace vía `POST /eventos/:id/verificar` (sin generar `solicitudes` — el tipo `registro-evento`/`actualizacion-evento` quedó deprecado; su eliminación física ocurre en el change `solicitudes-refactor`).
 >
-> **Constraint XOR:** una `solicitud` referencia `placeId` **O** `eventoId`, nunca ambos (validado en `SolicitudesService`). `placeId` se vuelve nullable en esta extensión para soportar solicitudes de eventos; `eventoId` también es nullable para solicitudes de places.
+> **Constraint XOR (solicitudes):** una `solicitud` referencia `placeId` **O** `eventoId`, nunca ambos (validado en `SolicitudesService`). Los tipos `registro-evento`/`actualizacion-evento` (que usaban `eventoId`) quedan deprecated y ya no se crean desde `eventos`; `eventoId` se mantiene solo para lectura de documentos legacy hasta CH-05.
 
 ### eventos
 | Campo | Tipo | Descripción |
@@ -170,9 +170,7 @@
 | organizador | string | Nombre organizador (1..200 chars) |
 | organizadorContacto | string? | Teléfono o email de contacto |
 | organizadorWeb | string? | URL web/red social del organizador |
-| ubicacionNombre | string? | Nombre del lugar (ej: "Playa Amarilla") (1..200 chars) |
-| ubicacionDireccion | string | Dirección completa (1..200 chars) |
-| coordenadas | Coordenadas | `{ lat: number; lng: number }` (reuso del VO de `places`) |
+| ubicacion | Ubicacion VO | `{ nombreLugar?: string; direccion: string; coordenadas: Coordenadas }` (reemplaza los campos planos `ubicacionNombre`/`ubicacionDireccion`/`coordenadas`; reuso del VO `Coordenadas` de `places`) |
 | fechaInicio | Timestamp | Fecha/hora de inicio (ISO 8601) |
 | fechaFin | Timestamp | Fecha/hora de término (ISO 8601); **debe ser > `fechaInicio`** |
 | precioTipo | enum | `gratis` \| `pago` \| `donacion` \| `invitacion` |
@@ -183,16 +181,17 @@
 | nivelRuido | enum | `bajo` \| `medio` \| `alto` |
 | portada | string? | URL imagen portada (16:9 recomendado) |
 | accesibilidad | AccesibilidadEnum[]? | `acceso-silla-ruedas` \| `banos-accesibles` \| `estacionamiento-reservado` \| `interprete-señas` \| `material-braille` \| `rampa-acceso` |
-| status | enum | `pendiente` \| `aprobado` \| `rechazado` (flujo `solicitudes`) |
+| activo | boolean | Visible públicamente cuando `activo === true` (default `true`); reemplaza el legacy `status`. Un evento inactivo es invisible en descubrimiento público sin importar `estadoVerificacion`. |
+| estadoVerificacion | enum | `pendiente` \| `verificado` \| `rechazado` (default `pendiente`); rige el badge "Verificado". Reemplaza el legacy `verificado: boolean`. |
+| motivoRechazoVerificacion | string? | Requerido cuando `estadoVerificacion === 'rechazado'`; razón registrada por el admin. |
+| cambios | CambioEvento[]? | Historial de auditoría; cada entrada `{ campo: string; valorAnterior: unknown; valorNuevo: unknown; fecha: Timestamp; usuarioId: string }`. Se popula en cada `PUT /eventos/:id` (y explícitamente al revertir un evento verificado a `pendiente`). |
 | estado | enum | `borrador` \| `programado` \| `en_curso` \| `finalizado` \| `cancelado` \| `suspendido` (ciclo de vida del evento) |
 | destacado | boolean | Destacado en home/listados (default `false`) |
-| verificado | boolean | Verificado por admin (default `false`) |
-| placeId | string? | Ref opcional a un `places` aprobado (ref geográfica/organizacional al lugar del evento). **Sin invariante de pertenencia** al place del creador del evento: el responsable es `usuarioId`, no el dueño del `placeId` referenciado. Si se setea, MUST referenciar un `places` con `activo: true`. |
-| usuarioId | string | Firebase Auth UID del creador (REQUIRED, seteado desde token verificado; no en DTO). Identifica al **responsable de publicación** del evento; es independiente de `eventos.placeId` — el responsable puede publicar eventos sin placeId, con su propio place, o con un place ajeno (referencia geográfica/organizacional, sin invariante de pertenencia). Ver §Reglas comunes "Responsabilidad del evento" para el detalle. |
+| usuarioId | string | Firebase Auth UID del creador (REQUIRED, seteado desde token verificado; no en DTO). Identifica al **responsable de publicación** del evento. |
 | vistasTotales | number | Post-MVP placeholder, default 0 (sin lógica de incremento en este cambio, mirror de `places`) |
 | createdAt | Timestamp | Creación |
 | updatedAt | Timestamp | Modificación |
-| fechaPublicacion | Timestamp? | Seteado cuando `status` pasa a `'aprobado'` (espejo de `places.fechaPublicacion`) |
+| fechaPublicacion | Timestamp? | Seteado cuando `estadoVerificacion` pasa a `'verificado'` (espejo de `places.fechaPublicacion`) |
 
 **Value Objects y enums nuevos:**
 
@@ -201,11 +200,13 @@
 - `PublicoObjetivoEnum = 'familia' | 'adultos' | 'tercera_edad' | 'mascotas' | 'todos' | 'ninos' | 'adolescentes'`
 - `AccesibilidadEnum = 'acceso-silla-ruedas' | 'banos-accesibles' | 'estacionamiento-reservado' | 'interprete-señas' | 'material-braille' | 'rampa-acceso'`
 - `NivelRuido = 'bajo' | 'medio' | 'alto'`
-- `EventoStatus = 'pendiente' | 'aprobado' | 'rechazado'`
 - `EventoEstado = 'borrador' | 'programado' | 'en_curso' | 'finalizado' | 'cancelado' | 'suspendido'`
+- `EstadoVerificacion = 'pendiente' | 'verificado' | 'rechazado'` (compartido con `places`)
+- `Ubicacion = { nombreLugar?: string; direccion: string; coordenadas: Coordenadas }`
+- `CambioEvento = { campo: string; valorAnterior: unknown; valorNuevo: unknown; fecha: Timestamp; usuarioId: string }`
 - `Coordenadas` — reusar el VO ya definido en `places`: `{ lat: number; lng: number }`
 
-> **Nota (ciclo de vida del evento):** `status` rige el flujo de aprobación admin vía `solicitudes` (mirror de `places`). `estado` rige el ciclo de vida del evento (seteable por publisher/admin). En esta versión las transiciones automáticas `programado`→`en_curso`→`finalizado` basadas en `fechaInicio`/`fechaFin` **no se implementan** (Non-Goal post-MVP).
+> **Nota (ciclo de vida del evento):** `estadoVerificacion` rige el badge "Verificado" (admin lo asigna vía `POST /eventos/:id/verificar`). `estado` rige el ciclo de vida del evento (seteable por publisher/admin). En esta versión las transiciones automáticas `programado`→`en_curso`→`finalizado` basadas en `fechaInicio`/`fechaFin` **no se implementan** (Non-Goal post-MVP).
 
 ## Reglas de negocio del dominio
 
@@ -239,11 +240,8 @@
 ### Responsabilidad del evento (places + eventos)
 
 - El "responsable de publicación" del evento es `eventos.usuarioId` (quien lo crea/publica, autenticado via token).
-- `eventos.placeId` es una referencia **opcional sin invariante de pertenencia** al place del creador. El evento puede:
-  - Vincularse al place del propio creador (caso común).
-  - Vincularse al place de otro `owner` (ej: festival comunitario organizado en un restaurante reconocido).
-  - No vincularse a ningún place (`placeId: null` — festival en playa, sin venue en directorio).
-- Cualquiera sea el caso, **el responsable sigue siendo `eventos.usuarioId`**, no el dueño del place referenciado. `placeId` representa el *lugar* del evento, no el *autor*.
+- El lugar del evento se declara en `eventos.ubicacion` (objeto con `nombreLugar`, `direccion` y `coordenadas`), independiente de cualquier `places`. El campo legacy `eventos.placeId` fue eliminado en `eventos-refactor` porque acoplaba innecesariamente el evento a un place del directorio.
+- Cualquiera sea el caso, **el responsable sigue siendo `eventos.usuarioId`**; `ubicacion` representa el *lugar* del evento, no el *autor*.
 
 ### Reglas RBAC (solicitudes.revisadoPor)
 

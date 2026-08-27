@@ -2,24 +2,28 @@
  * Application service for the Evento aggregate.
  *
  * Orchestrates domain logic: CRUD, slug generation, business-rules validation,
- * auto solicitud creation, and authorization checks.
+ * and authorization checks. No longer depends on the `solicitudes` module —
+ * eventos are visible immediately upon creation and edited in-place (with a
+ * possible reversion to `pendiente` when a verified evento is edited).
  */
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
-  UnprocessableEntityException,
 } from "@nestjs/common";
 import type {
+  EventoMapDataItem,
   EventoRepositoryInterface,
   EventoSearchFilters,
   PaginatedEventos,
 } from "../domain/evento-repository.interface";
 import { EVENTO_REPOSITORY } from "../domain/evento-repository.token";
 import type { Evento } from "../domain/evento.entity";
-import type { SolicitudesServiceInterface } from "./solicitudes-service.interface";
+import type { NotificacionesPort } from "./notificaciones.port";
+import { NOTIFICACIONES_PORT } from "./notificaciones.port";
 import { EventoValidator } from "./evento-validator";
 // Value import: CatalogValidator is used as a DI token, so it must be
 // present at runtime (a type-only import would erase it and break DI).
@@ -29,7 +33,7 @@ import {
   UpdateEventoServiceDto,
   slugify,
   buildEventoPatch,
-  stageApprovedUpdate,
+  computeChanges,
   validateEventoCatalogReferences,
 } from "./eventos-service.helpers";
 import {
@@ -45,16 +49,13 @@ import {
 export class EventosService {
   private readonly logger = new Logger(EventosService.name);
 
-  /** Injection token for the solicitudes service (for binding in Task 8). */
-  static readonly SOLICITUDES_SERVICE = "SolicitudesServiceInterface";
-
   constructor(
     @Inject(EVENTO_REPOSITORY)
     private readonly eventoRepo: EventoRepositoryInterface,
-    @Inject(EventosService.SOLICITUDES_SERVICE)
-    private readonly solicitudService: SolicitudesServiceInterface,
     private readonly eventoValidator: EventoValidator,
     private readonly catalogValidator: CatalogValidator,
+    @Inject(NOTIFICACIONES_PORT)
+    private readonly notificacionesPort: NotificacionesPort,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -68,7 +69,7 @@ export class EventosService {
     // Validate cross-field business rules
     const validationErrors = await this.eventoValidator.validateCreate(dto);
     if (validationErrors.length > 0) {
-      throw new UnprocessableEntityException(validationErrors);
+      throw new BadRequestException(validationErrors);
     }
 
     const slug = slugify(dto.nombre);
@@ -94,7 +95,7 @@ export class EventosService {
     const now = new Date();
     const defaultCurrency = "CLP";
 
-    // Persist evento
+    // Persist evento — visible immediately, no auto solicitud.
     const evento = await this.eventoRepo.create({
       nombre: dto.nombre,
       slug,
@@ -106,9 +107,7 @@ export class EventosService {
       organizador: dto.organizador,
       organizadorContacto: dto.organizadorContacto,
       organizadorWeb: dto.organizadorWeb,
-      ubicacionNombre: dto.ubicacionNombre,
-      ubicacionDireccion: dto.ubicacionDireccion,
-      coordenadas: dto.coordenadas,
+      ubicacion: dto.ubicacion,
       fechaInicio: new Date(dto.fechaInicio),
       fechaFin: new Date(dto.fechaFin),
       precioTipo: dto.precioTipo as Evento["precioTipo"],
@@ -120,21 +119,13 @@ export class EventosService {
       nivelRuido: dto.nivelRuido as Evento["nivelRuido"],
       portada: dto.portada,
       accesibilidad: dto.accesibilidad as Evento["accesibilidad"],
-      status: "pendiente",
-      estado: "borrador",
+      activo: true,
+      estadoVerificacion: "pendiente",
+      cambios: [],
+      estado: "programado",
       destacado: false,
-      verificado: false,
       usuarioId,
       vistasTotales: 0,
-    });
-
-    // Auto-create solicitud
-    await this.solicitudService.createEventoSolicitud({
-      eventoId: evento.id,
-      usuarioId,
-      tipo: "registro-evento",
-      status: "pendiente",
-      createdAt: now,
     });
 
     this.logger.log(`Evento created: ${evento.id} (slug: ${slug})`);
@@ -146,16 +137,21 @@ export class EventosService {
   // -------------------------------------------------------------------------
 
   async findAllPublic(query: EventoSearchFilters): Promise<PaginatedEventos> {
+    // Public listing is always scoped to active eventos (regardless of
+    // estadoVerificacion — a pending evento is publicly visible immediately).
+    // The `estadoVerificacion` filter is only applied when the caller passes it
+    // (e.g. the admin verification queue `?estadoVerificacion=pendiente`).
     const filters: EventoSearchFilters = {
       ...query,
       estado: query.estado ?? "programado",
+      activo: true,
     };
     return this.eventoRepo.findAllPublic(filters);
   }
 
   async findOnePublic(id: string): Promise<Evento> {
     const evento = await this.eventoRepo.findById(id);
-    if (!evento || evento.status !== "aprobado") {
+    if (!evento || !evento.activo) {
       throw new NotFoundException(`Evento ${id} no encontrado`);
     }
     return evento;
@@ -163,18 +159,13 @@ export class EventosService {
 
   async findBySlugPublic(slug: string): Promise<Evento> {
     const evento = await this.eventoRepo.findBySlug(slug);
-    if (!evento || evento.status !== "aprobado") {
+    if (!evento || !evento.activo) {
       throw new NotFoundException(`Evento con slug '${slug}' no encontrado`);
     }
     return evento;
   }
 
-  async listMapData(): Promise<
-    Pick<
-      Evento,
-      "id" | "nombre" | "slug" | "coordenadas" | "categoriaId" | "fechaInicio"
-    >[]
-  > {
+  async listMapData(): Promise<EventoMapDataItem[]> {
     return this.eventoRepo.listMapData();
   }
 
@@ -199,7 +190,7 @@ export class EventosService {
   }
 
   // -------------------------------------------------------------------------
-  // Update
+  // Update — unified in-place; reverts verified -> pendiente
   // -------------------------------------------------------------------------
 
   async update(
@@ -209,9 +200,7 @@ export class EventosService {
     rol: string,
   ): Promise<Evento> {
     const existing = await this.eventoRepo.findById(id);
-    if (!existing) {
-      throw assertFound(existing, "Evento", id);
-    }
+    assertFound(existing, "Evento", id);
 
     if (rol !== "admin") {
       assertOwnerOrAdmin(
@@ -229,31 +218,84 @@ export class EventosService {
       );
     }
 
-    // If already approved, stage the change as a solicitud instead of mutating.
-    if (existing.status === "aprobado") {
-      return stageApprovedUpdate(id, dto, usuarioId, existing, {
-        solicitudService: this.solicitudService,
-        logger: this.logger,
-      });
-    }
-
     const patch = await buildEventoPatch(dto, existing, id, (slug) =>
       this.eventoRepo.findBySlug(slug),
     );
-    return this.eventoRepo.update(id, patch);
+
+    // If the evento was verified, editing it reverts verification to pendiente
+    // (simple reversion — Decision #4) and records the diff in cambios[].
+    const eraVerificado = existing.estadoVerificacion === "verificado";
+    const updates: Partial<Evento> & { updatedAt: Date } = { ...patch };
+    if (eraVerificado) {
+      updates.estadoVerificacion = "pendiente";
+      const cambios = computeChanges(existing, dto, usuarioId);
+      updates.cambios = [...(existing.cambios ?? []), ...cambios];
+      await this.notificacionesPort.notifyEventoRevertidoPendiente(
+        existing,
+        cambios,
+      );
+      this.logger.log(
+        `Evento ${id} reverted to pendiente after edit by ${usuarioId}`,
+      );
+    }
+
+    return this.eventoRepo.update(id, updates);
   }
 
   // -------------------------------------------------------------------------
-  // Delete
+  // Admin verification
   // -------------------------------------------------------------------------
 
-  async remove(id: string, usuarioId: string, rol: string): Promise<void> {
+  async verificar(
+    id: string,
+    resultado: "verificado" | "rechazado",
+    _adminUid: string,
+    motivo?: string,
+  ): Promise<Evento> {
     const existing = await this.eventoRepo.findById(id);
-    if (!existing) {
-      throw assertFound(existing, "Evento", id);
+    assertFound(existing, "Evento", id);
+
+    if (resultado === "verificado") {
+      this.logger.log(`Evento ${id} verified by admin`);
+      // Verifying makes the evento publicly visible: ensure `activo` is true
+      // (a previously rejected evento was set inactive) and clear any prior
+      // rejection reason.
+      return this.eventoRepo.update(id, {
+        estadoVerificacion: "verificado",
+        fechaPublicacion: new Date(),
+        activo: true,
+        motivoRechazoVerificacion: undefined,
+        updatedAt: new Date(),
+      });
     }
 
-    // Authorization: empresa owner or admin
+    if (resultado === "rechazado") {
+      if (!motivo) {
+        throw new BadRequestException(
+          "motivo is required when resultado is 'rechazado'",
+        );
+      }
+      this.logger.log(`Evento ${id} rejected by admin`);
+      return this.eventoRepo.update(id, {
+        estadoVerificacion: "rechazado",
+        activo: false,
+        motivoRechazoVerificacion: motivo,
+        updatedAt: new Date(),
+      });
+    }
+
+    throw new BadRequestException("resultado inválido");
+  }
+
+  // -------------------------------------------------------------------------
+  // Delete — soft delete (activo:false)
+  // -------------------------------------------------------------------------
+
+  async remove(id: string, usuarioId: string, rol: string): Promise<Evento> {
+    const existing = await this.eventoRepo.findById(id);
+    assertFound(existing, "Evento", id);
+
+    // Authorization: owner or admin
     if (rol !== "admin") {
       assertOwnerOrAdmin(
         { uid: usuarioId, rol },
@@ -262,15 +304,11 @@ export class EventosService {
       );
     }
 
-    // 409 if pending solicitudes exist
-    const hasPending = await this.solicitudService.existsPendingByEventoId(id);
-    if (hasPending) {
-      throw new ConflictException(
-        "No se puede eliminar: existen solicitudes pendientes asociadas a este evento",
-      );
-    }
-
-    await this.eventoRepo.delete(id);
-    this.logger.log(`Evento deleted: ${id}`);
+    const updated = await this.eventoRepo.update(id, {
+      activo: false,
+      updatedAt: new Date(),
+    });
+    this.logger.log(`Evento soft-deleted: ${id}`);
+    return updated;
   }
 }

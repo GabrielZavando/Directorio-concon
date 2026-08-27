@@ -9,6 +9,7 @@
  */
 import type {
   EventoRepositoryInterface,
+  EventoMapDataItem,
   PaginatedEventos,
   EventoSearchFilters,
 } from "./evento-repository.interface";
@@ -50,12 +51,7 @@ class DummyEventoRepository implements EventoRepositoryInterface {
     // no-op
   }
 
-  async listMapData(): Promise<
-    Pick<
-      Evento,
-      "id" | "nombre" | "slug" | "coordenadas" | "categoriaId" | "fechaInicio"
-    >[]
-  > {
+  async listMapData(): Promise<EventoMapDataItem[]> {
     return [];
   }
 }
@@ -80,8 +76,7 @@ describe("EventoRepositoryInterface (LSP contract)", () => {
       subcategoriaId: "ferias-gastronomicas",
       barrioId: "centro",
       organizador: "Org",
-      ubicacionDireccion: "Dir",
-      coordenadas: { lat: -33, lng: -71 },
+      ubicacion: { direccion: "Dir", coordenadas: { lat: -33, lng: -71 } },
       fechaInicio: new Date(),
       fechaFin: new Date(Date.now() + 86400000),
       precioTipo: "gratis",
@@ -89,12 +84,13 @@ describe("EventoRepositoryInterface (LSP contract)", () => {
       precioMoneda: "CLP",
       publicoObjetivo: ["todos"],
       nivelRuido: "bajo",
-      status: "pendiente",
+      activo: true,
+      estadoVerificacion: "pendiente",
       estado: "borrador",
       destacado: false,
-      verificado: false,
       usuarioId: "uid",
       vistasTotales: 0,
+      cambios: [],
     };
     // Should throw since dummy is not implemented, but the call signature must compile
     await expect(repo.create(dummy)).rejects.toThrow("Not implemented");

@@ -80,64 +80,31 @@ The `Place` and `Evento` response schemas still expose `usuarioId` as a read-onl
 - **AND** any form bound to this model does not display a `usuarioId` input — the field is a render artifact of the previous spec
 
 ### Requirement: `bearerAuth` security applied to protected paths
-The system SHALL declare the `bearerAuth` security scheme (already defined in `docs/api-spec.yml`) as the security requirement on every protected path, and SHALL leave it absent on the anonymous-accessible discovery paths. The OpenAPI contract reflects the runtime enforcement introduced by the `auth` module's `JwtAuthGuard` + `RolesGuard` composition.
+The system SHALL declare the `bearerAuth` security scheme on every protected path, and leave it absent on the anonymous-accessible discovery paths. (Unchanged protected/anonymous lists from prior changes, plus the addition below.)
 
 Protected paths (require `bearerAuth`):
-- `POST /api/v1/places` (rol `'owner'` — enforced by `RolesGuard`)
-- `PUT /api/v1/places/{id}` (rol `'owner'` or `'admin'`)
-- `DELETE /api/v1/places/{id}` (rol `'owner'` or `'admin'`)
 - `POST /api/v1/eventos` (rol `'owner'` or `'admin'`)
 - `PUT /api/v1/eventos/{id}` (rol `'owner'` or `'admin'`)
 - `DELETE /api/v1/eventos/{id}` (rol `'owner'` or `'admin'`)
-- `GET /api/v1/usuarios/me` (any authenticated role: `'admin'`, `'owner'`, `'member'`)
-- `PUT /api/v1/usuarios/me` (any authenticated role: `'admin'`, `'owner'`, `'member'`)
-- `GET /api/v1/usuarios` (rol `'admin'` — list all users)
-- `GET /api/v1/usuarios/{uid}` (rol `'admin'`)
-- `POST /api/v1/usuarios` (rol `'admin'`)
-- `PUT /api/v1/usuarios/{uid}/rol` (rol `'admin'`)
-- `POST /api/v1/solicitudes/{id}/approve` (rol `'admin'`)
-- `POST /api/v1/solicitudes/{id}/reject` (rol `'admin'`)
+- `POST /api/v1/eventos/{id}/verificar` (rol `'admin'`)  ← ADDED by CH-04
 
-Anonymous-accessible paths (no `bearerAuth`, no role required — public discovery flow Flujo 2):
-- `GET /health`
-- `GET /api/v1/places`
-- `GET /api/v1/places/slug/{slug}`
-- `GET /api/v1/places/map-data`
-- `GET /api/v1/places/{id}/abierto-ahora`
-- `GET /api/v1/places/{id}` (by-id is anonymous for MVP; admins querying `status` would require auth, but that filter surface is out of scope for this change — already-documented in `places` spec)
+Anonymous-accessible paths (no `bearerAuth`):
 - `GET /api/v1/eventos`
 - `GET /api/v1/eventos/map-data`
 - `GET /api/v1/eventos/{id}`
 - `GET /api/v1/eventos/slug/{slug}`
+- (The admin verification queue `GET /api/v1/eventos?estadoVerificacion=pendiente` reuses the anonymous `GET /eventos` path with a query filter; visibility is governed by `activo: true`, so it remains anonymous — admins use it with the same public endpoint.)
 
-**Runtime completion for `PUT`/`DELETE /places/{id}`**: the `docs/api-spec.yml` declarations for `PUT /places/{id}` and `DELETE /places/{id}` previously carried the caveat "fine-grained `owner`/`admin` guards introduced by a future `places-clean-arch-refactor` change". This change removes that caveat: both mutations are now gated at runtime by `@Roles('owner', 'admin')`, with the ownership rule (owners only their own place, admins any) enforced by `PlacesService`. The `403` response is documented on both operations.
-
-#### Scenario: OpenAPI description lists bearerAuth on protected POST endpoints
+#### Scenario: OpenAPI description lists bearerAuth on protected POST eventos endpoints
 - **WHEN** a stakeholder opens `docs/api-spec.yml`
-- **THEN** the `POST /api/v1/places`, `POST /api/v1/eventos`, `POST /api/v1/solicitudes/{id}/approve`, `POST /api/v1/usuarios`, etc. declare `security: [{ bearerAuth: [] }]` at the operation level
-- **AND** the `GET /api/v1/places`, `GET /api/v1/eventos`, `GET /api/v1/places/map-data`, `GET /api/v1/eventos/map-data`, etc. declare `security: []` at the operation level (anonymous-accessible)
+- **THEN** the `POST /api/v1/eventos` and `POST /api/v1/eventos/{id}/verificar` operations declare `security: [{ bearerAuth: [] }]` at the operation level
+- **AND** the `GET /api/v1/eventos`, `GET /api/v1/eventos/map-data`, `GET /api/v1/eventos/{id}`, `GET /api/v1/eventos/slug/{slug}` operations declare `security: []` (anonymous-accessible)
 
-#### Scenario: OpenAPI description lists bearerAuth on PUT and DELETE places
-- **WHEN** a stakeholder opens `docs/api-spec.yml`
-- **THEN** `PUT /api/v1/places/{id}` and `DELETE /api/v1/places/{id}` declare `security: [{ bearerAuth: [] }]` at the operation level
-- **AND** their descriptions document the `owner`/`admin` ownership rule (owner only their own place, admin any) and a `403` response — with NO reference to a deferred `places-clean-arch-refactor` change
-
-#### Scenario: Runtime returns 403 for non-owner on PUT /places/{id}
-- **GIVEN** an authenticated `owner` whose UID does not match the place's `usuarioId`
-- **WHEN** the owner sends `PUT /api/v1/places/{id}` with `Authorization: Bearer <idToken>`
-- **THEN** the response is `403` with error: `No tienes permiso para modificar este lugar`
-- **AND** the place document is unchanged
-
-#### Scenario: Runtime returns 403 for member on DELETE /places/{id}
-- **GIVEN** an authenticated user with `rol: 'member'`
-- **WHEN** the member sends `DELETE /api/v1/places/{id}` with `Authorization: Bearer <idToken>`
-- **THEN** the response is `403` with error: `rol 'member' is not allowed to perform this operation`
-- **AND** the place document is NOT removed
-
-#### Scenario: Frontend OpenAPI generator emits authenticated client for protected paths
-- **WHEN** a frontend generates a TypeScript client from `docs/api-spec.yml`
-- **THEN** the generated client's `createPlace`, `createEvento`, `approveSolicitud`, `updatePerfil`, `updatePlace`, `deletePlace`, etc. functions type-require an `Authorization` header (or a configurable token)
-- **AND** the generated `listPlaces`, `listEventos`, `getEventoBySlug`, etc. functions do NOT require authentication
+#### Scenario: Runtime returns 403 for non-admin on POST /eventos/{id}/verificar
+- **GIVEN** an authenticated user with `rol: 'owner'`
+- **WHEN** the owner sends `POST /api/v1/eventos/{id}/verificar` with `{ resultado: 'verificado' }`
+- **THEN** the response is `403` with error: `rol 'owner' is not allowed to perform this operation`
+- **AND** the evento document is unchanged
 
 ### Requirement: Public self-registration endpoint
 The API SHALL expose `POST /api/v1/auth/registro` as a public endpoint (`security: []` in `docs/api-spec.yml`), documented with:
@@ -162,4 +129,40 @@ The `PUT /api/v1/usuarios/{uid}/rol` endpoint SHALL remain admin-only (`security
 - **WHEN** a client generates types from `docs/api-spec.yml`
 - **THEN** `UpdateRol.rol` is typed as `'admin' | 'member'`
 - **AND** a runtime request `{ rol: 'owner' }` receives `400` from the backend whitelist validation
+
+### Requirement: Evento API uses `ubicacion` object and `estadoVerificacion` (not `status`/`placeId`/`verificado`)
+The `docs/api-spec.yml` SHALL describe the `Evento` schema (and `CreateEvento`/`UpdateEvento` bodies) using the new model introduced by `eventos-refactor`:
+
+- `activo: boolean` — replaces the legacy `status` field for public visibility.
+- `estadoVerificacion: 'pendiente' | 'verificado' | 'rechazado'` — replaces the legacy `verificado: boolean`.
+- `ubicacion: { nombreLugar?: string; direccion: string; coordenadas: { lat: number; lng: number } }` — replaces the legacy flat `ubicacionNombre`/`ubicacionDireccion`/`coordenadas` fields AND the `placeId` reference.
+- `motivoRechazoVerificacion?: string` and `cambios?: CambioEvento[]` — new fields.
+
+The legacy fields `status`, `verificado`, `placeId`, `ubicacionNombre`, `ubicacionDireccion` (flat) SHALL NOT appear in the `Evento`, `CreateEvento`, or `UpdateEvento` schemas. The `CreateEventoDto` and `UpdateEventoDto` MUST declare `ubicacion` (with nested validation) and MUST NOT declare `placeId`.
+
+#### Scenario: OpenAPI Evento schema has no legacy fields
+- **WHEN** a client generates types from `docs/api-spec.yml`
+- **THEN** the `Evento`, `CreateEvento`, and `UpdateEvento` schemas do NOT include `status`, `verificado`, or `placeId`
+- **AND** they DO include `activo`, `estadoVerificacion`, and `ubicacion` (object with `direccion` + `coordenadas`)
+
+#### Scenario: Client sends placeId on create evento — rejected
+- **WHEN** a publisher sends `POST /api/v1/eventos` with `{ ..., "placeId": "place-xyz" }` and a valid `Bearer` token
+- **THEN** the response is `400` with error: `property placeId should not exist`
+- **AND** nothing is persisted
+
+### Requirement: `POST /api/v1/eventos/{id}/verificar` admin endpoint
+The API SHALL expose `POST /api/v1/eventos/{id}/verificar` as an admin-only endpoint (`security: [{ bearerAuth: [] }]`, `@Roles('admin')`). The request body `VerificarEventoDto` SHALL declare `resultado` with `enum: [verificado, rechazado]` and `motivo` as a conditional string (required when `resultado === 'rechazado'`, validated with `400` otherwise). On success the response is `200` with the updated `Evento` (including `estadoVerificacion`, `activo`, `fechaPublicacion`/`motivoRechazoVerificacion` as applicable).
+
+#### Scenario: Contract documents the admin verify endpoint
+- **WHEN** a consumer reads `docs/api-spec.yml`
+- **THEN** `POST /eventos/{id}/verificar` is listed with `security: [{ bearerAuth: [] }]`, an `operationId` like `verificarEvento`, and the `VerificarEventoDto` schema with `resultado` enum and conditional `motivo`
+- **AND** a `400` response is documented for `resultado: 'rechazado'` without `motivo`, and `403`/`401` for non-admin/anonymous
+
+### Requirement: `DELETE /eventos/{id}` returns soft-delete envelope
+The `docs/api-spec.yml` SHALL document `DELETE /api/v1/eventos/{id}` as a soft-delete: the operation returns `200` with the response schema `{ deleted: boolean; id: string; activo: boolean }` where `activo` is `false` after the operation (the document is not removed). The `409` response for "pending solicitudes" is REMOVED (eventos no longer create solicitudes).
+
+#### Scenario: Contract documents soft-delete response
+- **WHEN** a consumer reads `docs/api-spec.yml`
+- **THEN** `DELETE /eventos/{id}` response `200` schema is `{ deleted: true, id: string, activo: false }`
+- **AND** no `409` response referencing pending solicitudes is documented for this endpoint
 

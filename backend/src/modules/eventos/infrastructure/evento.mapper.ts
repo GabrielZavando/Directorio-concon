@@ -6,6 +6,7 @@
 import type { FirebaseService } from "@/common/services/firebase.service";
 import type { Timestamp } from "firebase-admin/firestore";
 import type { Evento } from "../domain/evento.entity";
+import type { Ubicacion } from "../domain/ubicacion.vo";
 
 export interface EventoFirestoreDoc {
   id: string;
@@ -19,9 +20,11 @@ export interface EventoFirestoreDoc {
   organizador: string;
   organizadorContacto?: string;
   organizadorWeb?: string;
-  ubicacionNombre?: string;
-  ubicacionDireccion: string;
-  coordenadas: { lat: number; lng: number };
+  ubicacion: {
+    nombreLugar?: string;
+    direccion: string;
+    coordenadas: { lat: number; lng: number };
+  };
   fechaInicio: unknown;
   fechaFin: unknown;
   precioTipo: string;
@@ -32,13 +35,13 @@ export interface EventoFirestoreDoc {
   nivelRuido: string;
   portada?: string;
   accesibilidad?: string[];
-  status: string;
   estado: string;
   destacado: boolean;
-  verificado: boolean;
-  placeId?: string;
+  estadoVerificacion: string;
+  activo: boolean;
   usuarioId: string;
   vistasTotales: number;
+  cambios: unknown[];
   createdAt: unknown;
   updatedAt: unknown;
   fechaPublicacion?: unknown;
@@ -61,9 +64,11 @@ export function toEventoDomain(
     organizador: doc.organizador,
     organizadorContacto: doc.organizadorContacto,
     organizadorWeb: doc.organizadorWeb,
-    ubicacionNombre: doc.ubicacionNombre,
-    ubicacionDireccion: doc.ubicacionDireccion,
-    coordenadas: doc.coordenadas,
+    ubicacion: {
+      nombreLugar: doc.ubicacion.nombreLugar,
+      direccion: doc.ubicacion.direccion,
+      coordenadas: doc.ubicacion.coordenadas,
+    } as Ubicacion,
     fechaInicio: firebase.timestampToDate(doc.fechaInicio as Timestamp)!,
     fechaFin: firebase.timestampToDate(doc.fechaFin as Timestamp)!,
     precioTipo: doc.precioTipo as Evento["precioTipo"],
@@ -74,13 +79,13 @@ export function toEventoDomain(
     nivelRuido: doc.nivelRuido as Evento["nivelRuido"],
     portada: doc.portada,
     accesibilidad: doc.accesibilidad as Evento["accesibilidad"],
-    status: doc.status as Evento["status"],
     estado: doc.estado as Evento["estado"],
     destacado: doc.destacado,
-    verificado: doc.verificado,
-    placeId: doc.placeId,
+    estadoVerificacion: doc.estadoVerificacion as Evento["estadoVerificacion"],
+    activo: doc.activo,
     usuarioId: doc.usuarioId,
     vistasTotales: doc.vistasTotales ?? 0,
+    cambios: (doc.cambios ?? []) as Evento["cambios"],
     createdAt: firebase.timestampToDate(doc.createdAt as Timestamp)!,
     updatedAt: firebase.timestampToDate(doc.updatedAt as Timestamp)!,
     fechaPublicacion: firebase.timestampToDate(
@@ -106,9 +111,6 @@ export function toEventoPersistence(
     ["organizador", "organizador"],
     ["organizadorContacto", "organizadorContacto"],
     ["organizadorWeb", "organizadorWeb"],
-    ["ubicacionNombre", "ubicacionNombre"],
-    ["ubicacionDireccion", "ubicacionDireccion"],
-    ["coordenadas", "coordenadas"],
     ["precioTipo", "precioTipo"],
     ["precioValor", "precioValor"],
     ["precioMoneda", "precioMoneda"],
@@ -117,11 +119,10 @@ export function toEventoPersistence(
     ["nivelRuido", "nivelRuido"],
     ["portada", "portada"],
     ["accesibilidad", "accesibilidad"],
-    ["status", "status"],
     ["estado", "estado"],
     ["destacado", "destacado"],
-    ["verificado", "verificado"],
-    ["placeId", "placeId"],
+    ["estadoVerificacion", "estadoVerificacion"],
+    ["activo", "activo"],
     ["usuarioId", "usuarioId"],
     ["vistasTotales", "vistasTotales"],
   ];
@@ -131,6 +132,18 @@ export function toEventoPersistence(
     if (value !== undefined) {
       result[firestoreKey] = value;
     }
+  }
+
+  if (evt.ubicacion) {
+    result.ubicacion = {
+      nombreLugar: evt.ubicacion.nombreLugar,
+      direccion: evt.ubicacion.direccion,
+      coordenadas: evt.ubicacion.coordenadas,
+    };
+  }
+
+  if (evt.cambios) {
+    result.cambios = evt.cambios;
   }
 
   if (evt.fechaInicio) {

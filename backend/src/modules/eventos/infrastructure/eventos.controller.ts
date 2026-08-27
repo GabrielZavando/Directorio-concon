@@ -24,6 +24,7 @@ const EVENTO_NOT_FOUND = "Evento not found";
 import { CreateEventoDto } from "./dto/create-evento.dto";
 import { UpdateEventoDto } from "./dto/update-evento.dto";
 import { QueryEventoDto } from "./dto/query-evento.dto";
+import { VerificarEventoDto } from "./dto/verificar-evento.dto";
 import { JwtAuthGuard } from "../../auth/application/jwt-auth.guard";
 import { RolesGuard } from "../../auth/application/roles.guard";
 import { Roles } from "../../auth/application/roles.decorator";
@@ -42,12 +43,10 @@ export class EventosController {
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("owner", "admin")
-  @ApiOperation({
-    summary: "Create a new evento (generates solicitud automatically)",
-  })
+  @ApiOperation({ summary: "Create a new evento (no auto-solicitud)" })
   @ApiResponse({
     status: 201,
-    description: "Evento created with status pendiente",
+    description: "Evento created with estadoVerificacion pendiente",
   })
   @ApiResponse({ status: 400, description: "Validation error" })
   @ApiResponse({ status: 401, description: MISSING_TOKEN_MSG })
@@ -62,11 +61,11 @@ export class EventosController {
   // -------------------------------------------------------------------------
   @Get()
   @ApiOperation({
-    summary: "List approved eventos with filters and pagination",
+    summary: "List active eventos with filters and pagination",
   })
   @ApiResponse({
     status: 200,
-    description: "Paginated list of approved eventos",
+    description: "Paginated list of active eventos (any estadoVerificacion)",
   })
   async findAll(@Query() query: QueryEventoDto) {
     return this.eventosService.findAllPublic({
@@ -75,6 +74,9 @@ export class EventosController {
       subcategoriaId: query.subcategoriaId,
       barrioId: query.barrioId,
       estado: query.estado,
+      estadoVerificacion: query.estadoVerificacion,
+      activo: query.activo,
+      destacado: query.destacado,
       precioTipo: query.precioTipo,
       fechaDesde: query.fechaDesde,
       fechaHasta: query.fechaHasta,
@@ -88,7 +90,7 @@ export class EventosController {
   // -------------------------------------------------------------------------
   @Get("map-data")
   @ApiOperation({
-    summary: "Lightweight array of approved eventos with coordinates for map",
+    summary: "Lightweight array of active eventos with coordinates for map",
   })
   @ApiResponse({ status: 200, description: "Array of map markers" })
   async getMapData() {
@@ -99,7 +101,9 @@ export class EventosController {
   // GET /eventos/slug/:slug
   // -------------------------------------------------------------------------
   @Get("slug/:slug")
-  @ApiOperation({ summary: "Get an approved evento by its unique slug" })
+  @ApiOperation({
+    summary: "Get an active evento by its unique slug",
+  })
   @ApiResponse({ status: 200, description: "Evento found" })
   @ApiResponse({ status: 404, description: EVENTO_NOT_FOUND })
   async findBySlug(@Param("slug") slug: string) {
@@ -110,7 +114,7 @@ export class EventosController {
   // GET /eventos/:id
   // -------------------------------------------------------------------------
   @Get(":id")
-  @ApiOperation({ summary: "Get an approved evento by ID" })
+  @ApiOperation({ summary: "Get an active evento by ID" })
   @ApiResponse({ status: 200, description: "Evento found" })
   @ApiResponse({ status: 404, description: EVENTO_NOT_FOUND })
   async findById(@Param("id") id: string) {
@@ -123,7 +127,10 @@ export class EventosController {
   @Put(":id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("owner", "admin")
-  @ApiOperation({ summary: "Update an evento (partial)" })
+  @ApiOperation({
+    summary:
+      "Update an evento (partial). Editing a verified evento reverts it to pendiente.",
+  })
   @ApiResponse({ status: 200, description: "Evento updated" })
   @ApiResponse({ status: 401, description: MISSING_TOKEN_MSG })
   @ApiResponse({ status: 403, description: "Forbidden" })
@@ -138,22 +145,49 @@ export class EventosController {
   }
 
   // -------------------------------------------------------------------------
-  // DELETE /eventos/:id
+  // POST /eventos/:id/verificar  (admin)
+  // -------------------------------------------------------------------------
+  @Post(":id/verificar")
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  @ApiOperation({
+    summary: "Admin verification: set verificado or rechazado",
+  })
+  @ApiResponse({ status: 200, description: "Evento verification updated" })
+  @ApiResponse({
+    status: 400,
+    description: "Validation error (motivoRechazo required for rechazado)",
+  })
+  @ApiResponse({ status: 401, description: MISSING_TOKEN_MSG })
+  @ApiResponse({ status: 403, description: "Forbidden (not admin)" })
+  @ApiResponse({ status: 404, description: EVENTO_NOT_FOUND })
+  async verificar(
+    @Param("id") id: string,
+    @Body() dto: VerificarEventoDto,
+    @CurrentUser() user: AuthContext,
+  ) {
+    return this.eventosService.verificar(
+      id,
+      dto.resultado,
+      user.uid,
+      dto.motivo,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // DELETE /eventos/:id  (soft delete)
   // -------------------------------------------------------------------------
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("owner", "admin")
-  @ApiOperation({
-    summary: "Delete an evento (blocked if solicitudes exist)",
-  })
-  @ApiResponse({ status: 200, description: "Evento deleted" })
+  @ApiOperation({ summary: "Soft-delete an evento (activo = false)" })
+  @ApiResponse({ status: 200, description: "Evento soft-deleted" })
   @ApiResponse({ status: 401, description: MISSING_TOKEN_MSG })
   @ApiResponse({ status: 403, description: "Forbidden" })
   @ApiResponse({ status: 404, description: EVENTO_NOT_FOUND })
-  @ApiResponse({ status: 409, description: "Cannot delete: solicitudes exist" })
   async remove(@Param("id") id: string, @CurrentUser() user: AuthContext) {
-    await this.eventosService.remove(id, user.uid, user.rol);
-    return { deleted: true, id };
+    return this.eventosService.remove(id, user.uid, user.rol);
   }
 }

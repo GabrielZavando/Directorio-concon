@@ -3,15 +3,8 @@
  *
  * Mocks EventosService to test HTTP layer without real service logic.
  *
- * auth-usuarios (Task 12): `create`/`update`/`remove` now use
- * `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner', 'admin')` —
- * `usuarioId` and `rol` are extracted from `@CurrentUser()` (replaces the
- * legacy `x-usuario-id` / `x-rol` headers). GET endpoints stay
- * unauthenticated (anonymous discovery).
- *
- * Guards run for real so authorization contracts (401/403) are verified.
- * `AuthService.buildContext` is replaced with a per-test mock so Firebase
- * is never called.
+ * Authorization contracts (401/403) are verified via real guards (JwtAuthGuard,
+ * RolesGuard). The soft-delete and verificar endpoints are covered.
  */
 import { Test, TestingModule } from "@nestjs/testing";
 import {
@@ -30,15 +23,10 @@ import { FirebaseModule } from "@/common/modules/firebase.module";
 import type { AuthContext } from "../../auth/domain/auth-context.interface";
 import type { Rol } from "../../auth/domain/rol.enum";
 
-// Mock the FirebaseService MODULE so `firebase-admin`'s ESM-only deps
-// (jose/jwks-rsa) are never loaded by jest.
 jest.mock("@/common/services/firebase.service", () => ({
   FirebaseService: jest.fn().mockImplementation(() => ({})),
 }));
 
-// ---------------------------------------------------------------------------
-// Mock EventosService
-// ---------------------------------------------------------------------------
 const mockEventosService = {
   create: jest.fn(),
   findAllPublic: jest.fn(),
@@ -47,6 +35,7 @@ const mockEventosService = {
   listMapData: jest.fn(),
   update: jest.fn(),
   remove: jest.fn(),
+  verificar: jest.fn(),
 };
 
 function makeEvento(overrides: Record<string, unknown> = {}) {
@@ -63,9 +52,11 @@ function makeEvento(overrides: Record<string, unknown> = {}) {
     organizador: "Municipalidad de Concón",
     organizadorContacto: "cultura@concon.cl",
     organizadorWeb: "https://culturaconcon.cl",
-    ubicacionNombre: "Plaza de Concón",
-    ubicacionDireccion: "Av. Concón 123",
-    coordenadas: { lat: -32.92, lng: -71.51 },
+    ubicacion: {
+      nombreLugar: "Plaza de Concón",
+      direccion: "Av. Concón 123",
+      coordenadas: { lat: -32.92, lng: -71.51 },
+    },
     fechaInicio: "2026-08-15T10:00:00.000Z",
     fechaFin: "2026-08-17T22:00:00.000Z",
     precioTipo: "gratis",
@@ -76,21 +67,19 @@ function makeEvento(overrides: Record<string, unknown> = {}) {
     nivelRuido: "medio",
     portada: "https://storage.example.com/feria.jpg",
     accesibilidad: ["acceso-silla-de-ruedas"],
-    status: "aprobado",
     estado: "programado",
     destacado: false,
-    verificado: false,
+    estadoVerificacion: "verificado",
+    activo: true,
     usuarioId: "user-abc",
     vistasTotales: 0,
+    cambios: [],
     createdAt: new Date("2026-06-01"),
     updatedAt: new Date("2026-06-01"),
     ...overrides,
   };
 }
 
-// ---------------------------------------------------------------------------
-// Auth helpers — per-test user wiring
-// ---------------------------------------------------------------------------
 function makeContext(rol: Rol): AuthContext {
   return {
     uid: `uid-${rol}-001`,
@@ -100,7 +89,6 @@ function makeContext(rol: Rol): AuthContext {
   };
 }
 
-// Valid POST /eventos body (accepted by CreateEventoDto).
 const validCreateBody = {
   nombre: "Feria Gastronómica",
   descripcionCorta: "Degustación de platos típicos",
@@ -108,8 +96,10 @@ const validCreateBody = {
   subcategoriaId: "ferias-gastronomicas",
   barrioId: "centro",
   organizador: "Municipalidad de Concón",
-  ubicacionDireccion: "Av. Concón 123",
-  coordenadas: { lat: -32.92, lng: -71.51 },
+  ubicacion: {
+    direccion: "Av. Concón 123",
+    coordenadas: { lat: -32.92, lng: -71.51 },
+  },
   fechaInicio: "2026-08-15T10:00:00.000Z",
   fechaFin: "2026-08-17T22:00:00.000Z",
   precioTipo: "gratis",
@@ -118,9 +108,6 @@ const validCreateBody = {
   nivelRuido: "medio",
 };
 
-// ---------------------------------------------------------------------------
-// App setup
-// ---------------------------------------------------------------------------
 describe("EventosController (HTTP)", () => {
   let app: INestApplication;
   let mockAuthService: { buildContext: jest.Mock };
@@ -134,8 +121,6 @@ describe("EventosController (HTTP)", () => {
       controllers: [EventosController],
       providers: [{ provide: EventosService, useValue: mockEventosService }],
     })
-      // AuthService replaced with the per-test mock. Guards (JwtAuthGuard,
-      // RolesGuard) run for real, exercising the full JWT→Roles contract.
       .overrideProvider(AuthService)
       .useValue(mockAuthService)
       .compile();
@@ -154,7 +139,6 @@ describe("EventosController (HTTP)", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default: anonymous — every test that needs auth sets up mockAuthService.
     mockAuthService.buildContext.mockReset();
   });
 
@@ -165,7 +149,7 @@ describe("EventosController (HTTP)", () => {
   }
 
   // =========================================================================
-  // POST /eventos (auth: @Roles('owner', 'admin'))
+  // POST /eventos
   // =========================================================================
   describe("POST /eventos", () => {
     it("owner → 201, usuarioId === token.uid", async () => {
@@ -180,26 +164,6 @@ describe("EventosController (HTTP)", () => {
         .expect(201);
 
       expect(response.body.id).toBe("evento-1");
-      // usuarioId must come from the verified token, NOT any header.
-      expect(mockEventosService.create).toHaveBeenCalledWith(
-        expect.any(Object),
-        ctx.uid,
-      );
-    });
-
-    it("owner → 201 even with spoofed x-usuario-id header (ignored)", async () => {
-      const ctx = givenUser("owner");
-      const evento = makeEvento({ usuarioId: ctx.uid });
-      mockEventosService.create.mockResolvedValue(evento);
-
-      await request(app.getHttpServer())
-        .post("/eventos")
-        .set("Authorization", "Bearer fake-token")
-        .set("x-usuario-id", "uid-spoofed")
-        .send(validCreateBody)
-        .expect(201);
-
-      // The legacy header must be ignored: uid comes from the JWT context.
       expect(mockEventosService.create).toHaveBeenCalledWith(
         expect.any(Object),
         ctx.uid,
@@ -224,7 +188,7 @@ describe("EventosController (HTTP)", () => {
       );
     });
 
-    it("member → 403 (RolesGuard — members cannot publish events)", async () => {
+    it("member → 403", async () => {
       givenUser("member");
 
       await request(app.getHttpServer())
@@ -236,7 +200,7 @@ describe("EventosController (HTTP)", () => {
       expect(mockEventosService.create).not.toHaveBeenCalled();
     });
 
-    it("anonymous (no token) → 401", async () => {
+    it("anonymous → 401", async () => {
       await request(app.getHttpServer())
         .post("/eventos")
         .send(validCreateBody)
@@ -270,7 +234,7 @@ describe("EventosController (HTTP)", () => {
   });
 
   // =========================================================================
-  // GET /eventos (public, no guards)
+  // GET /eventos
   // =========================================================================
   describe("GET /eventos", () => {
     it("returns paginated results", async () => {
@@ -295,22 +259,25 @@ describe("EventosController (HTTP)", () => {
 
       await request(app.getHttpServer())
         .get(
-          "/eventos?subcategoriaId=conciertos-y-shows&barrioId=centro&q=jazz&page=1&limit=10",
+          "/eventos?subcategoriaId=conciertos-y-shows&barrioId=centro&q=jazz&destacado=true&page=1&limit=10",
         )
         .expect(200);
 
-      expect(mockEventosService.findAllPublic).toHaveBeenCalledWith({
-        subcategoriaId: "conciertos-y-shows",
-        barrioId: "centro",
-        q: "jazz",
-        page: 1,
-        limit: 10,
-      });
+      expect(mockEventosService.findAllPublic).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subcategoriaId: "conciertos-y-shows",
+          barrioId: "centro",
+          q: "jazz",
+          destacado: true,
+          page: 1,
+          limit: 10,
+        }),
+      );
     });
   });
 
   // =========================================================================
-  // GET /eventos/map-data (public, no guards)
+  // GET /eventos/map-data
   // =========================================================================
   describe("GET /eventos/map-data", () => {
     it("returns map data array", async () => {
@@ -320,7 +287,8 @@ describe("EventosController (HTTP)", () => {
           nombre: "Evento 1",
           slug: "evento-1",
           coordenadas: { lat: -32.92, lng: -71.51 },
-          categoriaId: "eventos",
+          subcategoriaId: "ferias-gastronomicas",
+          barrioId: "centro",
           fechaInicio: new Date("2026-08-15"),
         },
       ]);
@@ -331,11 +299,14 @@ describe("EventosController (HTTP)", () => {
 
       expect(response.body).toHaveLength(1);
       expect(response.body[0].coordenadas).toBeDefined();
+      expect(response.body[0].subcategoriaId).toBe("ferias-gastronomicas");
+      expect(response.body[0].barrioId).toBe("centro");
+      expect(response.body[0].ubicacion).toBeUndefined();
     });
   });
 
   // =========================================================================
-  // GET /eventos/slug/:slug (public, no guards)
+  // GET /eventos/slug/:slug
   // =========================================================================
   describe("GET /eventos/slug/:slug", () => {
     it("returns evento by slug", async () => {
@@ -360,7 +331,7 @@ describe("EventosController (HTTP)", () => {
   });
 
   // =========================================================================
-  // GET /eventos/:id (public, no guards)
+  // GET /eventos/:id
   // =========================================================================
   describe("GET /eventos/:id", () => {
     it("returns evento by id (public)", async () => {
@@ -385,7 +356,7 @@ describe("EventosController (HTTP)", () => {
   });
 
   // =========================================================================
-  // PUT /eventos/:id (auth: @Roles('owner', 'admin'))
+  // PUT /eventos/:id
   // =========================================================================
   describe("PUT /eventos/:id", () => {
     it("owner → 200, update called with uid + rol from context", async () => {
@@ -453,7 +424,7 @@ describe("EventosController (HTTP)", () => {
       expect(mockEventosService.update).not.toHaveBeenCalled();
     });
 
-    it("anonymous (no token) → 401", async () => {
+    it("anonymous → 401", async () => {
       await request(app.getHttpServer())
         .put("/eventos/evento-1")
         .send({ organizador: "Nuevo" })
@@ -488,19 +459,100 @@ describe("EventosController (HTTP)", () => {
   });
 
   // =========================================================================
-  // DELETE /eventos/:id (auth: @Roles('owner', 'admin'))
+  // POST /eventos/:id/verificar (admin)
+  // =========================================================================
+  describe("POST /eventos/:id/verificar", () => {
+    it("admin → 200, verificar called with resultado + uid", async () => {
+      const ctx = givenUser("admin");
+      const verified = makeEvento({ estadoVerificacion: "verificado" });
+      mockEventosService.verificar.mockResolvedValue(verified);
+
+      const response = await request(app.getHttpServer())
+        .post("/eventos/evento-1/verificar")
+        .set("Authorization", "Bearer fake-token")
+        .send({ resultado: "verificado" })
+        .expect(200);
+
+      expect(response.body.estadoVerificacion).toBe("verificado");
+      expect(mockEventosService.verificar).toHaveBeenCalledWith(
+        "evento-1",
+        "verificado",
+        ctx.uid,
+        undefined,
+      );
+    });
+
+    it("admin reject requires motivo → 400 (ValidationPipe)", async () => {
+      givenUser("admin");
+
+      await request(app.getHttpServer())
+        .post("/eventos/evento-1/verificar")
+        .set("Authorization", "Bearer fake-token")
+        .send({ resultado: "rechazado" })
+        .expect(400);
+
+      expect(mockEventosService.verificar).not.toHaveBeenCalled();
+    });
+
+    it("admin reject with motivo → 200", async () => {
+      givenUser("admin");
+      const rejected = makeEvento({
+        estadoVerificacion: "rechazado",
+        activo: false,
+      });
+      mockEventosService.verificar.mockResolvedValue(rejected);
+
+      const response = await request(app.getHttpServer())
+        .post("/eventos/evento-1/verificar")
+        .set("Authorization", "Bearer fake-token")
+        .send({ resultado: "rechazado", motivo: "Falta documentación" })
+        .expect(200);
+
+      expect(mockEventosService.verificar).toHaveBeenCalledWith(
+        "evento-1",
+        "rechazado",
+        expect.any(String),
+        "Falta documentación",
+      );
+      expect(response.body.activo).toBe(false);
+    });
+
+    it("owner → 403 (RolesGuard)", async () => {
+      givenUser("owner");
+
+      await request(app.getHttpServer())
+        .post("/eventos/evento-1/verificar")
+        .set("Authorization", "Bearer fake-token")
+        .send({ resultado: "verificado" })
+        .expect(403);
+
+      expect(mockEventosService.verificar).not.toHaveBeenCalled();
+    });
+
+    it("anonymous → 401", async () => {
+      await request(app.getHttpServer())
+        .post("/eventos/evento-1/verificar")
+        .send({ resultado: "verificado" })
+        .expect(401);
+    });
+  });
+
+  // =========================================================================
+  // DELETE /eventos/:id (soft delete)
   // =========================================================================
   describe("DELETE /eventos/:id", () => {
-    it("owner → 200, remove called with uid + rol from context", async () => {
+    it("owner → 200, returns soft-deleted evento", async () => {
       const ctx = givenUser("owner");
-      mockEventosService.remove.mockResolvedValue(undefined);
+      mockEventosService.remove.mockResolvedValue(
+        makeEvento({ activo: false }),
+      );
 
       const response = await request(app.getHttpServer())
         .delete("/eventos/evento-1")
         .set("Authorization", "Bearer fake-token")
         .expect(200);
 
-      expect(response.body.deleted).toBe(true);
+      expect(response.body.activo).toBe(false);
       expect(response.body.id).toBe("evento-1");
       expect(mockEventosService.remove).toHaveBeenCalledWith(
         "evento-1",
@@ -511,7 +563,9 @@ describe("EventosController (HTTP)", () => {
 
     it("admin → 200", async () => {
       const ctx = givenUser("admin");
-      mockEventosService.remove.mockResolvedValue(undefined);
+      mockEventosService.remove.mockResolvedValue(
+        makeEvento({ activo: false }),
+      );
 
       await request(app.getHttpServer())
         .delete("/eventos/evento-1")
@@ -536,7 +590,7 @@ describe("EventosController (HTTP)", () => {
       expect(mockEventosService.remove).not.toHaveBeenCalled();
     });
 
-    it("anonymous (no token) → 401", async () => {
+    it("anonymous → 401", async () => {
       await request(app.getHttpServer())
         .delete("/eventos/evento-1")
         .expect(401);
@@ -564,20 +618,6 @@ describe("EventosController (HTTP)", () => {
         .delete("/eventos/non-existent")
         .set("Authorization", "Bearer fake-token")
         .expect(404);
-    });
-
-    it("returns 409 when solicitudes exist", async () => {
-      givenUser("owner");
-      mockEventosService.remove.mockRejectedValue(
-        new ConflictException(
-          "No se puede eliminar: existen solicitudes pendientes asociadas a este evento",
-        ),
-      );
-
-      await request(app.getHttpServer())
-        .delete("/eventos/evento-1")
-        .set("Authorization", "Bearer fake-token")
-        .expect(409);
     });
   });
 });

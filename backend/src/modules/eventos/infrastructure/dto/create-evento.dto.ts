@@ -13,7 +13,7 @@ import {
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { CoordenadasDto } from "./coordenadas.dto";
+import { UbicacionDto } from "./ubicacion.dto";
 import { PRECIO_TIPO_VALUES } from "../../domain/precio-tipo.enum";
 import { PRECIO_MONEDA_VALUES } from "../../domain/precio-moneda.enum";
 import { PUBLICO_OBJETIVO_VALUES } from "../../domain/publico-objetivo.enum";
@@ -26,7 +26,8 @@ import { NIVEL_RUIDO_VALUES } from "../../domain/nivel-ruido.enum";
  * NOTE:
  * - `categoriaId` is NOT included — always set to 'eventos' by the system
  * - `usuarioId` is NOT included — set from the verified Firebase Auth token
- * - `status` / `estado` are NOT included — set by the system / admin
+ * - `estado` / `estadoVerificacion` / `activo` are NOT included — set by the
+ *   system / admin (Non-Goal: publishers cannot self-verify)
  */
 export class CreateEventoDto {
   @IsString()
@@ -63,19 +64,9 @@ export class CreateEventoDto {
   @IsUrl()
   organizadorWeb?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  ubicacionNombre?: string;
-
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  ubicacionDireccion!: string;
-
   @ValidateNested()
-  @Type(() => CoordenadasDto)
-  coordenadas!: CoordenadasDto;
+  @Type(() => UbicacionDto)
+  ubicacion!: UbicacionDto;
 
   @IsDateString()
   fechaInicio!: string;

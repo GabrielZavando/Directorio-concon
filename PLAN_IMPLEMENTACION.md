@@ -9,7 +9,15 @@
 | CH-01 | categorias-barrios-crud | ✅ DONE | `archive/2026-08-23-categorias-barrios-crud` |
 | CH-02 | auth-usuarios-v2 | ✅ DONE | `archive/2026-08-25-auth-usuarios-v2` (backend completo; páginas frontend de auth — Tasks 8–10 — y E2E backend quedan cubiertas por CH-08 `frontend-mvp-v2` / change E2E dedicado) |
 | CH-03 | places-refactor | ✅ DONE | `archive/2026-08-26-places-refactor` |
-| CH-04 | eventos-refactor | ⬜ PENDING | — |
+| CH-04 | eventos-refactor | ✅ DONE | `archive/2026-08-27-eventos-refactor` (backend completo; cobertura módulo eventos ≥90%; eliminación física de tipos evento en `solicitudes` diferida a CH-05) |
+| CH-04b | eventos-conformance-fixes | ✅ DONE | `archive/2026-08-27-eventos-conformance-fixes` (rescue post-audit: create `estado:'programado'`, `verificar` restaura `activo:true`, `buildEventoPatch` convierte fechas a `Date`, normaliza `cambios`, migration `estado:'programado'` + sin null-island) |
+| CH-04c | eventos-location-model | ⬜ PENDING | — (modelar que un evento puede ser presencial, online o híbrido; ver notas de decisión abajo) |
+
+> **CH-04c — Decisión de diseño (2026-08-27):** Se modelará con `modalidad: 'presencial' | 'online' | 'hibrido'`.
+> - `ubicacion` (dirección + coordenadas) requerido solo cuando `modalidad !== 'online'`; un evento `online` NO exige dirección ni coordenadas.
+> - **NO se reintroduce `placeId`** (se mantiene el diseño de CH-04: el evento es dueño de su `ubicacion`). Si el directorio quiere mostrar "este evento ocurre en el place X", se resuelve por coincidencia de coordenadas/dirección o un futuro change de enriquecimiento, no por FK.
+> - El mapa (`/map-data`) solo incluye eventos con `coordenadas` presentes (filtro ya existente).
+> - Cambia el `Ubicacion` VO (hoy `direccion` requerido) → `direccion` opcional y `ubicacion` opcional a nivel evento según `modalidad`. Requiere spec delta en `openspec/specs/eventos`. |
 | CH-05 | solicitudes-refactor | ⬜ PENDING | — |
 | CH-06 | notificaciones | ⬜ PENDING | — |
 | CH-07 | favoritos | ⬜ PENDING | — |

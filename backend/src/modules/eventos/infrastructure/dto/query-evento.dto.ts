@@ -1,7 +1,16 @@
-import { IsOptional, IsString, IsInt, IsEnum, Min, Max } from "class-validator";
+import {
+  IsOptional,
+  IsString,
+  IsInt,
+  IsEnum,
+  IsBoolean,
+  Min,
+  Max,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { PRECIO_TIPO_VALUES } from "../../domain/precio-tipo.enum";
 import { EVENTO_ESTADO_VALUES } from "../../domain/evento-estado.enum";
+import { ESTADO_VERIFICACION_VALUES } from "../../domain/estado-verificacion";
 
 /**
  * Query params for GET /eventos.
@@ -42,6 +51,20 @@ export class QueryEventoDto {
   @IsOptional()
   @IsEnum(EVENTO_ESTADO_VALUES)
   estado?: string;
+
+  @IsOptional()
+  @IsEnum(ESTADO_VERIFICACION_VALUES)
+  estadoVerificacion?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  activo?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  destacado?: boolean;
 
   @IsOptional()
   @Type(() => Number)

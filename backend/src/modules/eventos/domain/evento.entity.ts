@@ -4,7 +4,7 @@
  * Matches docs/data-model.md §eventos exactly.
  * Timestamps use `Date` in domain; Firestore adapter converts ↔ Timestamp.
  */
-import type { EventoStatus } from "./evento-status.enum";
+import type { EstadoVerificacion } from "./estado-verificacion";
 import type { EventoEstado } from "./evento-estado.enum";
 import type { PrecioTipo } from "./precio-tipo.enum";
 import type { PrecioMoneda } from "./precio-moneda.enum";
@@ -12,6 +12,8 @@ import type { PublicoObjetivoEnum } from "./publico-objetivo.enum";
 import type { AccesibilidadEnum } from "./accesibilidad.enum";
 import type { NivelRuido } from "./nivel-ruido.enum";
 import type { Coordenadas } from "./coordenadas.vo";
+import type { Ubicacion } from "./ubicacion.vo";
+import type { CambioEvento } from "./cambio-evento.interface";
 
 export interface Evento {
   // -- Identity --
@@ -33,10 +35,8 @@ export interface Evento {
   organizadorContacto?: string;
   organizadorWeb?: string;
 
-  // -- Location --
-  ubicacionNombre?: string;
-  ubicacionDireccion: string;
-  coordenadas: Coordenadas;
+  // -- Location (own venue, independent of any place) --
+  ubicacion: Ubicacion;
 
   // -- Schedule --
   fechaInicio: Date;
@@ -58,12 +58,15 @@ export interface Evento {
   // -- Accessibility --
   accesibilidad?: AccesibilidadEnum[];
 
-  // -- System --
-  status: EventoStatus;
+  // -- System / visibility & verification --
+  activo: boolean; // public visibility flag (replaces legacy status)
+  estadoVerificacion: EstadoVerificacion; // 'pendiente' | 'verificado' | 'rechazado'
+  motivoRechazoVerificacion?: string; // required when estadoVerificacion === 'rechazado'
+  cambios?: CambioEvento[]; // audit trail (populated when a verified evento is reverted to pendiente, or on any update where a field value actually changes)
+
+  // -- Lifecycle (independent of verification) --
   estado: EventoEstado;
   destacado: boolean;
-  verificado: boolean;
-  placeId?: string;
   usuarioId: string; // Firebase Auth UID of creator (REQUIRED, not in DTO)
   vistasTotales: number;
   createdAt: Date;
