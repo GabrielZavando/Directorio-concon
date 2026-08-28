@@ -135,6 +135,7 @@ describe("Eventos Integration (Service → Adapter)", () => {
           subcategoriaId: "ferias-gastronomicas",
           barrioId: "centro",
           organizador: "Municipalidad de Concón",
+          modalidad: "presencial",
           ubicacion: {
             direccion: "Av. Borgoño 1234",
             coordenadas: { lat: -32.998, lng: -71.518 },

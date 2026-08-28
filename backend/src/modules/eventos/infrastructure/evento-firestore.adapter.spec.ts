@@ -30,6 +30,9 @@ function createMockFirebase() {
       }
       return null;
     }),
+    getFieldValue: jest.fn(() => ({
+      delete: () => ({ __deleteSentinel: true }),
+    })),
   };
 }
 
@@ -156,6 +159,7 @@ describe("EventoFirestoreAdapter", () => {
         subcategoriaId: "ferias-gastronomicas",
         barrioId: "centro",
         organizador: "Municipalidad de Concón",
+        modalidad: "presencial" as const,
         ubicacion: {
           direccion: "Av. Borgoño 1234",
           coordenadas: { lat: -32.998, lng: -71.518 },
@@ -200,11 +204,12 @@ describe("EventoFirestoreAdapter", () => {
   });
 
   describe("listMapData", () => {
-    it("returns active eventos with lightweight marker fields", async () => {
+    it("returns active eventos with lightweight marker fields (excludes online sin coordenadas)", async () => {
       mockFirebase.getDocuments.mockResolvedValue({
         docs: [
           {
             id: "e1",
+            // presencial (default) con coordenadas → included
             data: () => ({
               nombre: "Evento 1",
               slug: "evento-1",
@@ -219,14 +224,29 @@ describe("EventoFirestoreAdapter", () => {
           },
           {
             id: "e2",
+            // online sin ubicacion → excluded (no coordenadas)
             data: () => ({
-              nombre: "Evento 2",
-              slug: "evento-2",
+              nombre: "Evento Online",
+              slug: "evento-online",
               subcategoriaId: "ferias-gastronomicas",
               barrioId: "centro",
-              ubicacion: { direccion: "Y" },
+              modalidad: "online",
               fechaInicio: { toDate: () => new Date("2026-08-16") },
-              // No coordenadas — should be filtered out
+            }),
+          },
+          {
+            id: "e3",
+            // hibrido con coordenadas → included
+            data: () => ({
+              nombre: "Evento Hibrido",
+              slug: "evento-hibrido",
+              subcategoriaId: "ferias-gastronomicas",
+              barrioId: "centro",
+              modalidad: "hibrido",
+              ubicacion: {
+                coordenadas: { lat: -32.9, lng: -71.5 },
+              },
+              fechaInicio: { toDate: () => new Date("2026-08-17") },
             }),
           },
         ],
@@ -234,12 +254,13 @@ describe("EventoFirestoreAdapter", () => {
 
       const result = await adapter.listMapData();
 
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe("e1");
+      // e2 (online) is excluded; e1 and e3 remain
+      expect(result).toHaveLength(2);
+      expect(result.map((r) => r.id)).toEqual(["e1", "e3"]);
       expect(result[0].coordenadas).toEqual({ lat: -33.0, lng: -71.5 });
+      expect(result[1].coordenadas).toEqual({ lat: -32.9, lng: -71.5 });
       expect(result[0].subcategoriaId).toBe("ferias-gastronomicas");
       expect(result[0].barrioId).toBe("centro");
-      expect((result[0] as { ubicacion?: unknown }).ubicacion).toBeUndefined();
     });
   });
 
@@ -273,6 +294,120 @@ describe("EventoFirestoreAdapter", () => {
         expect.objectContaining({
           descripcion: "Nueva descripción actualizada",
         }),
+      );
+    });
+
+    it("clears ubicacion (FieldValue.delete) when patch sets ubicacion null", async () => {
+      const existingDoc = makeFirestoreDoc();
+      mockFirebase.getDocument
+        .mockResolvedValueOnce({
+          exists: true,
+          id: "evento-1",
+          data: () => existingDoc,
+        })
+        .mockResolvedValueOnce({
+          exists: true,
+          id: "evento-1",
+          data: () => ({
+            ...existingDoc,
+            ubicacion: undefined,
+          }),
+        });
+      mockFirebase.updateDocument.mockResolvedValue(undefined);
+
+      await adapter.update("evento-1", {
+        ubicacion: null,
+      } as never);
+
+      expect(mockFirebase.updateDocument).toHaveBeenCalledWith(
+        "eventos",
+        "evento-1",
+        expect.objectContaining({
+          ubicacion: { __deleteSentinel: true },
+        }),
+      );
+    });
+  });
+
+  describe("modalidad hydration (legacy retrocompat)", () => {
+    it("hydrates a legacy document without modalidad as 'presencial'", async () => {
+      const { modalidad, ...legacy } = makeFirestoreDoc() as Record<
+        string,
+        unknown
+      >;
+      void modalidad;
+      mockFirebase.getDocument.mockResolvedValue({
+        exists: true,
+        id: "evento-legacy",
+        data: () => legacy,
+      });
+
+      const result = await adapter.findById("evento-legacy");
+
+      expect(result).not.toBeNull();
+      expect(result!.modalidad).toBe("presencial");
+    });
+
+    it("hydrates an online document without ubicacion as ubicacion undefined", async () => {
+      mockFirebase.getDocument.mockResolvedValue({
+        exists: true,
+        id: "evento-online",
+        data: () => ({
+          ...makeFirestoreDoc(),
+          modalidad: "online",
+          ubicacion: undefined,
+        }),
+      });
+
+      const result = await adapter.findById("evento-online");
+
+      expect(result).not.toBeNull();
+      expect(result!.modalidad).toBe("online");
+      expect(result!.ubicacion).toBeUndefined();
+    });
+
+    it("persists modalidad on create", async () => {
+      mockFirebase.getCurrentTimestamp.mockReturnValue({
+        toDate: () => new Date("2026-06-01"),
+      });
+      mockFirebase.createDocument.mockResolvedValue({ id: "new-evento" });
+      mockFirebase.getDocument.mockResolvedValue({
+        exists: true,
+        id: "new-evento",
+        data: () => makeFirestoreDoc({ modalidad: "online" }),
+      });
+
+      const input = {
+        nombre: "Webinar Online",
+        slug: "webinar-online",
+        descripcionCorta: "Corta",
+        descripcion: "Descripción de prueba para el webinar online.",
+        categoriaId: "eventos",
+        subcategoriaId: "ferias-gastronomicas",
+        barrioId: "centro",
+        organizador: "Org",
+        modalidad: "online" as const,
+        fechaInicio: new Date("2026-08-15T10:00:00Z"),
+        fechaFin: new Date("2026-08-17T22:00:00Z"),
+        precioTipo: "gratis" as const,
+        precioValor: 0,
+        precioMoneda: "CLP" as const,
+        publicoObjetivo: ["todos"] as Evento["publicoObjetivo"],
+        nivelRuido: "bajo" as const,
+        estado: "programado" as const,
+        destacado: false,
+        estadoVerificacion: "pendiente" as const,
+        activo: true,
+        usuarioId: "user-1",
+        vistasTotales: 0,
+        cambios: [],
+      };
+
+      await adapter.create(input);
+
+      expect(mockFirebase.createDocument).toHaveBeenCalledWith(
+        "eventos",
+        expect.objectContaining({ modalidad: "online" }),
       );
     });
   });
@@ -586,6 +721,7 @@ describe("EventoFirestoreAdapter", () => {
         subcategoriaId: "ferias-gastronomicas",
         barrioId: "centro",
         organizador: "Org",
+        modalidad: "presencial" as const,
         ubicacion: {
           direccion: "Dir",
           coordenadas: { lat: -33, lng: -71 },

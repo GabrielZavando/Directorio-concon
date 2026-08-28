@@ -170,7 +170,8 @@
 | organizador | string | Nombre organizador (1..200 chars) |
 | organizadorContacto | string? | Teléfono o email de contacto |
 | organizadorWeb | string? | URL web/red social del organizador |
-| ubicacion | Ubicacion VO | `{ nombreLugar?: string; direccion: string; coordenadas: Coordenadas }` (reemplaza los campos planos `ubicacionNombre`/`ubicacionDireccion`/`coordenadas`; reuso del VO `Coordenadas` de `places`) |
+| ubicacion | Ubicacion VO? | Venue del evento. **Requerido** cuando `modalidad !== 'online'`; `undefined` cuando `modalidad === 'online'`. Forma: `{ nombreLugar?: string; direccion?: string; coordenadas: Coordenadas }` (reemplaza los campos planos `ubicacionNombre`/`ubicacionDireccion`/`coordenadas`; reuso del VO `Coordenadas` de `places`). Solo `coordenadas` es obligatoria; `direccion` es opcional (puede resolverse por coincidencia con un `place`). |
+| modalidad | enum | `'presencial' | 'online' | 'hibrido'` — forma de realización del evento. **Requerido en create** (sin default de sistema). `online` NO lleva `ubicacion`; `presencial`/`hibrido` requieren `ubicacion` con `coordenadas`. No hay FK a `places` (el vínculo se resuelve por coincidencia de coordenadas/dirección). Legacy docs sin `modalidad` se hidratan como `'presencial'`. |
 | fechaInicio | Timestamp | Fecha/hora de inicio (ISO 8601) |
 | fechaFin | Timestamp | Fecha/hora de término (ISO 8601); **debe ser > `fechaInicio`** |
 | precioTipo | enum | `gratis` \| `pago` \| `donacion` \| `invitacion` |
@@ -202,7 +203,7 @@
 - `NivelRuido = 'bajo' | 'medio' | 'alto'`
 - `EventoEstado = 'borrador' | 'programado' | 'en_curso' | 'finalizado' | 'cancelado' | 'suspendido'`
 - `EstadoVerificacion = 'pendiente' | 'verificado' | 'rechazado'` (compartido con `places`)
-- `Ubicacion = { nombreLugar?: string; direccion: string; coordenadas: Coordenadas }`
+- `Ubicacion = { nombreLugar?: string; direccion?: string; coordenadas: Coordenadas }`
 - `CambioEvento = { campo: string; valorAnterior: unknown; valorNuevo: unknown; fecha: Timestamp; usuarioId: string }`
 - `Coordenadas` — reusar el VO ya definido en `places`: `{ lat: number; lng: number }`
 

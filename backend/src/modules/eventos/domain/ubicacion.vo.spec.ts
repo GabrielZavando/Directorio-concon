@@ -49,4 +49,31 @@ describe("isValidUbicacion", () => {
       }),
     ).toBe(false);
   });
+
+  // -- CH-04c: direccion is now optional; only coordenadas is mandatory --
+
+  it("accepts a ubicacion with coordenadas and no direccion", () => {
+    expect(isValidUbicacion({ coordenadas: { lat: -32.9, lng: -71.5 } })).toBe(
+      true,
+    );
+  });
+
+  it("accepts a ubicacion with coordenadas, direccion and nombreLugar all optional-filled", () => {
+    expect(
+      isValidUbicacion({
+        nombreLugar: "Plaza",
+        coordenadas: { lat: -32.9, lng: -71.5 },
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects an object without coordenadas even if direccion present", () => {
+    expect(isValidUbicacion({ direccion: "Av. Marina 123" })).toBe(false);
+  });
+
+  it("rejects an empty (but defined) direccion", () => {
+    expect(
+      isValidUbicacion({ direccion: "", coordenadas: { lat: 1, lng: 2 } }),
+    ).toBe(false);
+  });
 });

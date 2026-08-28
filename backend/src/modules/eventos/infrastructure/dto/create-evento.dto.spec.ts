@@ -17,6 +17,7 @@ function makeValidDto(
     subcategoriaId: "ferias-gastronomicas",
     barrioId: "centro",
     organizador: "Municipalidad de Concón",
+    modalidad: "presencial",
     ubicacion: {
       direccion: "Av. Borgoño 1234, Concón",
       coordenadas: { lat: -32.998, lng: -71.518 },
@@ -115,12 +116,13 @@ describe("CreateEventoDto validation", () => {
     expect(ubicacionErrors).toBeDefined();
   });
 
-  it("rejects missing ubicacion.direccion", async () => {
+  it("rejects ubicacion missing coordenadas", async () => {
     const dto = makeValidDto({
-      ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } },
+      ubicacion: { direccion: "Av. Borgoño 1234, Concón" },
     });
     const errors = await validate(dto);
-    expect(errors.some((e) => e.property === "ubicacion")).toBe(true);
+    const ubicacionErrors = errors.find((e) => e.property === "ubicacion");
+    expect(ubicacionErrors).toBeDefined();
   });
 
   it("rejects invalid fechaInicio", async () => {
@@ -199,5 +201,84 @@ describe("CreateEventoDto validation", () => {
       whitelist: true,
     });
     expect(errors.some((e) => e.property === "usuarioId")).toBe(true);
+  });
+
+  // -- CH-04c: modalidad + conditional ubicacion --
+
+  it("rejects a DTO without modalidad", async () => {
+    const { modalidad: _m, ...rest } = makeValidDto() as unknown as Record<
+      string,
+      unknown
+    >;
+    const dto = plainToInstance(
+      CreateEventoDto,
+      rest as Record<string, unknown>,
+    );
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === "modalidad")).toBe(true);
+  });
+
+  it("rejects an invalid modalidad value", async () => {
+    const errors = await validate(
+      makeValidDto({ modalidad: "telepresencial" }),
+    );
+    expect(errors.some((e) => e.property === "modalidad")).toBe(true);
+  });
+
+  it("accepts an online evento without ubicacion", async () => {
+    const dto = makeValidDto({ modalidad: "online" });
+    delete (dto as unknown as Record<string, unknown>).ubicacion;
+    const errors = await validate(dto);
+    expect(errors.length).toBe(0);
+  });
+
+  it("rejects an online evento that includes ubicacion", async () => {
+    const dto = makeValidDto({
+      modalidad: "online",
+      ubicacion: {
+        direccion: "Av. Marina 123",
+        coordenadas: { lat: -32.91, lng: -71.54 },
+      },
+    });
+    const errors = await validate(dto);
+    expect(
+      errors.some(
+        (e) =>
+          e.constraints && e.constraints["modalidadUbicacion"] !== undefined,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a presencial evento without ubicacion", async () => {
+    const dto = makeValidDto({ modalidad: "presencial" });
+    delete (dto as unknown as Record<string, unknown>).ubicacion;
+    const errors = await validate(dto);
+    expect(
+      errors.some(
+        (e) =>
+          e.constraints && e.constraints["modalidadUbicacion"] !== undefined,
+      ),
+    ).toBe(true);
+  });
+
+  it("accepts a presencial evento with coordenadas and no direccion", async () => {
+    const dto = makeValidDto({
+      modalidad: "presencial",
+      ubicacion: { coordenadas: { lat: -32.91, lng: -71.54 } },
+    });
+    const errors = await validate(dto);
+    expect(errors.length).toBe(0);
+  });
+
+  it("accepts a hibrido evento with ubicacion", async () => {
+    const dto = makeValidDto({
+      modalidad: "hibrido",
+      ubicacion: {
+        nombreLugar: "Plaza de Armas",
+        coordenadas: { lat: -32.92, lng: -71.53 },
+      },
+    });
+    const errors = await validate(dto);
+    expect(errors.length).toBe(0);
   });
 });

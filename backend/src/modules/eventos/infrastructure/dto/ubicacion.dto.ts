@@ -3,6 +3,7 @@ import {
   IsString,
   MinLength,
   MaxLength,
+  IsDefined,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -21,11 +22,17 @@ export class UbicacionDto {
   @MaxLength(200)
   nombreLugar?: string;
 
+  /**
+   * Street address is now OPTIONAL. Only `coordenadas` is mandatory, so an evento
+   * can declare its venue by coordinates alone (direccion may be filled later or
+   * resolved by coincidence with a `place`).
+   */
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(200)
-  direccion!: string;
+  direccion?: string;
 
+  @IsDefined()
   @ValidateNested()
   @Type(() => CoordenadasDto)
   coordenadas!: CoordenadasDto;

@@ -5,7 +5,7 @@
  * `eventos.service.ts`. These functions take their collaborators as explicit
  * arguments (no hidden `this` dependency) so they stay trivially testable.
  */
-import { ConflictException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import type { Evento } from "../domain/evento.entity";
 import type { CambioEvento } from "../domain/cambio-evento.interface";
 import type { Ubicacion } from "../domain/ubicacion.vo";
@@ -24,7 +24,9 @@ export interface CreateEventoServiceDto {
   organizador: string;
   organizadorContacto?: string;
   organizadorWeb?: string;
-  ubicacion: Ubicacion;
+  modalidad: string;
+  // REQUIRED for presencial/hibrido; undefined for online (validated at HTTP layer).
+  ubicacion?: Ubicacion;
   fechaInicio: string;
   fechaFin: string;
   precioTipo: string;
@@ -114,47 +116,104 @@ export async function buildEventoPatch(
     patch.slug = newSlug;
   }
 
+  // Switching to `online` clears any previously stored venue (the adapter will
+  // delete the Firestore field). The HTTP-layer validator guarantees ubicacion
+  // is absent in the request when modalidad === 'online' on CREATE; for UPDATE
+  // we must also protect an *existing* online evento from acquiring a venue via
+  // a partial PUT that omits `modalidad` (the cross-field constraint only fires
+  // when `modalidad` is present in the body).
+  const effectiveModalidad = (dto.modalidad ?? existing.modalidad) as string;
+  if (dto.ubicacion !== undefined && effectiveModalidad === "online") {
+    throw new BadRequestException("online events must not include ubicacion");
+  }
+  if (dto.modalidad === "online") {
+    (patch as Record<string, unknown>).ubicacion = null;
+  }
+
   return patch;
 }
 
 // ---------------------------------------------------------------------------
-// Change diff — computes CambioEvento[] for the fields present in the DTO
+// Change diff — computes CambioEvento[] for the fields changed by the update
 // ---------------------------------------------------------------------------
 
+/**
+ * Two `Ubicacion` values are equal when their coordinates and optional text
+ * fields match. Compared semantically (not by JSON key order) so re-sending the
+ * same venue serialized in a different key order does not emit a spurious cambio.
+ */
+function ubicacionesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const ua = a as Ubicacion;
+  const ub = b as Ubicacion;
+  return (
+    ua.nombreLugar === ub.nombreLugar &&
+    ua.direccion === ub.direccion &&
+    ua.coordenadas?.lat === ub.coordenadas?.lat &&
+    ua.coordenadas?.lng === ub.coordenadas?.lng
+  );
+}
+
+/**
+ * Compares the existing evento against the *resulting patch* (already normalized
+ * by `buildEventoPatch`) so that fields the service mutates implicitly — e.g.
+ * clearing `ubicacion` when an evento transitions to `online` — are also recorded
+ * in the audit trail. `updatedAt` and `cambios` are excluded (managed by the
+ * service, never user-driven diffs).
+ */
 export function computeChanges(
   existing: Evento,
-  dto: UpdateEventoServiceDto,
+  patch: Record<string, unknown>,
   usuarioId: string,
 ): CambioEvento[] {
   const cambios: CambioEvento[] = [];
   const fecha = new Date();
-  const keys = Object.keys(dto) as (keyof UpdateEventoServiceDto)[];
+  const ignoreKeys = new Set(["updatedAt", "cambios"]);
+  const keys = Object.keys(patch);
 
   for (const key of keys) {
-    const nuevo = (dto as Record<string, unknown>)[key];
-    if (nuevo === undefined) {
+    if (ignoreKeys.has(key)) {
       continue;
     }
-    const anterior = (existing as unknown as Record<string, unknown>)[key];
-    // Date fields are supplied as ISO strings in the DTO but stored as `Date`
-    // in the domain entity. Compare by value (getTime) so re-sending the same
-    // instant does not produce a spurious `cambios` entry.
+    const valorNuevo = patch[key];
+    if (valorNuevo === undefined) {
+      continue;
+    }
+    const valorAnterior = (existing as unknown as Record<string, unknown>)[key];
+
+    if (key === "ubicacion") {
+      if (!ubicacionesEqual(valorAnterior, valorNuevo)) {
+        cambios.push({
+          campo: "ubicacion",
+          valorAnterior,
+          valorNuevo,
+          fecha,
+          usuarioId,
+        });
+      }
+      continue;
+    }
+
+    // Date fields are stored as `Date` in the domain entity. Compare by value
+    // (getTime) so re-sending the same instant does not produce a spurious
+    // `cambios` entry.
     const dateKeys = ["fechaInicio", "fechaFin", "fechaPublicacion"];
     const normalizedAnterior =
-      dateKeys.includes(key as string) && anterior
-        ? new Date(anterior as string | Date).getTime()
-        : anterior;
+      dateKeys.includes(key) && valorAnterior
+        ? new Date(valorAnterior as string | Date).getTime()
+        : valorAnterior;
     const normalizedNuevo =
-      dateKeys.includes(key as string) && nuevo
-        ? new Date(nuevo as string | Date).getTime()
-        : nuevo;
+      dateKeys.includes(key) && valorNuevo
+        ? new Date(valorNuevo as string | Date).getTime()
+        : valorNuevo;
     if (
       JSON.stringify(normalizedAnterior) !== JSON.stringify(normalizedNuevo)
     ) {
       cambios.push({
-        campo: key as string,
-        valorAnterior: anterior,
-        valorNuevo: nuevo,
+        campo: key,
+        valorAnterior,
+        valorNuevo,
         fecha,
         usuarioId,
       });

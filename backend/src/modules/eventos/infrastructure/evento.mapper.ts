@@ -7,6 +7,7 @@ import type { FirebaseService } from "@/common/services/firebase.service";
 import type { Timestamp } from "firebase-admin/firestore";
 import type { Evento } from "../domain/evento.entity";
 import type { Ubicacion } from "../domain/ubicacion.vo";
+import { isModalidad } from "../domain/modalidad.enum";
 
 export interface EventoFirestoreDoc {
   id: string;
@@ -20,9 +21,10 @@ export interface EventoFirestoreDoc {
   organizador: string;
   organizadorContacto?: string;
   organizadorWeb?: string;
-  ubicacion: {
+  modalidad?: string;
+  ubicacion?: {
     nombreLugar?: string;
-    direccion: string;
+    direccion?: string;
     coordenadas: { lat: number; lng: number };
   };
   fechaInicio: unknown;
@@ -64,11 +66,15 @@ export function toEventoDomain(
     organizador: doc.organizador,
     organizadorContacto: doc.organizadorContacto,
     organizadorWeb: doc.organizadorWeb,
-    ubicacion: {
-      nombreLugar: doc.ubicacion.nombreLugar,
-      direccion: doc.ubicacion.direccion,
-      coordenadas: doc.ubicacion.coordenadas,
-    } as Ubicacion,
+    // Legacy documents without `modalidad` are hydrated as 'presencial'.
+    modalidad: isModalidad(doc.modalidad) ? doc.modalidad : "presencial",
+    ubicacion: doc.ubicacion
+      ? ({
+          nombreLugar: doc.ubicacion.nombreLugar,
+          direccion: doc.ubicacion.direccion,
+          coordenadas: doc.ubicacion.coordenadas,
+        } as Ubicacion)
+      : undefined,
     fechaInicio: firebase.timestampToDate(doc.fechaInicio as Timestamp)!,
     fechaFin: firebase.timestampToDate(doc.fechaFin as Timestamp)!,
     precioTipo: doc.precioTipo as Evento["precioTipo"],
@@ -134,7 +140,17 @@ export function toEventoPersistence(
     }
   }
 
-  if (evt.ubicacion) {
+  if (evt.modalidad !== undefined) {
+    result.modalidad = evt.modalidad;
+  }
+
+  // `ubicacion` handling:
+  // - `null`  → delete the field (evento switched to `online`)
+  // - object  → persist the nested venue
+  // - undefined → leave unchanged (partial update not touching the venue)
+  if (evt.ubicacion === null) {
+    result.ubicacion = firebase.getFieldValue().delete();
+  } else if (evt.ubicacion) {
     result.ubicacion = {
       nombreLugar: evt.ubicacion.nombreLugar,
       direccion: evt.ubicacion.direccion,

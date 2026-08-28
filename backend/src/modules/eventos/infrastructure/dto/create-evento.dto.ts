@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsDateString,
   ValidateNested,
+  Validate,
   ArrayMinSize,
   MinLength,
   MaxLength,
@@ -14,11 +15,13 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { UbicacionDto } from "./ubicacion.dto";
+import { ModalidadUbicacionConstraint } from "./modalidad-ubicacion.validator";
 import { PRECIO_TIPO_VALUES } from "../../domain/precio-tipo.enum";
 import { PRECIO_MONEDA_VALUES } from "../../domain/precio-moneda.enum";
 import { PUBLICO_OBJETIVO_VALUES } from "../../domain/publico-objetivo.enum";
 import { ACCESIBILIDAD_VALUES } from "../../domain/accesibilidad.enum";
 import { NIVEL_RUIDO_VALUES } from "../../domain/nivel-ruido.enum";
+import { MODALIDAD_VALUES } from "../../domain/modalidad.enum";
 
 /**
  * DTO for creating a new event.
@@ -28,6 +31,8 @@ import { NIVEL_RUIDO_VALUES } from "../../domain/nivel-ruido.enum";
  * - `usuarioId` is NOT included — set from the verified Firebase Auth token
  * - `estado` / `estadoVerificacion` / `activo` are NOT included — set by the
  *   system / admin (Non-Goal: publishers cannot self-verify)
+ * - `modalidad` IS required (no system default); `ubicacion` is conditionally
+ *   required/forbidden via `ModalidadUbicacionConstraint` (applied on `modalidad`).
  */
 export class CreateEventoDto {
   @IsString()
@@ -51,6 +56,10 @@ export class CreateEventoDto {
   @IsString()
   barrioId!: string;
 
+  @IsEnum(MODALIDAD_VALUES)
+  @Validate(ModalidadUbicacionConstraint)
+  modalidad!: string;
+
   @IsString()
   @MinLength(1)
   @MaxLength(200)
@@ -64,9 +73,16 @@ export class CreateEventoDto {
   @IsUrl()
   organizadorWeb?: string;
 
+  /**
+   * Venue of the evento. OPTIONAL at the DTO level because the
+   * `ModalidadUbicacionConstraint` enforces the real rule:
+   * - required when `modalidad` is `presencial` | `hibrido`
+   * - forbidden when `modalidad` is `online`
+   */
+  @IsOptional()
   @ValidateNested()
   @Type(() => UbicacionDto)
-  ubicacion!: UbicacionDto;
+  ubicacion?: UbicacionDto;
 
   @IsDateString()
   fechaInicio!: string;

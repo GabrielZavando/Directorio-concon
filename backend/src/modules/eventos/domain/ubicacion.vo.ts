@@ -10,8 +10,8 @@ import type { Coordenadas } from "./coordenadas.vo";
 export interface Ubicacion {
   /** Optional venue name (e.g. "Playa Amarilla", "Plaza de Armas"). */
   nombreLugar?: string;
-  /** Full street address (required). */
-  direccion: string;
+  /** Full street address (optional — only `coordenadas` is mandatory). */
+  direccion?: string;
   /** Geographic coordinates (required). */
   coordenadas: Coordenadas;
 }
@@ -22,12 +22,7 @@ export function isValidUbicacion(value: unknown): value is Ubicacion {
     return false;
   }
   const candidate = value as Record<string, unknown>;
-  if (
-    typeof candidate.direccion !== "string" ||
-    candidate.direccion.length === 0
-  ) {
-    return false;
-  }
+  // Only `coordenadas` is mandatory; `direccion`/`nombreLugar` are optional.
   const coordenadas = candidate.coordenadas as
     | Record<string, unknown>
     | undefined;
@@ -36,6 +31,13 @@ export function isValidUbicacion(value: unknown): value is Ubicacion {
     coordenadas === null ||
     typeof coordenadas.lat !== "number" ||
     typeof coordenadas.lng !== "number"
+  ) {
+    return false;
+  }
+  if (
+    candidate.direccion !== undefined &&
+    (typeof candidate.direccion !== "string" ||
+      candidate.direccion.length === 0)
   ) {
     return false;
   }
