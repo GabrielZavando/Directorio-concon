@@ -8,6 +8,7 @@
  */
 import { Test, TestingModule } from "@nestjs/testing";
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   INestApplication,
@@ -96,6 +97,7 @@ const validCreateBody = {
   subcategoriaId: "ferias-gastronomicas",
   barrioId: "centro",
   organizador: "Municipalidad de Concón",
+  modalidad: "presencial",
   ubicacion: {
     direccion: "Av. Concón 123",
     coordenadas: { lat: -32.92, lng: -71.51 },
@@ -230,6 +232,88 @@ describe("EventosController (HTTP)", () => {
         .set("Authorization", "Bearer fake-token")
         .send(validCreateBody)
         .expect(409);
+    });
+
+    // -- CH-04c: modalidad + conditional ubicacion (real ValidationPipe) --
+
+    it("online sin ubicacion → 201", async () => {
+      const ctx = givenUser("owner");
+      const evento = makeEvento({ usuarioId: ctx.uid, modalidad: "online" });
+      mockEventosService.create.mockResolvedValue(evento);
+
+      const { ubicacion: _u, ...onlineBody } = validCreateBody;
+      const response = await request(app.getHttpServer())
+        .post("/eventos")
+        .set("Authorization", "Bearer fake-token")
+        .send({ ...onlineBody, modalidad: "online" })
+        .expect(201);
+
+      expect(response.body.modalidad).toBe("online");
+    });
+
+    it("online con ubicacion → 400", async () => {
+      givenUser("owner");
+
+      await request(app.getHttpServer())
+        .post("/eventos")
+        .set("Authorization", "Bearer fake-token")
+        .send({ ...validCreateBody, modalidad: "online" })
+        .expect(400);
+
+      expect(mockEventosService.create).not.toHaveBeenCalled();
+    });
+
+    it("presencial sin ubicacion → 400", async () => {
+      givenUser("owner");
+
+      const { ubicacion: _u, ...presencialBody } = validCreateBody;
+      await request(app.getHttpServer())
+        .post("/eventos")
+        .set("Authorization", "Bearer fake-token")
+        .send({ ...presencialBody, modalidad: "presencial" })
+        .expect(400);
+
+      expect(mockEventosService.create).not.toHaveBeenCalled();
+    });
+
+    it("presencial con solo coordenadas → 201", async () => {
+      const ctx = givenUser("owner");
+      const evento = makeEvento({
+        usuarioId: ctx.uid,
+        modalidad: "presencial",
+        ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } },
+      });
+      mockEventosService.create.mockResolvedValue(evento);
+
+      await request(app.getHttpServer())
+        .post("/eventos")
+        .set("Authorization", "Bearer fake-token")
+        .send({
+          ...validCreateBody,
+          modalidad: "presencial",
+          ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } },
+        })
+        .expect(201);
+    });
+
+    it("hibrido con coordenadas → 201", async () => {
+      const ctx = givenUser("owner");
+      const evento = makeEvento({
+        usuarioId: ctx.uid,
+        modalidad: "hibrido",
+        ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } },
+      });
+      mockEventosService.create.mockResolvedValue(evento);
+
+      await request(app.getHttpServer())
+        .post("/eventos")
+        .set("Authorization", "Bearer fake-token")
+        .send({
+          ...validCreateBody,
+          modalidad: "hibrido",
+          ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } },
+        })
+        .expect(201);
     });
   });
 
@@ -455,6 +539,54 @@ describe("EventosController (HTTP)", () => {
         .set("Authorization", "Bearer fake-token")
         .send({ nombre: "Otra Feria" })
         .expect(409);
+    });
+
+    // -- CH-04c: PUT modalidad transitions --
+
+    it("PUT a online limpia ubicacion → 200", async () => {
+      const ctx = givenUser("owner");
+      const updated = makeEvento({
+        usuarioId: ctx.uid,
+        modalidad: "online",
+        ubicacion: undefined,
+      });
+      mockEventosService.update.mockResolvedValue(updated);
+
+      const response = await request(app.getHttpServer())
+        .put("/eventos/evento-1")
+        .set("Authorization", "Bearer fake-token")
+        .send({ modalidad: "online" })
+        .expect(200);
+
+      expect(response.body.modalidad).toBe("online");
+      expect(response.body.ubicacion).toBeUndefined();
+    });
+
+    it("PUT a presencial sin ubicacion → 400", async () => {
+      givenUser("owner");
+
+      await request(app.getHttpServer())
+        .put("/eventos/evento-1")
+        .set("Authorization", "Bearer fake-token")
+        .send({ modalidad: "presencial" })
+        .expect(400);
+
+      expect(mockEventosService.update).not.toHaveBeenCalled();
+    });
+
+    it("PUT adding ubicacion to an existing online evento → 400", async () => {
+      givenUser("owner");
+      mockEventosService.update.mockRejectedValue(
+        new BadRequestException("online events must not include ubicacion"),
+      );
+
+      await request(app.getHttpServer())
+        .put("/eventos/evento-1")
+        .set("Authorization", "Bearer fake-token")
+        .send({ ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } } })
+        .expect(400);
+
+      expect(mockEventosService.update).toHaveBeenCalled();
     });
   });
 

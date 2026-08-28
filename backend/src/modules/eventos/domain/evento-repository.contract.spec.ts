@@ -76,6 +76,7 @@ describe("EventoRepositoryInterface (LSP contract)", () => {
       subcategoriaId: "ferias-gastronomicas",
       barrioId: "centro",
       organizador: "Org",
+      modalidad: "presencial",
       ubicacion: { direccion: "Dir", coordenadas: { lat: -33, lng: -71 } },
       fechaInicio: new Date(),
       fechaFin: new Date(Date.now() + 86400000),

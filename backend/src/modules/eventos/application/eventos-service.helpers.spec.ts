@@ -9,7 +9,7 @@ import {
   type UpdateEventoServiceDto,
 } from "./eventos-service.helpers";
 import type { Evento } from "../domain/evento.entity";
-import { ConflictException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 
 function makeEvento(overrides: Partial<Evento> = {}): Evento {
   return {
@@ -22,6 +22,7 @@ function makeEvento(overrides: Partial<Evento> = {}): Evento {
     subcategoriaId: "ferias-gastronomicas",
     barrioId: "centro",
     organizador: "Org",
+    modalidad: "presencial",
     ubicacion: { direccion: "Dir", coordenadas: { lat: -33, lng: -71 } },
     fechaInicio: new Date("2026-08-15T10:00:00Z"),
     fechaFin: new Date("2026-08-17T22:00:00Z"),
@@ -68,6 +69,7 @@ describe("eventos-service.helpers", () => {
       subcategoriaId: "ferias-gastronomicas",
       barrioId: "centro",
       organizador: "Org",
+      modalidad: "presencial",
       ubicacion: { direccion: "Dir", coordenadas: { lat: -33, lng: -71 } },
       fechaInicio: "2026-08-15T10:00:00Z",
       fechaFin: "2026-08-17T22:00:00Z",
@@ -131,6 +133,43 @@ describe("eventos-service.helpers", () => {
         "2026-08-15T10:00:00.000Z",
       );
     });
+
+    it("throws BadRequestException when a partial PUT adds ubicacion to an online evento", async () => {
+      const existing = makeEvento({
+        modalidad: "online",
+        usuarioId: "user-1",
+        ubicacion: undefined,
+      });
+      await expect(
+        buildEventoPatch(
+          {
+            ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } },
+          } as UpdateEventoServiceDto,
+          existing,
+          "evento-1",
+          async () => null,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("clears ubicacion in the patch when transitioning to online", async () => {
+      const existing = makeEvento({
+        modalidad: "presencial",
+        usuarioId: "user-1",
+        ubicacion: {
+          nombreLugar: "Plaza",
+          direccion: "Av. 1",
+          coordenadas: { lat: -32.9, lng: -71.5 },
+        },
+      });
+      const patch = await buildEventoPatch(
+        { modalidad: "online" } as UpdateEventoServiceDto,
+        existing,
+        "evento-1",
+        async () => null,
+      );
+      expect((patch as Record<string, unknown>).ubicacion).toBeNull();
+    });
   });
 
   describe("computeChanges", () => {
@@ -173,6 +212,46 @@ describe("eventos-service.helpers", () => {
         "user-1",
       );
       expect(cambios).toHaveLength(0);
+    });
+
+    it("records a ubicacion cambio when the patch clears it (online transition)", () => {
+      const existing = makeEvento({
+        modalidad: "presencial",
+        ubicacion: {
+          nombreLugar: "Plaza",
+          direccion: "Av. 1",
+          coordenadas: { lat: -32.9, lng: -71.5 },
+        },
+      });
+      const cambios = computeChanges(
+        existing,
+        { modalidad: "online", ubicacion: null } as Record<string, unknown>,
+        "user-1",
+      );
+      const ubicacionCambio = cambios.find((c) => c.campo === "ubicacion");
+      expect(ubicacionCambio).toBeDefined();
+      expect(ubicacionCambio?.valorNuevo).toBeNull();
+    });
+
+    it("does not emit a ubicacion cambio for an equal venue (order-insensitive)", () => {
+      const existing = makeEvento({
+        ubicacion: {
+          direccion: "Av. 1",
+          coordenadas: { lat: -32.9, lng: -71.5 },
+        },
+      });
+      const cambios = computeChanges(
+        existing,
+        // Same venue, keys reordered / extra field — must be treated as equal.
+        {
+          ubicacion: {
+            coordenadas: { lng: -71.5, lat: -32.9 },
+            direccion: "Av. 1",
+          },
+        } as Record<string, unknown>,
+        "user-1",
+      );
+      expect(cambios.find((c) => c.campo === "ubicacion")).toBeUndefined();
     });
   });
 });

@@ -44,6 +44,7 @@ function makeEvento(overrides: Partial<Evento> = {}): Evento {
     barrioId: "centro",
     organizador: "Municipalidad de Concón",
     organizadorContacto: "+56912345678",
+    modalidad: "presencial",
     ubicacion: {
       nombreLugar: undefined,
       direccion: "Av. Borgoño 1234, Concón",
@@ -135,6 +136,7 @@ describe("EventosService", () => {
       subcategoriaId: "ferias-gastronomicas",
       barrioId: "centro",
       organizador: "Municipalidad de Concón",
+      modalidad: "presencial",
       ubicacion: {
         direccion: "Av. Borgoño 1234, Concón",
         coordenadas: { lat: -32.998, lng: -71.518 },
@@ -499,6 +501,122 @@ describe("EventosService", () => {
       expect(
         mockNotificaciones.notifyEventoRevertidoPendiente,
       ).not.toHaveBeenCalled();
+    });
+
+    it("updating to modalidad 'online' clears ubicacion in the persisted patch", async () => {
+      const existing = makeEvento({
+        estadoVerificacion: "pendiente",
+        modalidad: "presencial",
+        usuarioId: "user-1",
+        ubicacion: {
+          nombreLugar: "Plaza",
+          direccion: "Av. 1",
+          coordenadas: { lat: -32.9, lng: -71.5 },
+        },
+      });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+      let capturedPatch: Record<string, unknown> = {};
+      mockEventoRepo.update.mockImplementation(async (_id, patch) => {
+        capturedPatch = patch as Record<string, unknown>;
+        return makeEvento({ ...existing, ...(patch as Partial<Evento>) });
+      });
+
+      const result = await service.update(
+        "evento-1",
+        { modalidad: "online" } as any,
+        "user-1",
+        "owner",
+      );
+
+      expect(capturedPatch.ubicacion).toBeNull();
+      expect(result.modalidad).toBe("online");
+      expect(result.ubicacion).toBeNull();
+    });
+
+    it("rejects a partial PUT that adds ubicacion to an existing online evento", async () => {
+      const existing = makeEvento({
+        estadoVerificacion: "pendiente",
+        modalidad: "online",
+        usuarioId: "user-1",
+        ubicacion: undefined,
+      });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+
+      await expect(
+        service.update(
+          "evento-1",
+          { ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } } } as any,
+          "user-1",
+          "owner",
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockEventoRepo.update).not.toHaveBeenCalled();
+    });
+
+    it("records a cambio when a verified evento transitions to online and clears ubicacion", async () => {
+      const existing = makeEvento({
+        estadoVerificacion: "verificado",
+        modalidad: "presencial",
+        usuarioId: "user-1",
+        ubicacion: {
+          nombreLugar: "Plaza",
+          direccion: "Av. 1",
+          coordenadas: { lat: -32.9, lng: -71.5 },
+        },
+      });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+      let capturedPatch: Record<string, unknown> = {};
+      mockEventoRepo.update.mockImplementation(async (_id, patch) => {
+        capturedPatch = patch as Record<string, unknown>;
+        return makeEvento({ ...existing, ...(patch as Partial<Evento>) });
+      });
+
+      const result = await service.update(
+        "evento-1",
+        { modalidad: "online" } as any,
+        "user-1",
+        "owner",
+      );
+
+      expect(result.estadoVerificacion).toBe("pendiente");
+      // The implicit ubicacion deletion (online) must be audited.
+      const ubicacionCambio = result.cambios.find(
+        (c) => c.campo === "ubicacion",
+      );
+      expect(ubicacionCambio).toBeDefined();
+      expect(ubicacionCambio?.valorNuevo).toBeNull();
+    });
+
+    it("preserves ubicacion when updating to presencial with a new venue", async () => {
+      const existing = makeEvento({
+        estadoVerificacion: "pendiente",
+        modalidad: "online",
+        usuarioId: "user-1",
+        ubicacion: undefined,
+      });
+      mockEventoRepo.findById.mockResolvedValue(existing);
+      let capturedPatch: Record<string, unknown> = {};
+      mockEventoRepo.update.mockImplementation(async (_id, patch) => {
+        capturedPatch = patch as Record<string, unknown>;
+        return makeEvento({ ...existing, ...(patch as Partial<Evento>) });
+      });
+
+      await service.update(
+        "evento-1",
+        {
+          modalidad: "presencial",
+          ubicacion: {
+            coordenadas: { lat: -32.9, lng: -71.5 },
+          },
+        } as any,
+        "user-1",
+        "owner",
+      );
+
+      expect(capturedPatch.ubicacion).toEqual({
+        coordenadas: { lat: -32.9, lng: -71.5 },
+      });
     });
 
     it("update with fechaInicio/fechaFin passes Date instances to the repository (no string crash)", async () => {
