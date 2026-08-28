@@ -55,7 +55,7 @@ components:
 
     Ubicacion:
       type: object
-      required: [direccion, coordenadas]
+      required: [coordenadas]
       properties:
         nombreLugar:
           type: string
@@ -64,6 +64,7 @@ components:
         direccion:
           type: string
           maxLength: 200
+          nullable: true
         coordenadas:
           $ref: '#/components/schemas/Coordenadas'
 
@@ -571,7 +572,7 @@ components:
 
     CreateEvento:
       type: object
-      required: [nombre, descripcionCorta, descripcion, subcategoriaId, barrioId, organizador, ubicacion, fechaInicio, fechaFin, precioTipo, precioValor, publicoObjetivo, nivelRuido]
+      required: [nombre, descripcionCorta, descripcion, subcategoriaId, barrioId, organizador, modalidad, fechaInicio, fechaFin, precioTipo, precioValor, publicoObjetivo, nivelRuido]
       properties:
         nombre:
           type: string
@@ -600,8 +601,15 @@ components:
           type: string
           format: uri
           nullable: true
+        modalidad:
+          type: string
+          enum: [presencial, online, hibrido]
+          description: >
+            Required. When 'online', `ubicacion` MUST NOT be sent. When
+            'presencial' or 'hibrido', `ubicacion` (with `coordenadas`) is required.
         ubicacion:
           $ref: '#/components/schemas/Ubicacion'
+          nullable: true
         fechaInicio:
           type: string
           format: date-time
@@ -664,8 +672,16 @@ components:
           type: string
           format: uri
           nullable: true
+        modalidad:
+          type: string
+          enum: [presencial, online, hibrido]
+          description: >
+            Optional on update. When set to 'online', `ubicacion` MUST NOT be sent
+            (it will be cleared). When set to 'presencial'/'hibrido', `ubicacion`
+            (with `coordenadas`) becomes required.
         ubicacion:
           $ref: '#/components/schemas/Ubicacion'
+          nullable: true
         fechaInicio:
           type: string
           format: date-time
