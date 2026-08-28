@@ -14,6 +14,7 @@ import type { NivelRuido } from "./nivel-ruido.enum";
 import type { Coordenadas } from "./coordenadas.vo";
 import type { Ubicacion } from "./ubicacion.vo";
 import type { CambioEvento } from "./cambio-evento.interface";
+import type { Modalidad } from "./modalidad.enum";
 
 export interface Evento {
   // -- Identity --
@@ -35,8 +36,12 @@ export interface Evento {
   organizadorContacto?: string;
   organizadorWeb?: string;
 
+  // -- Modality (how the evento is realized) --
+  modalidad: Modalidad;
+
   // -- Location (own venue, independent of any place) --
-  ubicacion: Ubicacion;
+  // REQUIRED when `modalidad !== 'online'`; undefined when `modalidad === 'online'`.
+  ubicacion?: Ubicacion;
 
   // -- Schedule --
   fechaInicio: Date;

@@ -89,6 +89,7 @@ function buildEventoDoc(evento: MockEvento): Record<string, unknown> {
     organizador: evento.organizador,
     organizadorContacto: evento.organizadorContacto,
     organizadorWeb: evento.organizadorWeb,
+    modalidad: "presencial",
     ubicacion: {
       nombreLugar: evento.ubicacionNombre,
       direccion: evento.ubicacionDireccion,

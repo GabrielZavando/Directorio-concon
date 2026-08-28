@@ -107,6 +107,7 @@ export class EventosService {
       organizador: dto.organizador,
       organizadorContacto: dto.organizadorContacto,
       organizadorWeb: dto.organizadorWeb,
+      modalidad: dto.modalidad as Evento["modalidad"],
       ubicacion: dto.ubicacion,
       fechaInicio: new Date(dto.fechaInicio),
       fechaFin: new Date(dto.fechaFin),
@@ -228,7 +229,7 @@ export class EventosService {
     const updates: Partial<Evento> & { updatedAt: Date } = { ...patch };
     if (eraVerificado) {
       updates.estadoVerificacion = "pendiente";
-      const cambios = computeChanges(existing, dto, usuarioId);
+      const cambios = computeChanges(existing, patch, usuarioId);
       updates.cambios = [...(existing.cambios ?? []), ...cambios];
       await this.notificacionesPort.notifyEventoRevertidoPendiente(
         existing,

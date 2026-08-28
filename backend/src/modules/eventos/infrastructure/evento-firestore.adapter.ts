@@ -308,7 +308,8 @@ export class EventoFirestoreAdapter
           id: evento.id,
           nombre: evento.nombre,
           slug: evento.slug,
-          coordenadas: evento.ubicacion.coordenadas,
+          // Online eventos have no `ubicacion` → `coordenadas` undefined → filtered out.
+          coordenadas: evento.ubicacion?.coordenadas,
           subcategoriaId: evento.subcategoriaId,
           barrioId: evento.barrioId,
           fechaInicio: evento.fechaInicio,

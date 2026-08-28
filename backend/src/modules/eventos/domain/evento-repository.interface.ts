@@ -16,7 +16,8 @@ export interface EventoMapDataItem {
   id: string;
   slug: string;
   nombre: string;
-  coordenadas: Coordenadas;
+  /** Undefined for online eventos (no physical venue) — excluded from map. */
+  coordenadas?: Coordenadas;
   subcategoriaId: string;
   barrioId: string;
   fechaInicio: Date;
