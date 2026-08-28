@@ -11,9 +11,9 @@
 | CH-03 | places-refactor | ✅ DONE | `archive/2026-08-26-places-refactor` |
 | CH-04 | eventos-refactor | ✅ DONE | `archive/2026-08-27-eventos-refactor` (backend completo; cobertura módulo eventos ≥90%; eliminación física de tipos evento en `solicitudes` diferida a CH-05) |
 | CH-04b | eventos-conformance-fixes | ✅ DONE | `archive/2026-08-27-eventos-conformance-fixes` (rescue post-audit: create `estado:'programado'`, `verificar` restaura `activo:true`, `buildEventoPatch` convierte fechas a `Date`, normaliza `cambios`, migration `estado:'programado'` + sin null-island) |
-| CH-04c | eventos-location-model | ⬜ PENDING | — (modelar modalidad presencial/online/híbrido + ubicacion propia; ver brief abajo) |
+| CH-04c | eventos-location-model | ✅ DONE | `openspec/changes/eventos-location-model` (specs delta + implementación vía `/apply`; pendiente `/verify` → `/archive`) |
 
-### CH-04c — eventos-location-model (change para próxima sesión)
+### CH-04c — eventos-location-model (✅ implementado)
 
 **Objetivo:** Permitir que un evento declare su forma de realización: presencial (en un lugar con
 dirección y coordenadas), online (sin lugar físico) o híbrido (online + coordenadas propias para

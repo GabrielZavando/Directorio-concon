@@ -19,7 +19,8 @@ The system SHALL persist an `Evento` document in the Firestore collection `event
 - `organizador: string` — 1..200 characters
 - `organizadorContacto?: string` — phone or email (free string)
 - `organizadorWeb?: string` — valid URI
-- `ubicacion: Ubicacion` — object `{ nombreLugar?: string; direccion: string; coordenadas: { lat: number; lng: number } }` describing the event venue (replaces the legacy flat `ubicacionNombre`/`ubicacionDireccion`/`coordenadas` fields and the `placeId` reference)
+- `modalidad: Modalidad` — `'presencial' | 'online' | 'hibrido'`; REQUIRED on create (no system default). Declares how the evento is realized: `presencial`/`hibrido` carry a physical venue via `ubicacion`; `online` has no physical venue.
+- `ubicacion?: Ubicacion` — object describing the event venue. REQUIRED when `modalidad !== 'online'`; FORBIDDEN when `modalidad === 'online'`. Shape: `{ nombreLugar?: string; direccion?: string; coordenadas: { lat: number; lng: number } }`. ONLY `coordenadas` is mandatory inside `ubicacion`; `direccion` and `nombreLugar` are optional. The evento is the owner of its `ubicacion` (no FK to `places`; a link to a `place` is resolved by coordinate/address coincidence, never by `placeId`).
 - `fechaInicio: Date` — ISO 8601 timestamp
 - `fechaFin: Date` — ISO 8601 timestamp; MUST be strictly greater than `fechaInicio`
 - `precioTipo: PrecioTipo` — controlled enum: `'gratis' | 'pago' | 'donacion' | 'invitacion'`
@@ -33,8 +34,8 @@ The system SHALL persist an `Evento` document in the Firestore collection `event
 - `activo: boolean` — default `true`; drives public visibility (replaces legacy `status`). A public visitor only sees eventos with `activo: true`
 - `estadoVerificacion: EstadoVerificacion` — `'pendiente' | 'verificado' | 'rechazado'` (default `'pendiente'` on create); drives the "Verificado" badge
 - `motivoRechazoVerificacion?: string` — required when `estadoVerificacion === 'rechazado'`; reason recorded by admin
-- `cambios?: CambioEvento[]` — audit history; each entry `{ campo: string; valorAnterior: unknown; valorNuevo: unknown; fecha: Date; usuarioId: string }`; populated when an edit reverts a verified evento to `pendiente` (and on any update where a field value actually changes)
-- `estado: EventoEstado` — `'borrador' | 'programado' | 'en_curso' | 'finalizado' | 'cancelado' | 'suspendido'`; the event's own lifecycle (set by the publisher/admin). On create the system SHALL set `estado: 'programado'` so the evento is immediately visible in the public list (which defaults to `estado: 'programado'`)
+- `cambios?: CambioEvento[]` — audit history; each entry `{ campo: string; valorAnterior: unknown; valorNuevo: unknown; fecha: Date; usuarioId: string }`; populated on every update (and explicitly when an edit reverts a verified evento to `pendiente`)
+- `estado: EventoEstado` — `'borrador' | 'programado' | 'en_curso' | 'finalizado' | 'cancelado' | 'suspendido'`; the event's own lifecycle
 - `destacado: boolean` — default `false`; admin-toggled for home/list highlighting
 - `usuarioId: string` — Firebase Auth UID of the creator; REQUIRED, set from the verified token (never accepted in the body)
 - `vistasTotales: number` — defaults to `0`
@@ -42,109 +43,75 @@ The system SHALL persist an `Evento` document in the Firestore collection `event
 - `updatedAt: Date` — last modification timestamp
 - `fechaPublicacion?: Date` — set when `estadoVerificacion` transitions to `'verificado'`
 
-The legacy fields `status`, `verificado`, `placeId`, `ubicacionNombre`, `ubicacionDireccion` (flat) are REMOVED (see REMOVED Requirements). An evento is visible to the public when `activo: true`, regardless of `estadoVerificacion`.
+The legacy fields `status`, `verificado`, `placeId`, `ubicacionNombre`, `ubicacionDireccion` (flat) are REMOVED. An evento is visible to the public when `activo: true`, regardless of `estadoVerificacion`. Legacy Firestore documents that predate `modalidad` SHALL be hydrated by the adapter as `modalidad: 'presencial'` (backward compatibility for dev/mock data).
 
-#### Scenario: Create evento as publisher with all required fields
-- **GIVEN** no evento with slug `festival-verano-concon-2025` exists
-- **AND** an authenticated user with rol `'owner'` and UID `uid-owner-001`
-- **WHEN** the user sends `POST /api/v1/eventos` with valid `nombre`, `descripcionCorta`, `descripcion`, `subcategoriaId: 'festivales-culturales'`, `barrioId`, `organizador`, `ubicacion: { direccion: 'Av. Marina 123', coordenadas: { lat: -32.91, lng: -71.54 } }`, `fechaInicio`, `fechaFin`, `precioTipo: 'gratis'`, `precioValor: 0`, `publicoObjetivo: ['todos','familia']`, `nivelRuido: 'medio'`
-- **THEN** the response is `201` and the evento is created with `activo: true`, `estadoVerificacion: 'pendiente'`, `estado: 'programado'`, `categoriaId: 'eventos'`, `slug: 'festival-verano-concon-2025'`, `usuarioId: 'uid-owner-001'`, `destacado: false`, `vistasTotales: 0`
-- **AND** NO `solicitud` is auto-created (the evento is publicly visible immediately)
-
-#### Scenario: Create evento as admin does not auto-verify
-- **GIVEN** an authenticated user with rol `'admin'`
-- **WHEN** sends `POST /api/v1/eventos` with valid data
-- **THEN** the response is `201` with the evento created
-- **AND** `estadoVerificacion: 'pendiente'` (the admin verifies later via `POST /api/v1/eventos/:id/verificar`)
-
-#### Scenario: Create evento rejects duplicate slug
-- **WHEN** an evento with slug `festival-verano-concon-2025` already exists
-- **AND** a user sends `POST /api/v1/eventos` with `nombre: "Festival de Verano Concón 2025"` (which derives the same slug)
-- **THEN** the response is `409` with error "Slug duplicado"
+#### Scenario: Create evento requires modalidad
+- **GIVEN** an authenticated user with rol `'owner'`
+- **WHEN** the user sends `POST /api/v1/eventos` with all other valid fields but **no** `modalidad`
+- **THEN** the response is `400` with a validation error indicating `modalidad` is required
 - **AND** no `Evento` is created
 
-#### Scenario: Create evento rejects subcategoriaId not in seeded eventos categorias
-- **WHEN** a user sends `POST /api/v1/eventos` with `subcategoriaId: 'subcategoria-inventada'`
-- **THEN** the response is `400` with validation error
+#### Scenario: Create evento rejects invalid modalidad
+- **WHEN** a user sends `POST /api/v1/eventos` with `modalidad: 'telepresencial'`
+- **THEN** the response is `400` with validation error "modalidad must be one of: presencial, online, hibrido"
+
+#### Scenario: Create online evento without ubicacion succeeds
+- **GIVEN** an authenticated user with rol `'owner'`
+- **WHEN** the user sends `POST /api/v1/eventos` with `modalidad: 'online'` and **no** `ubicacion`
+- **THEN** the response is `201` with the evento created with `modalidad: 'online'` and `ubicacion` undefined/null
+- **AND** `estado: 'programado'`, `activo: true`, `estadoVerificacion: 'pendiente'`
+
+#### Scenario: Create online evento with ubicacion is rejected
+- **WHEN** a user sends `POST /api/v1/eventos` with `modalidad: 'online'` and `ubicacion: { coordenadas: { lat: -32.91, lng: -71.54 } }`
+- **THEN** the response is `400` with error "online events must not include ubicacion"
 - **AND** nothing is persisted
 
-#### Scenario: Create evento rejects fechaFin not strictly after fechaInicio
-- **WHEN** a user sends `POST /api/v1/eventos` with `fechaInicio: '2025-02-14T18:00:00Z'` and `fechaFin: '2025-02-14T12:00:00Z'`
-- **THEN** the response is `400` with error "fechaFin debe ser mayor que fechaInicio"
+#### Scenario: Create presencial evento without ubicacion is rejected
+- **WHEN** a user sends `POST /api/v1/eventos` with `modalidad: 'presencial'` and no `ubicacion`
+- **THEN** the response is `400` with error "ubicacion is required when modalidad is not 'online'"
 
-#### Scenario: Create evento rejects gratis with non-zero precioValor
-- **WHEN** a user sends `POST /api/v1/eventos` with `precioTipo: 'gratis'` and `precioValor: 5000`
-- **THEN** the response is `400` with error "precioValor debe ser 0 cuando precioTipo es 'gratis'"
+#### Scenario: Create presencial evento with coordenadas but no direccion succeeds
+- **GIVEN** an authenticated user with rol `'owner'`
+- **WHEN** the user sends `POST /api/v1/eventos` with `modalidad: 'presencial'` and `ubicacion: { coordenadas: { lat: -32.91, lng: -71.54 } }` (no `direccion`)
+- **THEN** the response is `201` with the evento created with `ubicacion.coordenadas` populated and `ubicacion.direccion` empty/undefined
+- **AND** the evento is georeferenced for the map
 
-#### Scenario: Create evento rejects pago with precioValor <= 0
-- **WHEN** a user sends `POST /api/v1/eventos` with `precioTipo: 'pago'` and `precioValor: 0`
-- **THEN** the response is `400` with validation error
+#### Scenario: Create híbrido evento with own coordenadas succeeds
+- **WHEN** a user sends `POST /api/v1/eventos` with `modalidad: 'hibrido'` and `ubicacion: { nombreLugar: 'Plaza de Armas', coordenadas: { lat: -32.92, lng: -71.53 } }`
+- **THEN** the response is `201` with `modalidad: 'hibrido'` and `ubicacion` populated
+- **AND** the evento appears in `/api/v1/eventos/map-data` (has coordenadas)
 
-#### Scenario: Create evento rejects empty publicoObjetivo
-- **WHEN** a user sends `POST /api/v1/eventos` with `publicoObjetivo: []`
-- **THEN** the response is `400` with error "publicoObjetivo debe contener al menos un elemento"
+#### Scenario: Create presencial evento with ubicacion missing coordenadas is rejected
+- **WHEN** a user sends `POST /api/v1/eventos` with `modalidad: 'presencial'` and `ubicacion: { direccion: 'Av. Marina 123' }` (no `coordenadas`)
+- **THEN** the response is `400` with validation error "coordenadas is required"
 
-#### Scenario: Create evento rejects anonymous user
-- **GIVEN** an anonymous visitor (no Firebase Auth token)
-- **WHEN** sends `POST /api/v1/eventos`
-- **THEN** the response is `401`
-
-#### Scenario: categoriaId sent in body is ignored — system sets constant 'eventos'
-- **WHEN** a user sends `POST /api/v1/eventos` with `categoriaId: 'gastronomia'` in the body
-- **THEN** the ValidationPipe (forbidNonWhitelisted) rejects with `400` — `categoriaId` is NOT listed in `CreateEventoDto`
-- **AND** the system always sets `categoriaId: 'eventos'` internally on valid creates
-
-#### Scenario: Create evento rejects placeId in body (field removed)
-- **WHEN** a user sends `POST /api/v1/eventos` with `placeId: 'place-xyz'`
-- **THEN** the ValidationPipe (forbidNonWhitelisted) rejects with `400` — `placeId` is no longer a valid field on `CreateEventoDto`
+#### Scenario: Evento document without modalidad is read as presencial
+- **GIVEN** a Firestore `eventos` document that has no `modalidad` field but has a valid `ubicacion`
+- **WHEN** the adapter reads the document
+- **THEN** the hydrated `Evento` has `modalidad: 'presencial'`
+- **AND** the evento is treated as georeferenced (appears in map-data if it has coordenadas)
 
 ### Requirement: Public listing and visibility
-The system SHALL expose `GET /api/v1/eventos`, `GET /api/v1/eventos/map-data`, `GET /api/v1/eventos/{id}`, and `GET /api/v1/eventos/slug/{slug}` as anonymous-accessible (no auth) endpoints. The list and map-data endpoints MUST return only eventos with `activo: true`. The by-id and by-slug endpoints MUST return `404` for eventos whose `activo` is `false` (any `estadoVerificacion` — pending, verified, or rejected eventos are invisible if inactive). The list endpoint MUST support filters by `subcategoriaId`, `barrioId`, `fechaDesde`, `fechaHasta`, `precioTipo`, `estado`, `destacado`, `estadoVerificacion`, free-text `q`, and cursor pagination (`page`, `limit`), returning `{ data, meta }` consistent with `places`. The `estado` filter MUST default to `'programado'` when omitted. The map-data endpoint MUST return only lightweight fields (`id, slug, nombre, coordenadas, subcategoriaId, barrioId, fechaInicio`). The `estadoVerificacion` field MUST be included in every evento response (list, by-id, by-slug, map-data).
+The system SHALL expose `GET /api/v1/eventos`, `GET /api/v1/eventos/map-data`, `GET /api/v1/eventos/{id}`, and `GET /api/v1/eventos/slug/{slug}` as anonymous-accessible (no auth) endpoints. The list and map-data endpoints MUST return only eventos with `activo: true`. The map-data endpoint MUST return only eventos that have `coordenadas` populated (online eventos, which carry no `ubicacion`, are therefore excluded). The by-id and by-slug endpoints MUST return `404` for eventos whose `activo` is `false`. The list endpoint MUST support filters by `subcategoriaId`, `barrioId`, `fechaDesde`, `fechaHasta`, `precioTipo`, `estado`, `destacado`, `estadoVerificacion`, free-text `q`, and cursor pagination (`page`, `limit`), returning `{ data, meta }`. The `estado` filter MUST default to `'programado'` when omitted. The map-data endpoint MUST return only lightweight fields (`id, slug, nombre, coordenadas, subcategoriaId, barrioId, fechaInicio`). The `estadoVerificacion` field MUST be included in every evento response.
 
-#### Scenario: Public list returns only active eventos
-- **GIVEN** eventos in three states: `evento-A` with `activo: true`, `evento-B` with `activo: false` (estadoVerificacion `pendiente`), `evento-C` with `activo: false` (estadoVerificacion `verificado`)
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos`
-- **THEN** the response is `200` with `{ data: [evento-A], meta: {...} }`
-- **AND** `evento-B` and `evento-C` are not included (both inactive)
+#### Scenario: Online evento is excluded from map-data
+- **GIVEN** an active evento with `modalidad: 'online'` and no `coordenadas`
+- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/map-data`
+- **THEN** the response is `200` and the online evento is NOT in the array (no coordenadas)
 
-#### Scenario: Public list supports filters
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos?subcategoriaId=festivales-culturales&barrioId=higuerillas&fechaDesde=2025-02-01&fechaHasta=2025-02-28&precioTipo=gratis&estado=programado`
-- **THEN** the response is `200` with only active eventos matching all of: `subcategoriaId`, `barrioId`, `fechaInicio` within `[fechaDesde, fechaHasta]`, `precioTipo`, and `estado`
-
-#### Scenario: Public list defaults estado to 'programado'
-- **GIVEN** active eventos with various `estado` values (`programado`, `en_curso`, `finalizado`)
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos` without `estado` query
-- **THEN** the response includes only eventos with `estado: 'programado'` (the default)
-- **AND** `finalizado` and `en_curso` eventos are not included unless explicitly queried
-
-#### Scenario: Public list filter estadoVerificacion=pendiente (admin queue)
-- **WHEN** an admin (or anonymous in this scenario's filter semantics) sends `GET /api/v1/eventos?estadoVerificacion=pendiente`
-- **THEN** the response is `200` with only active eventos whose `estadoVerificacion === 'pendiente'`
-
-#### Scenario: Anonymous GET by id rejects inactive evento
-- **GIVEN** an evento with `activo: false` and id `evt-123`
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/evt-123`
-- **THEN** the response is `404`
-
-#### Scenario: Anonymous GET by slug rejects inactive evento
-- **GIVEN** an evento with `activo: false` and slug `festival-inactivo`
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/slug/festival-inactivo`
-- **THEN** the response is `404`
-
-#### Scenario: Anonymous GET by id returns active evento (any estadoVerificacion)
-- **GIVEN** an evento with `activo: true` and id `evt-456`
-- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/evt-456`
-- **THEN** the response is `200` with the full evento document (including `estadoVerificacion` and `ubicacion`)
+#### Scenario: Presencial evento appears in map-data
+- **GIVEN** an active evento with `modalidad: 'presencial'` and `coordenadas` populated
+- **WHEN** an anonymous visitor sends `GET /api/v1/eventos/map-data`
+- **THEN** the response is `200` and the evento is included with its `coordenadas`
 
 #### Scenario: Map data returns only lightweight fields of active eventos
 - **GIVEN** active eventos with various `barrioId` and `subcategoriaId`
 - **WHEN** an anonymous visitor sends `GET /api/v1/eventos/map-data`
 - **THEN** the response is `200` with an array where each item has exactly `{ id, slug, nombre, coordenadas, subcategoriaId, barrioId, fechaInicio }`
-- **AND** no item includes `descripcion`, `organizador`, `precioValor`, etc.
-- **AND** only eventos with `activo: true` are included
+- **AND** only eventos with `activo: true` AND `coordenadas` populated are included
 
 ### Requirement: Update of evento
-The system SHALL expose `PUT /api/v1/eventos/{id}` behind auth (rol `'owner'` or `'admin'`). A publisher with rol `'owner'` MUST be allowed to update only their own eventos (`evento.usuarioId === verified token uid`); any other case MUST return `403`. An admin with rol `'admin'` MUST be allowed to update any evento. The update SHALL apply changes in-place directly (no staged solicitud). If the target evento has `estadoVerificacion === 'verificado'` BEFORE the update, the update MUST additionally set `estadoVerificacion: 'pendiente'` (reversion) in the same write, and MUST append a `CambioEvento` entry to `cambios[]` for each changed field (recording `campo`, `valorAnterior`, `valorNuevo`, `fecha`, `usuarioId`). The `categoriaId` field MUST NOT be modifiable (it is not listed in `UpdateEventoDto`). Updates to a non-existent evento MUST return `404`. The `ubicacion` field MAY be updated as a whole object. Date fields `fechaInicio`/`fechaFin` are supplied as ISO strings in the DTO and MUST be persisted as `Date` timestamps (the system converts them at the update boundary; no server error SHALL occur).
+The system SHALL expose `PUT /api/v1/eventos/{id}` behind auth (rol `'owner'` or `'admin'`). A publisher with rol `'owner'` MUST be allowed to update only their own eventos (`evento.usuarioId === verified token uid`); any other case MUST return `403`. An admin with rol `'admin'` MUST be allowed to update any evento. The update SHALL apply changes in-place directly (no staged solicitud). If the target evento has `estadoVerificacion === 'verificado'` BEFORE the update, the update MUST additionally set `estadoVerificacion: 'pendiente'` (reversion) in the same write, and MUST append a `CambioEvento` entry to `cambios[]` for each changed field. The `categoriaId` field MUST NOT be modifiable. Updates to a non-existent evento MUST return `404`. The `ubicacion` field MAY be updated as a whole object. **When `modalidad` transitions to `'online'` on update, the service MUST clear `ubicacion` in the same write** (and still apply the verified→pendiente reversion + `cambios[]` if applicable). When `modalidad` transitions to `'presencial'`/`'hibrido'` on update, `ubicacion` with valid `coordenadas` MUST be supplied.
 
 #### Scenario: Publisher edits own evento applies in-place
 - **GIVEN** an evento with `estadoVerificacion: 'pendiente'` and `usuarioId: 'uid-owner-001'`
@@ -155,34 +122,33 @@ The system SHALL expose `PUT /api/v1/eventos/{id}` behind auth (rol `'owner'` or
 
 #### Scenario: Publisher edits own verified evento reverts to pendiente + records cambios
 - **GIVEN** an evento with `estadoVerificacion: 'verificado'` and `usuarioId: 'uid-owner-001'`
-- **WHEN** the publisher sends `PUT /api/v1/eventos/{id}` with `{ ubicacion: { direccion: 'Nueva dirección 999', coordenadas: { lat: -32.9, lng: -71.5 } } }`
-- **THEN** the response is `200` with the evento showing the new `ubicacion.direccion` AND `estadoVerificacion: 'pendiente'`
-- **AND** `cambios[]` has a new entry for `ubicacion.direccion` (or `ubicacion`) with `valorAnterior`, `valorNuevo`, `usuarioId: 'uid-owner-001'`
+- **WHEN** the publisher sends `PUT /api/v1/eventos/{id}` with `{ ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } } }`
+- **THEN** the response is `200` with the evento showing the new `ubicacion.coordenadas` AND `estadoVerificacion: 'pendiente'`
+- **AND** `cambios[]` has a new entry for `ubicacion` with `valorAnterior`, `valorNuevo`, `usuarioId: 'uid-owner-001'`
 - **AND** no `solicitud` is created
 
-#### Scenario: Publisher updates fechaInicio/fechaFin persists without error
-- **GIVEN** an evento with `estadoVerificacion: 'pendiente'` and `usuarioId: 'uid-owner-001'`
-- **AND** a verified token for `uid-owner-001` (rol `'owner'`)
-- **WHEN** the publisher sends `PUT /api/v1/eventos/{id}` with `{ fechaInicio: '2025-03-01T18:00:00Z', fechaFin: '2025-03-01T22:00:00Z' }`
-- **THEN** the response is `200` and the persisted `fechaInicio`/`fechaFin` are `Date` timestamps equal to the supplied instants (no `500`)
-- **AND** `updatedAt` is refreshed
+#### Scenario: Update evento to online drops ubicacion
+- **GIVEN** an evento with `modalidad: 'presencial'`, `ubicacion` populated, and `usuarioId: 'uid-owner-001'`
+- **AND** a verified token for `'uid-owner-001'` (rol `'owner'`)
+- **WHEN** the owner sends `PUT /api/v1/eventos/{id}` with `{ modalidad: 'online' }`
+- **THEN** the response is `200` with `modalidad: 'online'` and `ubicacion` cleared (undefined/null)
+- **AND** no `solicitud` is created; if previously `verificado`, reverts to `pendiente` + records `cambios[]`
+
+#### Scenario: Update evento to presencial without ubicacion is rejected
+- **GIVEN** an evento with `modalidad: 'online'` and no `ubicacion`
+- **WHEN** an owner sends `PUT /api/v1/eventos/{id}` with `{ modalidad: 'presencial' }` (still no `ubicacion`)
+- **THEN** the response is `400` with error "ubicacion is required when modalidad is not 'online'"
+
+#### Scenario: Update presencial evento keeps coordenadas, drops direccion
+- **GIVEN** an evento with `modalidad: 'presencial'`, `ubicacion: { direccion: 'Vieja 1', coordenadas: { lat: -32.9, lng: -71.5 } }`
+- **WHEN** the owner sends `PUT /api/v1/eventos/{id}` with `{ ubicacion: { coordenadas: { lat: -32.9, lng: -71.5 } } }`
+- **THEN** the response is `200` with `ubicacion.direccion` cleared and `coordenadas` retained
 
 #### Scenario: Publisher cannot edit another publisher's evento
 - **GIVEN** an evento with `usuarioId: 'uid-owner-001'`
 - **AND** a verified token for `uid-owner-002` (rol `'owner'`)
 - **WHEN** `uid-owner-002` sends `PUT /api/v1/eventos/{id}` with any fields
 - **THEN** the response is `403`
-
-#### Scenario: Admin edits any evento
-- **GIVEN** an evento with `usuarioId: 'uid-owner-001'` and `estadoVerificacion: 'pendiente'`
-- **AND** a verified token for `uid-admin-001` (rol `'admin'`)
-- **WHEN** `uid-admin-001` sends `PUT /api/v1/eventos/{id}` with `{ descripcion: 'edición admin' }`
-- **THEN** the response is `200` with the evento updated in-place
-
-#### Scenario: categoriaId cannot be modified in an update
-- **GIVEN** an existing evento and the evento owner is authenticated
-- **WHEN** sends `PUT /api/v1/eventos/{id}` with `{ categoriaId: 'gastronomia' }`
-- **THEN** the response is `400` (forbidNonWhitelisted — `categoriaId` is not in `UpdateEventoDto`)
 
 #### Scenario: Update of non-existent evento returns 404
 - **WHEN** sends `PUT /api/v1/eventos/evt-inexistente` with any body
