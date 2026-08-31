@@ -1,0 +1,12 @@
+{
+  "name": "directorio-concon",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Directorio de Empresas de Concón — monorepo (backend NestJS + frontend Angular)",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "optionalDependencies": {
+    "@gabrielzavando/specboot": "^0.1.2"
+  }
+}
