@@ -49,6 +49,11 @@ Arquitectura BE: Clean Architecture por feature
 - **Specboot** (`@gabrielzavando/specboot`, GitHub Packages) — framework SDD sobre OpenCode + OpenSpec.
   Configuración en `.specboot.json` (raíces de servicios, stack, estándares extra).
   Actualización del framework: `npm install` (con token en `~/.npmrc`) + `specboot update`.
+- **Regla de versionado raíz**: el campo `version` del `package.json` raíz debe mantenerse
+  igual a `frameworkVersion` de `.specboot.json`. Razón: `validate-specboot.sh` resuelve la
+  versión instalada desde `node_modules/@gabrielzavando/specboot` y, si el paquete no está
+  instalado (CI sin token de GitHub Packages), cae al `package.json` raíz. Tras cada
+  `specboot update` que suba la versión, actualizar también `version` en el package.json raíz.
 
 ## Umbrales SOLID (referencia cruzada)
 

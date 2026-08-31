@@ -1,6 +1,6 @@
 {
   "name": "directorio-concon",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "description": "Directorio de Empresas de Concón — monorepo (backend NestJS + frontend Angular)",
   "engines": {
@@ -8,5 +8,17 @@
   },
   "optionalDependencies": {
     "@gabrielzavando/specboot": "^0.1.2"
+  },
+  "devDependencies": {
+    "@angular-eslint/eslint-plugin": "^18.0.0",
+    "@angular-eslint/eslint-plugin-template": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "dependency-cruiser": "^16.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-sonarjs": "^0.25.0",
+    "madge": "^8.0.0",
+    "typescript": "^5.9.0"
   }
 }
