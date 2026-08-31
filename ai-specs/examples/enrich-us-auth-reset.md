@@ -71,8 +71,8 @@ Users frequently forget passwords. We need a secure, user-friendly password rese
 - [ ] Expired/invalid tokens handled gracefully
 - [ ] Rate limiting prevents abuse
 - [ ] Audit log entries created
-- [ ] `api-spec.yml` updated
-- [ ] `data-model.md` updated (if needed)
+- [ ] `docs/api/api-spec.yml` updated
+- [ ] `docs/data-model/data-model.md` updated (if needed)
 
 ### Tips
 

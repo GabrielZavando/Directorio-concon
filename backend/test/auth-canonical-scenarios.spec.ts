@@ -7,7 +7,7 @@
  * every Auth/Firestore call is an in-memory stub configured per scenario.
  *
  * The three scenarios close the authentication debts documented in
- * `docs/data-model.md §usuarios` ("Authentication debt — [CLOSED]"):
+ * `docs/data-model/data-model.md §usuarios` ("Authentication debt — [CLOSED]"):
  *
  *  A. Owner creates evento → `usuarioId === token.uid` (debt #2 closed).
  *     No `x-usuario-id` header is sent; the uid comes from the verified

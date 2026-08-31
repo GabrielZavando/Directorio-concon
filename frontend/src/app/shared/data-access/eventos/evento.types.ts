@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ */
-/*  Evento domain types — mirror of docs/api-spec.yml Evento schema   */
+/*  Evento domain types — mirror of docs/api/api-spec.yml Evento schema   */
 /*  Generated manually (openapi-generator is Non-Goal per design.md)   */
 /* ------------------------------------------------------------------ */
 

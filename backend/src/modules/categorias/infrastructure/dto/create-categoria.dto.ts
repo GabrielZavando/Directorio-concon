@@ -12,7 +12,7 @@ import {
 
 /**
  * Iconos Lucide soportados por el design system "Dunas y Océano".
- * Coincide con los valores `categorias.icono` declarados en `docs/data-model.md`.
+ * Coincide con los valores `categorias.icono` declarados en `docs/data-model/data-model.md`.
  * Cualquier `icono` fuera de esta lista es rechazado por ValidationPipe.
  */
 export const LUCIDE_ICONS = [

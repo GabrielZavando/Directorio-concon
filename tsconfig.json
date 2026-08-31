@@ -1,0 +1,21 @@
+{
+  "//": "Root tooling tsconfig — consumed by templates/ci configs (ESLint parserOptions.project, dependency-cruiser tsConfig). Does not participate in service builds (backend/ and frontend/ have their own tsconfigs).",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "preserve",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["backend/src/*"],
+      "@/modules/*": ["backend/src/modules/*"],
+      "@/common/*": ["backend/src/common/*"],
+      "@/config/*": ["backend/src/config/*"]
+    }
+  },
+  "include": ["backend/src/**/*.ts", "frontend/src/**/*.ts"]
+}

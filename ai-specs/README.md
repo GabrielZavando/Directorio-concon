@@ -30,25 +30,33 @@ ai-specs/
 
 ## Agents
 
-### Build Agent (`agents/build-agent.md`)
+> Architecture: agent *definitions* live in `.opencode/agents/*.md` (loaded by OpenCode
+> with frontmatter `mode`/`permission`). Their *role content* is written once in
+> `ai-specs/agents/*.md` and injected via ``file:...``. This avoids duplicating the
+> role text and keeps the per-task context load minimal.
 
-Full-stack implementation agent. Reads `tasks.md` and implements one task at a time following TDD.
+### Native agents (`.opencode/agents/`)
 
-**Use case:** Executed by `/apply` in the SDD workflow.
+- **plan** (`plan.md`) — generates OpenSpec specs from a ticket (`/plan-change`).
+- **build** (`build.md`) — full-stack implementation agent; reads `tasks.md`, implements one task at a time following TDD. Dispatches to `backend`/`frontend` subagents by domain.
+- **verify** (`verify.md`) — runs tests and checks traceability (read-only).
+- **archive** (`archive.md`) — closes the SDD change and stages for commit.
+- **reviewer** (`reviewer.md`) — adversarial red-team audit (`/adversarial-review`).
 
-### Backend Developer (`agents/backend-developer.md`)
+### Subagents (wired via ``file:...``, dispatched by `build`)
 
-Backend specialist. Applies `docs/backend-standards.md` and maintains `docs/api-spec.yml`.
+- **backend** (`backend.md` → `ai-specs/agents/backend-developer.md`) — backend tasks (NestJS/API/DB).
+- **frontend** (`frontend.md` → `ai-specs/agents/frontend-developer.md`) — frontend tasks (Angular/Astro).
 
-**Use case:** Backend-only tasks.
+### Role content (`ai-specs/agents/`)
 
-### Frontend Developer (`agents/frontend-developer.md`)
+- **Build Agent** (`build-agent.md`): full-stack implementation agent.
+- **Backend Developer** (`backend-developer.md`): backend specialist; applied via the `backend` subagent.
+- **Frontend Developer** (`frontend-developer.md`): frontend specialist; applied via the `frontend` subagent.
+- **Plan / Verify / Archive Agents**: role content for the native agents above.
 
-Frontend specialist. Applies `docs/frontend-standards.md` and ensures accessibility.
-
-**Use case:** Frontend-only tasks.
-
----
+> Note: `README.md` at repo root lists the *native + subagent* set. Keep both in sync
+> when adding an agent.
 
 ## Skills
 
@@ -128,8 +136,8 @@ Task list format for OpenSpec changes.
 | `docs/frontend-standards.md` | Stack: framework, CSS, build tool |
 | `docs/deploy-standards.md` | Deploy flow: environments, versioning, Docker, rollback |
 | `docs/ci-standards.md` | SOLID/POO mechanical thresholds + instantiation of `templates/ci/` (Ticket 4) |
-| `docs/api-spec.yml` | Real API endpoints |
-| `docs/data-model.md` | Domain entities |
+| `docs/api/api-spec.yml` | Real API endpoints |
+| `docs/data-model/data-model.md` | Domain entities |
 | `templates/ci/` | ESLint + dependency-cruiser configs instantiated per project (see `docs/ci-standards.md`) |
 | `opencode.json` | Model selection |
 

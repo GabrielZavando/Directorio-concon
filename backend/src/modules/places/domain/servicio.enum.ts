@@ -1,6 +1,6 @@
 /**
  * Controlled enum of services a place can offer.
- * Matches the values defined in docs/data-model.md §places.servicios.
+ * Matches the values defined in docs/data-model/data-model.md §places.servicios.
  */
 export const SERVICIO_VALUES = [
   "wifi",

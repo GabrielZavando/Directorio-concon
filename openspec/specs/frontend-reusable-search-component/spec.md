@@ -305,29 +305,29 @@ The `frontend/tsconfig.app.json` SHALL have `resolveJsonModule: true` in `compil
 - **AND** `compilerOptions.strict` remains `true`
 - **AND** `angularCompilerOptions.strictTemplates` remains `true`
 
-### Requirement: docs/data-model.md is updated to canonicalize categorias and barrios
+### Requirement: docs/data-model/data-model.md is updated to canonicalize categorias and barrios
 
-The `docs/data-model.md` SHALL document (a) `categorias.id` as the Firestore slug, (b) the new `subcategorias[]` field with its `{ slug, nombre, descripcion }` substructure, (c) the `icono` (Lucide), `orden`, and `activa` fields, (d) `barrios.id` as the Firestore slug, and (e) the new `territorio` field plus the `tipo` (`urbano` / `rural`) field. A canonical example ("Higuerillas" barrio, "Gastronomía" categoria) SHALL appear in the file.
+The `docs/data-model/data-model.md` SHALL document (a) `categorias.id` as the Firestore slug, (b) the new `subcategorias[]` field with its `{ slug, nombre, descripcion }` substructure, (c) the `icono` (Lucide), `orden`, and `activa` fields, (d) `barrios.id` as the Firestore slug, and (e) the new `territorio` field plus the `tipo` (`urbano` / `rural`) field. A canonical example ("Higuerillas" barrio, "Gastronomía" categoria) SHALL appear in the file.
 
 #### Scenario: data-model documents subcategorias
 
-- **WHEN** `docs/data-model.md` is read
+- **WHEN** `docs/data-model/data-model.md` is read
 - **THEN** the `categorias` section contains a row for `subcategorias` documenting it as an array of `{ slug, nombre, descripcion }`
 
 #### Scenario: data-model documents territorio and tipo for barrios
 
-- **WHEN** `docs/data-model.md` is read
+- **WHEN** `docs/data-model/data-model.md` is read
 - **THEN** the `barrios` section contains a row for `territorio` (string, metadata of the sectors covered)
 - **AND** it documents `tipo` with allowed values `urbano` | `rural`
 
 #### Scenario: data-model states id is the Firestore slug
 
-- **WHEN** `docs/data-model.md` is read
+- **WHEN** `docs/data-model/data-model.md` is read
 - **THEN** for both `categorias` and `barrios` the `id` row documents that `id` is the Firestore document id (the slug, not a zona_xx/cat_xx code)
 
 #### Scenario: data-model includes the Higuerillas / Gastronomía canonical example
 
-- **WHEN** `docs/data-model.md` is read
+- **WHEN** `docs/data-model/data-model.md` is read
 - **THEN** the file references `id: higuerillas` as an example for `barrios`
 - **AND** it references `id: gastronomia` as an example for `categorias`
 

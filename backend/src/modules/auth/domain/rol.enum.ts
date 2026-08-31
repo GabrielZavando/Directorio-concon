@@ -55,6 +55,6 @@ export type Rol = "admin" | "owner" | "member";
  * ```
  *
  * Order is intentional: `admin` first (operator precedence predicate),
- * `member` last (registration default per `docs/data-model.md §usuarios`).
+ * `member` last (registration default per `docs/data-model/data-model.md §usuarios`).
  */
 export const ROL_VALUES = ["admin", "owner", "member"] as const;

@@ -34,7 +34,9 @@ export interface SolicitudesRepositoryInterface {
   create(input: CreateSolicitudInput): Promise<Solicitud>;
   update(
     id: string,
-    patch: Partial<Pick<Solicitud, "status" | "comentarios" | "revisadoPor" | "revisadoAt">>,
+    patch: Partial<
+      Pick<Solicitud, "status" | "comentarios" | "revisadoPor" | "revisadoAt">
+    >,
   ): Promise<Solicitud>;
   existsByPlaceId(placeId: string): Promise<boolean>;
   findPendingReclamosByPlaceId(placeId: string): Promise<Solicitud[]>;

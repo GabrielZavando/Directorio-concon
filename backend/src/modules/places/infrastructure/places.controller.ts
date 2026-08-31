@@ -177,10 +177,7 @@ export class PlacesController {
   @ApiResponse({ status: 201, description: "Claim solicitud created" })
   @ApiResponse({ status: 404, description: PLACE_NOT_FOUND })
   @ApiResponse({ status: 409, description: "Pending reclamo already exists" })
-  async reclamar(
-    @Param("id") id: string,
-    @CurrentUser() user: AuthContext,
-  ) {
+  async reclamar(@Param("id") id: string, @CurrentUser() user: AuthContext) {
     await this.placesService.reclamar(id, user.uid);
     return { claimed: true, placeId: id };
   }

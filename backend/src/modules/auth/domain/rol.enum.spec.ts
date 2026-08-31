@@ -10,7 +10,7 @@
  * own domain.
  *
  * The enum values follow the Family B naming (`admin / owner / member`) —
- * see `docs/data-model.md §usuarios` and `openspec/changes/roles-rename`.
+ * see `docs/data-model/data-model.md §usuarios` and `openspec/changes/roles-rename`.
  */
 import { ROL_VALUES, type Rol } from "./rol.enum";
 

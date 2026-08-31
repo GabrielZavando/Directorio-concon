@@ -82,8 +82,8 @@ Registration is the first step in the auth flow. Future tickets cover email veri
 
 ### Documentación
 
-- [ ] `api-spec.yml` actualizado con nuevos endpoints
-- [ ] `data-model.md` actualizado con User entity
+- [ ] `docs/api/api-spec.yml` actualizado con nuevos endpoints
+- [ ] `docs/data-model/data-model.md` actualizado con User entity
 - [ ] README del módulo actualizado si existe
 
 ### Seguridad

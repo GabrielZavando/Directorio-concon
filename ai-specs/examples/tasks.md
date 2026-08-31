@@ -32,7 +32,7 @@ Each task follows this structure:
 - [x] Write User entity test
 - [x] Implement User entity with fields: id, email, password_hash, status, created_at, updated_at
 - [x] Create database migration for users table
-- [x] Update `docs/data-model.md` with User entity
+- [x] Update `docs/data-model/data-model.md` with User entity
 - Priority: High
 - Layer: Backend (Data)
 - Estimated: 2 hours
@@ -46,7 +46,7 @@ Each task follows this structure:
 - [ ] Return 201 with user data (excluding password_hash)
 - [ ] Return 422 for validation errors
 - [ ] Return 409 for duplicate email
-- [ ] Update `docs/api-spec.yml` with new endpoint
+- [ ] Update `docs/api/api-spec.yml` with new endpoint
 - Priority: High
 - Layer: Backend (API)
 - Estimated: 4 hours

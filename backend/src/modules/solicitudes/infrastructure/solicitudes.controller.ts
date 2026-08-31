@@ -2,7 +2,7 @@
  * SolicitudesController — HTTP layer for `solicitudes` approval flow.
  *
  * Two admin-only endpoints (closure of the `revisadoPor` authentication
- * debt documented in `docs/data-model.md §solicitudes`):
+ * debt documented in `docs/data-model/data-model.md §solicitudes`):
  *
  *  - POST /solicitudes/:id/approve → `service.aprobarSolicitud(id, adminUid)`
  *  - POST /solicitudes/:id/reject  → `service.rechazarSolicitud(id, adminUid, comentarios?)`
@@ -23,7 +23,7 @@
  * layer of this module. The service is injected via the concrete class
  * (matching the existing module wiring in `solicitudes.module.ts`).
  *
- * Path conventions (per `docs/api-spec.yml` after this change):
+ * Path conventions (per `docs/api/api-spec.yml` after this change):
  *
  *  - mount: `/solicitudes` (controller path).
  *  - sub-paths: `:id/approve`, `:id/reject` (action-style, not REST

@@ -15,7 +15,7 @@ import type { FirebaseService } from "../../../common/services/firebase.service"
 
 /**
  * The 10 seeded subcategoria slugs for categoria 'eventos'.
- * Defined here and in docs/data-model.md §eventos.
+ * Defined here and in docs/data-model/data-model.md §eventos.
  */
 export const EVENTO_SUBCATEGORIAS = [
   "festivales-culturales",

@@ -124,6 +124,18 @@ Generate the design declaration that the implementation agents will be held to d
 
 Show the enriched story and ask for confirmation before proceeding to `/plan-change`.
 
+### Step 10: Persist Enriched Artifact
+
+After user confirmation, save the enriched story to:
+
+```
+openspec/tickets/{TICKET-ID}-enriched.md
+```
+
+This path is a **contract with `/plan-change`**: that command checks for this exact file and, if present, uses it as the primary source (acceptance criteria, class design, edge cases) instead of the raw ticket title.
+
+The persisted file must contain the full output template below, plus a `Capas afectadas` line derived from the Diseño de Clases/Componentes section (e.g. `backend`, `frontend`, `api`), which `/plan-change` uses as a hint for context loading.
+
 ---
 
 ## Output Template

@@ -1,7 +1,7 @@
 # Scenarios Example — User Registration
 
 > Gherkin-format acceptance scenarios for a user registration feature.
-> Use these as templates when creating `.openspec/<ticket>/scenarios.md`.
+> Use these as templates when creating `openspec/<ticket>/scenarios.md`.
 
 ## Feature: User Registration
 
@@ -122,5 +122,5 @@
 - [ ] Email service mocked in tests
 - [ ] Rate limiting implemented
 - [ ] Password requirements enforced client-side and server-side
-- [ ] `api-spec.yml` updated with new endpoints
-- [ ] `data-model.md` updated with user entity changes
+- [ ] `docs/api/api-spec.yml` updated with new endpoints
+- [ ] `docs/data-model/data-model.md` updated with user entity changes
