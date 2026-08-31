@@ -99,7 +99,7 @@ Configure these settings in the **Firebase Console → Authentication → Sign-i
 
 **Self-registration flow** (no custom claims required for MVP):
 - Visitor → `POST /api/v1/auth/registro` (rol ∈ `{member, owner}`) → backend creates Firebase Auth user + Firestore `usuarios/{uid}` in a single call → backend returns 201.
-- Rol resolution at request time is `decodedToken.rol` (custom claim) → Firestore fallback (`usuarios/{uid}.rol`) — see `docs/api-spec.yml` §AuthContext.
+- Rol resolution at request time is `decodedToken.rol` (custom claim) → Firestore fallback (`usuarios/{uid}.rol`) — see `docs/api/api-spec.yml` §AuthContext.
 
 ## Project-specific stack
 

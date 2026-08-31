@@ -1,7 +1,7 @@
 /**
  * Core Usuario entity — pure TypeScript, zero framework deps.
  *
- * Matches docs/data-model.md §usuarios exactly. Timestamps use `Date` in
+ * Matches docs/data-model/data-model.md §usuarios exactly. Timestamps use `Date` in
  * the domain layer; the Firestore adapter converts ↔ Firestore.Timestamp.
  *
  * The `Rol` enum is defined in the `auth` module — the canonical home for
@@ -13,7 +13,7 @@
  * Invariants (enforced by `UsuariosService`, not by the type-system):
  * - `email` is UNIQUE across the collection (the service checks
  *   `findByEmail` before `create`).
- * - Default `rol: 'member'` on registration (per docs/data-model.md §usuarios).
+ * - Default `rol: 'member'` on registration (per docs/data-model/data-model.md §usuarios).
  *
  * Note: the `placeId` field was removed in change `auth-usuarios-v2` (CH-02).
  * The user→place relation has a single source of truth: `places.usuarioId`.

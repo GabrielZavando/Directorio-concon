@@ -40,15 +40,15 @@ The controller exposes: `GET /usuarios/me` (self), `PUT /usuarios/me` (self), `G
 ### Requirement: Favouritos (deferred)
 The `usuarios` entity SHALL NOT include a `favoritos` field in this change. The modelling of the favourite-places capability for the `member` role (the user can save `places` references and list them on their profile) is **deferred** to the future `auth + usuarios` change, where the storage shape (array on the `usuarios` document vs. subcollection `usuarios/{uid}/favoritos/{placeId}` vs. top-level collection `favoritos`) will be decided against actual access patterns.
 
-This change only records the deferral as a `docs/data-model.md` note; no schema entry, no DTO field, no migration.
+This change only records the deferral as a `docs/data-model/data-model.md` note; no schema entry, no DTO field, no migration.
 
 #### Scenario: Spec reader is informed of the deferral
-- **WHEN** a stakeholder opens `docs/data-model.md §usuarios`
+- **WHEN** a stakeholder opens `docs/data-model/data-model.md §usuarios`
 - **THEN** a "Favoritos (deferred)" note appears, declaring the field's omission is intentional and scoped to the future `auth + usuarios` change
 - **AND** the note enumerates the three storage shapes under consideration so the decision can be picked up without rediscovery
 
 ### Requirement: Authentication debt (closed — enforced at runtime)
-~~The canonical model `docs/data-model.md` SHALL carry an explicit "Authentication debt" note block to inform consumers that, until the future MVP `auth + usuarios` change ships, the runtime behaviour of `usuarioId` fields across the existing modules diverges from the model's stated intent.~~
+~~The canonical model `docs/data-model/data-model.md` SHALL carry an explicit "Authentication debt" note block to inform consumers that, until the future MVP `auth + usuarios` change ships, the runtime behaviour of `usuarioId` fields across the existing modules diverges from the model's stated intent.~~
 
 This change **closes** the authentication debt. The three runtime divergences documented in the `roles-rename` change are now enforced at runtime:
 
@@ -56,7 +56,7 @@ This change **closes** the authentication debt. The three runtime divergences do
 - `eventos.usuarioId` is no longer sourced from the `x-usuario-id` HTTP header. `POST/PUT/DELETE /api/v1/eventos` are decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('owner', 'admin')` and the controller reads `usuarioId` from `@CurrentUser()`. The `x-usuario-id` and `x-rol` headers are removed.
 - `solicitudes.revisadoPor` is now set by the new `SolicitudesController` approve/reject endpoints, both decorated with `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles('admin')`. The `revisadoPor` field is sourced from `@CurrentUser() user.uid` and the `RolesGuard` guarantees `rol === 'admin'`.
 
-The `docs/data-model.md` "Authentication debt" note block is updated by this change to mark the three debts as **closed** with a reference to the `auth-usuarios` change as the closure (no longer "future"). The `usuarios` spec's prior "this requirement is a documentation-only requirement; no code path enforces it in this change" caveat is **removed** — runtime enforcement now exists.
+The `docs/data-model/data-model.md` "Authentication debt" note block is updated by this change to mark the three debts as **closed** with a reference to the `auth-usuarios` change as the closure (no longer "future"). The `usuarios` spec's prior "this requirement is a documentation-only requirement; no code path enforces it in this change" caveat is **removed** — runtime enforcement now exists.
 
 #### Scenario: places.usuarioId is sourced from the verified JWT
 - **GIVEN** an authenticated `owner` with UID `uid-owner-001`
@@ -83,8 +83,8 @@ The `docs/data-model.md` "Authentication debt" note block is updated by this cha
 - **THEN** the response is `403` with error: `rol 'owner' is not allowed to perform this operation`
 - **AND** the solicitud is NOT mutated (the `RolesGuard` short-circuits before the handler)
 
-#### Scenario: docs/data-model.md no longer describes the debt as pending
-- **WHEN** a stakeholder opens `docs/data-model.md §usuarios`
+#### Scenario: docs/data-model/data-model.md no longer describes the debt as pending
+- **WHEN** a stakeholder opens `docs/data-model/data-model.md §usuarios`
 - **THEN** the "Authentication debt" note block (updated by this change) marks each of the three bullets as **closed** with a reference to the `auth-usuarios` change
 - **AND** the note no longer reads as a future `auth + usuarios` change obligation
 

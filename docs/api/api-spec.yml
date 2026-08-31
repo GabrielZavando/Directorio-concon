@@ -107,7 +107,7 @@ components:
             Closed enum. The legacy 'twitter' value was migrated to 'x-twitter'
             (reflecting the 2023 platform rename). Clients sending 'twitter'
             receive a 400; they must update to 'x-twitter'. Consistent with
-            docs/data-model.md PlataformaSocialEnum and the backend VO/DTO.
+            docs/data-model/data-model.md PlataformaSocialEnum and the backend VO/DTO.
         url:
           type: string
           format: uri

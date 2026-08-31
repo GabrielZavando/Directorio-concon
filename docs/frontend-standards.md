@@ -105,7 +105,7 @@ Fuente canónica: [`docs/DESIGN.md`](DESIGN.md). Originado en Stitch (referencia
 3. **Angular Material (solo panel admin futuro)**: custom theme debe mapear `$palette-primary` desde Ocean Blue (`#004370`) de `docs/DESIGN.md`. El sitio público NO usa Angular Material.
 4. **Breakpoints**: газда `mobile (<768px)`, `tablet (768-1023px)`, `desktop (1024+px)` declarados en `docs/DESIGN.md` Layout & Spacing. Tailwind `screens` debe alinearse a estos.
 5. **Tipografía**: títulos con Montserrat, cuerpo y UI labels con Inter. Las escalas `headline-xl|lg|lg-mobile|md`, `body-lg|md`, `label-md|sm` están definidas en el YAML de `docs/DESIGN.md`.
-6. **Iconografía**: `lucide-angular`. Debe ser consistente con los valores de `categorias.icono` declarados en `docs/data-model.md`.
+6. **Iconografía**: `lucide-angular`. Debe ser consistente con los valores de `categorias.icono` declarados en `docs/data-model/data-model.md`.
 7. **Estados de carga**: `ngx-skeleton-loader` configurado con el radio y color del token `surface-container-low` de `docs/DESIGN.md`.
 8. **Accesibilidad**: contrastes AAA en labels (especialmente para uso outdoor en luz solar costera, ver `docs/DESIGN.md` Typography).
 

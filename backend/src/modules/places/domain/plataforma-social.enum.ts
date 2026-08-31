@@ -19,8 +19,8 @@
  * `red-social.dto.ts` and by the `isValidRedSocial` membership check in
  * `red-social.vo.ts`.
  *
- * Canonical reference: `docs/data-model.md §places` (Value Objects,
- * PlataformaSocialEnum) and `docs/api-spec.yml` (`RedSocial.plataforma.enum`).
+ * Canonical reference: `docs/data-model/data-model.md §places` (Value Objects,
+ * PlataformaSocialEnum) and `docs/api/api-spec.yml` (`RedSocial.plataforma.enum`).
  */
 export type PlataformaSocialEnum =
   | "instagram"
@@ -43,7 +43,7 @@ export type PlataformaSocialEnum =
  * declare readonly plataforma: PlataformaSocialEnum;
  * ```
  *
- * Order is intentional and matches `docs/api-spec.yml` declaration order:
+ * Order is intentional and matches `docs/api/api-spec.yml` declaration order:
  * `instagram, facebook, x-twitter, linkedin, tiktok, youtube`.
  */
 export const PLATAFORMA_SOCIAL_VALUES = [

@@ -20,14 +20,14 @@ Cada servicio o módulo relevante debe tener un README con:
 
 ## API Documentation
 
-- OpenAPI 3.0 en `docs/api-spec.yml`
+- OpenAPI 3.0 en `docs/api/api-spec.yml`
 - Cada endpoint documentado: descripción, params, request body, responses (incluyendo errores)
 - Actualizar el spec antes de implementar cambios en la API (SDD)
 - Ejemplos reales en el spec, no placeholders
 
 ## Data Model
 
-- `docs/data-model.md` documenta todas las entidades del dominio
+- `docs/data-model/data-model.md` documenta todas las entidades del dominio
 - Incluir: campos, tipos, relaciones, índices, constraints
 - Mantener sincronizado con migraciones de base de datos
 

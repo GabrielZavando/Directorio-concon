@@ -62,7 +62,7 @@
 - `DiaSemana = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo'`
 - `ServicioEnum = 'wifi' | 'estacionamiento' | 'acceso-discapacidad' | 'apto-mascotas' | 'delivery' | 'take-away' | 'terraza' | 'vista-al-mar' | 'reservas' | 'ninos-bienvenida'`
 - `MetodoPagoEnum = 'efectivo' | 'debito' | 'credito' | 'transferencia' | 'qr'`
-- `PlataformaSocialEnum = 'instagram' | 'facebook' | 'x-twitter' | 'linkedin' | 'tiktok' | 'youtube'` — enum cerrado; reemplaza al `plataforma: string` libre. Coherente con `ServicioEnum`, `MetodoPagoEnum`, etc. y con `docs/api-spec.yml` + iconografía `lucide-angular`.
+- `PlataformaSocialEnum = 'instagram' | 'facebook' | 'x-twitter' | 'linkedin' | 'tiktok' | 'youtube'` — enum cerrado; reemplaza al `plataforma: string` libre. Coherente con `ServicioEnum`, `MetodoPagoEnum`, etc. y con `docs/api/api-spec.yml` + iconografía `lucide-angular`.
 - `ValoracionGoogle = { rating: number; reviewsCount: number; mapsLink: string }`
 
 > **Migración `twitter` → `x-twitter`:** el valor legacy `'twitter'` (renamed de plataforma en julio 2023) deja de ser válido. Cualquier documento `places` en Firestore staging con `redesSociales[].plataforma === 'twitter'` debe migrarse manualmente a `'x-twitter'`. **Auditado en la Task 6 del change `roles-rename`:** no existen seeds/fixtures locales con valores legacy en el repo (el directorio `frontend/src/app/shared/data-access/local/data/` solo contiene `barrios.json` y `categorias.json`, ninguno con `redesSociales`; el módulo `eventos` no modela `redesSociales`; no hay scripts `backend/scripts/` con seeds TS/JS). El único punto de posible migración es Firestore staging, que se audita manualmente en deploy.

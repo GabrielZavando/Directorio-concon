@@ -1,7 +1,7 @@
 /**
  * Core Place entity — pure TypeScript, zero framework deps.
  *
- * Matches docs/data-model.md §places exactly.
+ * Matches docs/data-model/data-model.md §places exactly.
  * Timestamps use `Date` in domain; Firestore adapter converts ↔ Timestamp.
  *
  * Updated by places-refactor (CH-03): replaced `status` + `verificado`

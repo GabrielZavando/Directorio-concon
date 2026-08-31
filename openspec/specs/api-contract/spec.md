@@ -12,8 +12,8 @@ The legacy value `'twitter'` was renamed to `'x-twitter'` (reflecting the 2023 p
 
 This contract is implemented in:
 
-- `docs/api-spec.yml` — `RedSocial.plataforma` declares `enum: [instagram, facebook, x-twitter, linkedin, tiktok, youtube]`.
-- `docs/data-model.md` — `RedSocial` value object documents `plataforma: PlataformaSocialEnum`, with the `PlataformaSocialEnum` union enumerated.
+- `docs/api/api-spec.yml` — `RedSocial.plataforma` declares `enum: [instagram, facebook, x-twitter, linkedin, tiktok, youtube]`.
+- `docs/data-model/data-model.md` — `RedSocial` value object documents `plataforma: PlataformaSocialEnum`, with the `PlataformaSocialEnum` union enumerated.
 - `backend/src/modules/places/domain/plataforma-social.enum.ts` — defines `PlataformaSocialEnum` and `PLATAFORMA_SOCIAL_VALUES`.
 - `backend/src/modules/places/domain/red-social.vo.ts` — `isValidRedSocial` rejects `plataforma` values not in the enum.
 - `backend/src/modules/places/infrastructure/dto/red-social.dto.ts` — `@IsEnum(PLATAFORMA_SOCIAL_VALUES)` replaces the previous `@IsString()`.
@@ -21,7 +21,7 @@ This contract is implemented in:
 This requirement is **consistent with the existing closed-enum convention** (`ServicioEnum`, `MetodoPagoEnum`, `PublicoObjetivoEnum`, `AccesibilidadEnum`, `NivelRuido`) — `RedSocial.plataforma` was the only catalogue-like field on a `places` value object that was previously free-string.
 
 #### Scenario: OpenAPI generator stubs honour the enum
-- **WHEN** a frontend (or third-party client) generates TypeScript types from `docs/api-spec.yml`
+- **WHEN** a frontend (or third-party client) generates TypeScript types from `docs/api/api-spec.yml`
 - **THEN** the `RedSocial.plataforma` field is typed as `'instagram' | 'facebook' | 'x-twitter' | 'linkedin' | 'tiktok' | 'youtube'` (not `string`), matching the backend domain enum
 - **AND** a value like `'whatsapp'` is a compile-time TypeScript error in the generated client
 
@@ -44,7 +44,7 @@ This change closes the loop: the runtime stub is removed. The same contract-leve
 
 This requirement is implemented in:
 
-- `docs/api-spec.yml`:
+- `docs/api/api-spec.yml`:
   - `CreatePlace` schema does not list `usuarioId` (enforced since `roles-rename`; this change re-confirms).
   - `CreateEvento` schema does not list `usuarioId` (already true since `eventos-crud`; this change re-confirms and documents the runtime sourcing from the JWT in the `security` block on the `POST /eventos` path).
   - The new `UpdatePerfil` (for `PUT /usuarios/me`) schema lists only `{ nombre?, telefono? }` — no `rol`, no `placeId`.
@@ -75,12 +75,12 @@ The `Place` and `Evento` response schemas still expose `usuarioId` as a read-onl
 - **AND** the admin's actual `uid` (the JWT `uid`) is what gets persisted on `solicitud.revisadoPor` (server-derived via `@CurrentUser()`)
 
 #### Scenario: Frontend OpenAPI generator stops emitting usuarioId on create forms
-- **WHEN** a frontend generates a `CreatePlace` or `CreateEvento` model from `docs/api-spec.yml`
+- **WHEN** a frontend generates a `CreatePlace` or `CreateEvento` model from `docs/api/api-spec.yml`
 - **THEN** the generated model does not include a `usuarioId` field
 - **AND** any form bound to this model does not display a `usuarioId` input — the field is a render artifact of the previous spec
 
 ### Requirement: `bearerAuth` security applied to protected paths
-The system SHALL declare the `bearerAuth` security scheme (already defined in `docs/api-spec.yml`) as the security requirement on every protected path, and SHALL leave it absent on the anonymous-accessible discovery paths. The OpenAPI contract reflects the runtime enforcement introduced by the `auth` module's `JwtAuthGuard` + `RolesGuard` composition.
+The system SHALL declare the `bearerAuth` security scheme (already defined in `docs/api/api-spec.yml`) as the security requirement on every protected path, and SHALL leave it absent on the anonymous-accessible discovery paths. The OpenAPI contract reflects the runtime enforcement introduced by the `auth` module's `JwtAuthGuard` + `RolesGuard` composition.
 
 Protected paths (require `bearerAuth`):
 - `POST /api/v1/places` (rol `'owner'` — enforced by `RolesGuard`)
@@ -110,15 +110,15 @@ Anonymous-accessible paths (no `bearerAuth`, no role required — public discove
 - `GET /api/v1/eventos/{id}`
 - `GET /api/v1/eventos/slug/{slug}`
 
-**Runtime completion for `PUT`/`DELETE /places/{id}`**: the `docs/api-spec.yml` declarations for `PUT /places/{id}` and `DELETE /places/{id}` previously carried the caveat "fine-grained `owner`/`admin` guards introduced by a future `places-clean-arch-refactor` change". This change removes that caveat: both mutations are now gated at runtime by `@Roles('owner', 'admin')`, with the ownership rule (owners only their own place, admins any) enforced by `PlacesService`. The `403` response is documented on both operations.
+**Runtime completion for `PUT`/`DELETE /places/{id}`**: the `docs/api/api-spec.yml` declarations for `PUT /places/{id}` and `DELETE /places/{id}` previously carried the caveat "fine-grained `owner`/`admin` guards introduced by a future `places-clean-arch-refactor` change". This change removes that caveat: both mutations are now gated at runtime by `@Roles('owner', 'admin')`, with the ownership rule (owners only their own place, admins any) enforced by `PlacesService`. The `403` response is documented on both operations.
 
 #### Scenario: OpenAPI description lists bearerAuth on protected POST endpoints
-- **WHEN** a stakeholder opens `docs/api-spec.yml`
+- **WHEN** a stakeholder opens `docs/api/api-spec.yml`
 - **THEN** the `POST /api/v1/places`, `POST /api/v1/eventos`, `POST /api/v1/solicitudes/{id}/approve`, `POST /api/v1/usuarios`, etc. declare `security: [{ bearerAuth: [] }]` at the operation level
 - **AND** the `GET /api/v1/places`, `GET /api/v1/eventos`, `GET /api/v1/places/map-data`, `GET /api/v1/eventos/map-data`, etc. declare `security: []` at the operation level (anonymous-accessible)
 
 #### Scenario: OpenAPI description lists bearerAuth on PUT and DELETE places
-- **WHEN** a stakeholder opens `docs/api-spec.yml`
+- **WHEN** a stakeholder opens `docs/api/api-spec.yml`
 - **THEN** `PUT /api/v1/places/{id}` and `DELETE /api/v1/places/{id}` declare `security: [{ bearerAuth: [] }]` at the operation level
 - **AND** their descriptions document the `owner`/`admin` ownership rule (owner only their own place, admin any) and a `403` response — with NO reference to a deferred `places-clean-arch-refactor` change
 
@@ -135,31 +135,31 @@ Anonymous-accessible paths (no `bearerAuth`, no role required — public discove
 - **AND** the place document is NOT removed
 
 #### Scenario: Frontend OpenAPI generator emits authenticated client for protected paths
-- **WHEN** a frontend generates a TypeScript client from `docs/api-spec.yml`
+- **WHEN** a frontend generates a TypeScript client from `docs/api/api-spec.yml`
 - **THEN** the generated client's `createPlace`, `createEvento`, `approveSolicitud`, `updatePerfil`, `updatePlace`, `deletePlace`, etc. functions type-require an `Authorization` header (or a configurable token)
 - **AND** the generated `listPlaces`, `listEventos`, `getEventoBySlug`, etc. functions do NOT require authentication
 
 ### Requirement: Public self-registration endpoint
-The API SHALL expose `POST /api/v1/auth/registro` as a public endpoint (`security: []` in `docs/api-spec.yml`), documented with:
+The API SHALL expose `POST /api/v1/auth/registro` as a public endpoint (`security: []` in `docs/api/api-spec.yml`), documented with:
 
 - **Request body** `RegisterDto`: `{ email: string (format: email), password: string (minLength: 8), nombre: string (minLength: 2, maxLength: 100), rol: string (enum: [member, owner]) }`.
 - **Responses**: `201` → `{ uid, email, rol, nombre }`; `400` → validation error (whitelist + enum violations, incl. `rol: 'admin'`); `409` → email already registered; `500` → internal failure (with server-side compensating rollback of the Auth user).
 
 #### Scenario: Contract documents the public endpoint
-- **WHEN** a consumer reads `docs/api-spec.yml`
+- **WHEN** a consumer reads `docs/api/api-spec.yml`
 - **THEN** `POST /auth/registro` is listed with `security: []` (public) and the `RegisterDto` schema with the closed enum `[member, owner]`
 - **AND** no field named `placeId` appears in the `Usuario` schema
 
 #### Scenario: Admin provisioning endpoint is retired from the contract
 - **WHEN** any client calls `POST /api/v1/usuarios` (even with a valid admin Bearer token)
 - **THEN** the response is `404` — the route no longer exists (admin provisioning is replaced by public self-registration via `POST /auth/registro`; the first admin is bootstrapped by the `seed-admin` script directly against Firebase)
-- **AND** the `POST /usuarios` path and the `CreateUsuario` schema no longer appear in `docs/api-spec.yml`
+- **AND** the `POST /usuarios` path and the `CreateUsuario` schema no longer appear in `docs/api/api-spec.yml`
 
 ### Requirement: Usuarios role-change contract is restricted to admin/member targets
 The `PUT /api/v1/usuarios/{uid}/rol` endpoint SHALL remain admin-only (`security: [{ bearerAuth: [] }]`) and its request body schema `UpdateRol` SHALL declare `rol` with `enum: [admin, member]`. The value `owner` SHALL NOT be an accepted target; requests carrying it fail validation with `400`.
 
 #### Scenario: OpenAPI enum matches backend validation
-- **WHEN** a client generates types from `docs/api-spec.yml`
+- **WHEN** a client generates types from `docs/api/api-spec.yml`
 - **THEN** `UpdateRol.rol` is typed as `'admin' | 'member'`
 - **AND** a runtime request `{ rol: 'owner' }` receives `400` from the backend whitelist validation
 

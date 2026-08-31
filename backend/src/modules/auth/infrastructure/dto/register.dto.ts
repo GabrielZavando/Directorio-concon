@@ -10,7 +10,7 @@
  * Referencias:
  *  - class-validator rules (minLength, MaxLength, IsIn)
  *  - type guard `isRol` en `auth.service.ts` para validación server-side
- *  - OpenSpec `RegisterRol` enum en `docs/api-spec.yml`
+ *  - OpenSpec `RegisterRol` enum en `docs/api/api-spec.yml`
  */
 import {
   IsEmail,

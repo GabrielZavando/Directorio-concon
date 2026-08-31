@@ -17,8 +17,8 @@ Directorio/
 │   ├── Dockerfile
 │   └── docker-compose.prod.yml
 ├── ai-specs/         # Agentes y skills de OpenCode (NO editar)
-├── docs/             # Estándares SDD + api-spec.yml + data-model.md
-├── .github/          # CI/CD (ci.yml, deploy.yml) + instrucciones
+├── docs/             # Estándares SDD + api/ + data-model/ + project/
+├── .github/          # CI/CD (ci.yml, deploy.yml)
 ├── AGENTS.md         # Instrucciones de OpenCode
 ├── opencode.json     # Comandos SDD (/plan-change, /apply, ...)
 └── Makefile          # Interface CI stack-agnostic (make lint/test/build/audit)
@@ -44,7 +44,7 @@ openspec init                    # inicializar .openspec/
 ```
 
 Documentación canónica: `docs/base-standards.md`, `docs/backend-standards.md`,
-`docs/data-model.md`, `docs/api-spec.yml`, `docs/deploy-standards.md`.
+`docs/data-model/data-model.md`, `docs/api/api-spec.yml`, `docs/deploy-standards.md`.
 
 ## Backend — quick start
 

@@ -1,7 +1,7 @@
 /**
  * Core Evento entity — pure TypeScript, zero framework deps.
  *
- * Matches docs/data-model.md §eventos exactly.
+ * Matches docs/data-model/data-model.md §eventos exactly.
  * Timestamps use `Date` in domain; Firestore adapter converts ↔ Timestamp.
  */
 import type { EventoStatus } from "./evento-status.enum";

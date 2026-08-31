@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: SOLID-compliant exception filter
-The `AllExceptionsFilter` SHALL keep cognitive complexity and cyclomatic complexity at or below 10 per method, and SHALL NOT use `any` casts. It MUST preserve the documented error response envelope (`success`, `statusCode`, `error`, `message`, `timestamp`, `path`, `method`) defined in `docs/api-spec.yml`.
+The `AllExceptionsFilter` SHALL keep cognitive complexity and cyclomatic complexity at or below 10 per method, and SHALL NOT use `any` casts. It MUST preserve the documented error response envelope (`success`, `statusCode`, `error`, `message`, `timestamp`, `path`, `method`) defined in `docs/api/api-spec.yml`.
 
 #### Scenario: HttpException with string response
 - **WHEN** an `HttpException` whose `getResponse()` returns a string is thrown

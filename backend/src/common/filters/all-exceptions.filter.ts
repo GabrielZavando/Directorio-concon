@@ -9,7 +9,7 @@ import {
 import { Request, Response } from "express";
 
 // SOLID: typed contract for the documented error response envelope
-// (mirrors docs/api-spec.yml `Error` schema).
+// (mirrors docs/api/api-spec.yml `Error` schema).
 interface ApiErrorResponse {
   success: false;
   statusCode: number;
