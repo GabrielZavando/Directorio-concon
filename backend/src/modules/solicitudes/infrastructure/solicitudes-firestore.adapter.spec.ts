@@ -253,7 +253,15 @@ describe("SolicitudesFirestoreAdapter", () => {
           },
         ],
       });
-      mockFirebase.getFirestore.mockReturnValue({ collection: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ get: mockGet }) }) }) }) });
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({ get: mockGet }),
+            }),
+          }),
+        }),
+      });
 
       const result = await adapter.findPendingReclamosByPlaceId("place-1");
 
@@ -265,7 +273,15 @@ describe("SolicitudesFirestoreAdapter", () => {
 
     it("returns empty array when no reclamos exist", async () => {
       const mockGet = jest.fn().mockResolvedValue({ docs: [] });
-      mockFirebase.getFirestore.mockReturnValue({ collection: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ where: jest.fn().mockReturnValue({ get: mockGet }) }) }) }) });
+      mockFirebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({ get: mockGet }),
+            }),
+          }),
+        }),
+      });
 
       const result = await adapter.findPendingReclamosByPlaceId("place-999");
 

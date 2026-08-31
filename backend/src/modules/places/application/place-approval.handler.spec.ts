@@ -35,10 +35,7 @@ describe("PlaceApprovalHandlerImpl", () => {
       findPendingReclamosByPlaceId: jest.fn(),
     } as unknown as jest.Mocked<SolicitudesRepositoryInterface>;
 
-    handler = new PlaceApprovalHandlerImpl(
-      mockPlaceRepo,
-      mockSolicitudRepo,
-    );
+    handler = new PlaceApprovalHandlerImpl(mockPlaceRepo, mockSolicitudRepo);
   });
 
   describe("approveRegistro", () => {
@@ -80,15 +77,12 @@ describe("PlaceApprovalHandlerImpl", () => {
       });
 
       // Auto-reject the other reclamo
-      expect(mockSolicitudRepo.update).toHaveBeenCalledWith(
-        "solicitud-other",
-        {
-          status: "rechazado",
-          comentarios: "Rechazado automáticamente: otro reclamo fue aprobado",
-          revisadoPor: "admin-uid",
-          revisadoAt: expect.any(Date),
-        },
-      );
+      expect(mockSolicitudRepo.update).toHaveBeenCalledWith("solicitud-other", {
+        status: "rechazado",
+        comentarios: "Rechazado automáticamente: otro reclamo fue aprobado",
+        revisadoPor: "admin-uid",
+        revisadoAt: expect.any(Date),
+      });
     });
 
     it("does not call update on solicitudRepo when no other pending reclamos", async () => {
