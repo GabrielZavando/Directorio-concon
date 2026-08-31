@@ -1,7 +1,7 @@
 # Requirements Example — User Registration
 
 > Functional and technical requirements for a user registration feature.
-> Use these as templates when creating `.openspec/<ticket>/requirements.md`.
+> Use these as templates when creating `openspec/<ticket>/requirements.md`.
 
 ## REQ-001: User Registration Endpoint
 

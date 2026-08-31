@@ -1,0 +1,28 @@
+# Reference Ruff config for Python projects instantiated from Specboot.
+# Merge into your project's ruff.toml / pyproject.toml [tool.ruff] section.
+# Enforces the same SRP/encapsulation spirit as the backend ESLint config
+# (Ticket 1 backend thresholds: max-lines 300, complexity 10).
+
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "C90",  # mccabe (complexity)
+  "I",    # isort
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "SIM",  # flake8-simplify
+]
+ignore = [
+  "E501",  # line length handled by formatter, not lint
+]
+
+[lint.mccabe]
+# Mirrors backend complexity = 10 (Ticket 1)
+max-complexity = 10
+
+[format]
+quote-style = "double"

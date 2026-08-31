@@ -1,117 +1,92 @@
-#!/usr/bin/env bash
-# check-refs.sh — Referential integrity check for the SDD template.
-#
-# Verifies that every {file:...} reference found in opencode.json and in all
-# SKILL.md files resolves to an existing file (relative to the repository root).
-# Broken references are reported as errors and make the script exit non-zero.
-#
-# Usage:
-#   bash check-refs.sh [--root DIR]   Check references (default: repo root)
-#   bash check-refs.sh --help         Show this help
+#!/bin/bash
+# check-refs.sh - Validate {file:...} references and skill registration in AGENTS.md
 
-# Run from the repository root unless --root is provided.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$SCRIPT_DIR"
+set -e
 
+# Allow running against a specific root directory (used by tests/fixtures).
+# Usage: bash check-refs.sh [--root <dir>]
+ROOT_DIR="."
 while [ $# -gt 0 ]; do
   case "$1" in
-    --root) ROOT="$2"; shift 2 ;;
-    --help|-h) sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "Opción desconocida: $1"; exit 2 ;;
+    --root) ROOT_DIR="${2:-.}"; shift 2 ;;
+    *) shift ;;
   esac
 done
+if [ ! -d "$ROOT_DIR" ]; then
+  echo "❌ Root directory not found: $ROOT_DIR"
+  exit 1
+fi
+cd "$ROOT_DIR"
 
-cd "$ROOT" || { echo "No se pudo acceder a $ROOT"; exit 2; }
+echo "🔍 Validating references and skill registration... (root: $ROOT_DIR)"
 
-# Do NOT use 'set -e': this script counts errors and must keep running.
-set -uo pipefail
+errors=0
+files_checked=0
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m'
-
-ERRORS=0
-CHECKED=0
-SKILLS_SCANNED=0
-
-pass() { echo -e "  ${GREEN}✓${NC} $1"; }
-fail() { echo -e "  ${RED}✗${NC} $1"; ERRORS=$((ERRORS + 1)); }
-
-# Extract the path inside every {file:...} token in a file (deduplicated).
-extract_file_refs() {
-  local file="$1"
-  [ -f "$file" ] || return 0
-  grep -oE '\{file:[^}]+\}' "$file" 2>/dev/null | sed -E 's/^\{file:(.+)\}$/\1/' | sort -u
-}
-
-# Verify one reference and count it.
+# Function to check a single file reference
 check_ref() {
-  local ref="$1"
-  [ -z "$ref" ] && return
-  CHECKED=$((CHECKED + 1))
-  if [ -f "$ref" ]; then
-    pass "$ref"
+  local ref=$1
+  files_checked=$((files_checked + 1))
+  
+  if [ ! -f "$ref" ]; then
+    echo "❌ Missing file: $ref"
+    errors=$((errors + 1))
   else
-    fail "Referencia rota: {file:$ref} (no existe)"
+    echo "✅ Found: $ref"
   fi
 }
 
-echo "🔗 Zavando Specboot — Reference Integrity"
-echo "========================================="
-echo "Root: $ROOT"
 echo ""
+echo "Step 1/3: Checking {file:...} references in opencode.json..."
 
-echo "→ Verificando {file:...} en opencode.json..."
-if [ ! -f "opencode.json" ]; then
-  fail "opencode.json no encontrado en $ROOT"
-else
+# Extract all {file:...} patterns from opencode.json (POSIX-compatible)
+if [ -f "opencode.json" ]; then
   while IFS= read -r ref; do
+    [ -z "$ref" ] && continue
     check_ref "$ref"
-  done <<< "$(extract_file_refs opencode.json)"
+  done < <(grep -oE '\{file:[^}]+\}' opencode.json | sed -E 's/^\{file:(.+)\}$/\1/' | sort -u)
 fi
 
 echo ""
-echo "→ Verificando {file:...} en SKILL.md..."
-while IFS= read -r skill; do
-  [ -z "$skill" ] && continue
-  SKILLS_SCANNED=$((SKILLS_SCANNED + 1))
-  while IFS= read -r ref; do
-    check_ref "$ref"
-  done <<< "$(extract_file_refs "$skill")"
-done <<< "$(find ai-specs/skills -type f -name SKILL.md 2>/dev/null | sort)"
+echo "Step 2/3: Checking {file:...} references in ai-specs/**/*.md and .opencode/**/*.md..."
 
-# Every skill folder under ai-specs/skills/*/ must be mentioned (as a substring)
-# in AGENTS.md. AGENTS.md is auto-loaded by opencode.json's instructions[], so a
-# skill whose folder name is absent there has no trigger to match against — which
-# silently breaks the "load the skill automatically" mechanism. This guards that.
+# Extract all {file:...} patterns from ai-specs/**/*.md and .opencode/**/*.md (POSIX, escaped braces)
+while IFS= read -r file; do
+  while IFS= read -r ref; do
+    [ -z "$ref" ] && continue
+    check_ref "$ref"
+  done < <(grep -oE '\{file:[^}]+\}' "$file" 2>/dev/null | sed -E 's/^\{file:(.+)\}$/\1/' | sort -u)
+done < <(find ai-specs .opencode -name '*.md' -type f 2>/dev/null)
+
 echo ""
-echo "→ Verificando que cada carpeta de skill aparezca en AGENTS.md..."
+echo "Step 3/3: Checking skill registration in AGENTS.md..."
+
+# Verify each skill folder appears in AGENTS.md
 if [ ! -f "AGENTS.md" ]; then
-  fail "AGENTS.md no encontrado en $ROOT"
+  echo "❌ AGENTS.md not found"
+  errors=$((errors + 1))
 else
-  while IFS= read -r skill_dir; do
-    [ -z "$skill_dir" ] && continue
-    skill_name="$(basename "$skill_dir")"
-    if grep -qF "$skill_name" AGENTS.md 2>/dev/null; then
-      pass "$skill_name mencionado en AGENTS.md"
-    else
-      fail "Skill '$skill_name' (ai-specs/skills/$skill_name) no aparece en AGENTS.md"
+  for skill_dir in ai-specs/skills/*/; do
+    if [ -d "$skill_dir" ]; then
+      skill_name=$(basename "$skill_dir")
+      if grep -q "$skill_name" AGENTS.md; then
+        echo "✅ Skill registered in AGENTS.md: $skill_name"
+      else
+        echo "❌ Skill NOT registered in AGENTS.md: $skill_name"
+        errors=$((errors + 1))
+      fi
     fi
-  done <<< "$(find ai-specs/skills -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort)"
+  done
 fi
 
+# Summary
 echo ""
-echo "========================================="
-echo -e "  ${RED}Errores: $ERRORS${NC}"
-echo "  Refs verificadas: $CHECKED"
-echo "  SKILL.md escaneados: $SKILLS_SCANNED"
+echo "📊 Summary: Checked $files_checked file references, found $errors errors"
 
-if [ "$ERRORS" -gt 0 ]; then
-  echo ""
-  echo -e "${RED}❌ Integridad referencial fallida${NC}"
+if [ $errors -gt 0 ]; then
+  echo "❌ Validation failed: $errors errors found"
   exit 1
 fi
 
-echo ""
-echo -e "${GREEN}✅ Integridad referencial correcta${NC}"
+echo "✅ All validations passed"
 exit 0

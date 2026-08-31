@@ -1,0 +1,12 @@
+{
+  "frameworkVersion": "0.1.2",
+  "name": "directorio-concon",
+  "description": "Directorio de Empresas de Concón (Chile) — backend NestJS + frontend Angular",
+  "services": ["backend", "frontend"],
+  "stack": "node",
+  "extraStandards": ["docs/DESIGN.md", "docs/ci-standards.md"],
+  "layers": {
+    "backend": ["domain", "application", "infrastructure"],
+    "frontend": ["smart", "dumb"]
+  }
+}

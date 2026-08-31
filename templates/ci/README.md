@@ -17,6 +17,26 @@
 | `.dependency-cruiser.js` | NestJS / Node | `dependency-cruiser` | **DIP** (regla mecánica directa) |
 | `.madge.config.json` | Angular | `madge` | Detección de dependencias circulares (aux) |
 | `package.ci.json` | — | — | Snapshot de `devDependencies` para instalar |
+| `ruff.toml` | Python | `ruff` | SRP (max-lines 100), complejidad 10 (McCabe) |
+| `.importlinter` | Python (Django/LangChain) | `import-linter` | **DIP** (views/api no importan ORM; domain no importa infra) |
+
+> **Stack-agnostic + stack-aware:** `make solid-lint` reads the `stack` field from
+> `.specboot.json` (string or array; normalized to lower-case tokens). It runs the
+> Node toolchain only when `stack` contains `node`, and the Python toolchain only
+> when `stack` contains `python`. If `stack` declares neither `node` nor `python`
+> (e.g. `"framework"`), the app linters are **skipped cleanly and the target exits
+> 0** — this is the documented, intentional behavior for repos that carry no
+> application code (the Specboot Metadoc repo itself declares `stack: "framework"`).
+>
+> When `.specboot.json` is absent, the legacy detection applies: Node if
+> `package.json` exists, Python if `pyproject.toml` / `requirements.txt` exists. If
+> application code exists (`src/` or `app/`) but no config applies, it **fails
+> loudly** instead of skipping silently.
+>
+> **ESLint is pinned to v8** (`npx eslint@8`) in every invocation to avoid an
+> unexpected pull of ESLint v9/v10 (flat config), which rejects the legacy
+> `.eslintrc` `root: true` declared in `eslintrc.*.js`. Consumer `package.json`
+> files already pin `eslint: "^8.57.0"`, so this only hardens the Metadoc/CI path.
 
 Static analysis can **only mechanically verify DIP** (via dependency-cruiser) and
 **numerical thresholds** (lines, complexity). OCP, LSP, ISP are *not* directly
@@ -50,6 +70,24 @@ npm install
 
 # Then wire these into your CI — see docs/ci-standards.md for the exact steps.
 ```
+
+### Python project (Django / LangChain / FastAPI)
+
+```bash
+# From the root of your Specboot-instantiated Python project:
+cp templates/ci/ruff.toml          ruff.toml
+cp templates/ci/.importlinter      .importlinter
+
+# Install the analysis tools (add to your requirements.txt / pyproject):
+pip install "ruff" "import-linter[config]+"
+
+# Then run: make solid-lint  (auto-detects pyproject.toml / requirements.txt)
+```
+
+> The `.importlinter` rule forbids `app.views` / `app.api` from importing
+> `app.models` directly (route through `app.services`), and forbids `app.domain`
+> from importing `django.db` / `sqlalchemy` / `langchain` — the Python equivalent
+> of the Node DIP rule in `.dependency-cruiser.js`.
 
 ## Notes on honest limitations
 

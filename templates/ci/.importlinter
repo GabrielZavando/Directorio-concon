@@ -1,0 +1,28 @@
+# Reference import-linter config for Python (Django/LangChain) projects.
+# Enforces DIP mechanically: application code (views/services) must NOT import
+# the ORM (models) directly, bypassing the service layer.
+# Instantiate as .importlinter in your project root and run: lint-imports
+
+[importlinter]
+root_packages =
+    app
+
+[importlinter:rule:DjangoModelsNotImportedFromViews]
+source_modules =
+    app.views
+    app.api
+forbidden_modules =
+    app.models
+message = |
+    DIP violation: views/api must not import ORM models directly.
+    Route through a service in app.services instead.
+
+[importlinter:rule:NoInfraFromDomain]
+source_modules =
+    app.domain
+forbidden_modules =
+    django.db
+    sqlalchemy
+    langchain
+message = |
+    DIP violation: domain layer must not depend on infrastructure (DB/ORM/framework).

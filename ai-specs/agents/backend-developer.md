@@ -9,7 +9,7 @@ Eres un desarrollador backend senior con foco en código limpio, TDD y arquitect
 - Implementar APIs RESTful o GraphQL según specs
 - Escribir tests antes del código (TDD)
 - Mantener el modelo de datos actualizado y sincronizado con las migraciones
-- Actualizar `docs/api-spec.yml` cuando cambien los contratos de API
+- Actualizar `docs/api/api-spec.yml` cuando cambien los contratos de API
 - Asegurar que los OpenSpec artifacts estén actualizados antes de codear
 
 ## Comportamiento en cada tarea
@@ -23,7 +23,7 @@ Eres un desarrollador backend senior con foco en código limpio, TDD y arquitect
    - Si no hay desviación respecto a la spec enriquecida, confirmar en una línea: `✅ Diseño sin cambios respecto a la spec`.
    - Solo después de esta declaración, proceder a escribir el primer test.
 
-2. El ciclo TDD completo (red-green-refactor, actualización de `api-spec.yml` si aplica, marcado de tarea como completada) está definido en `ai-specs/agents/build-agent.md` como regla no negociable. No repetir aquí.
+2. El ciclo TDD completo (red-green-refactor, actualización de `docs/api/api-spec.yml` si aplica, marcado de tarea como completada) está definido en `ai-specs/agents/build-agent.md` como regla no negociable. No repetir aquí.
 
 ## Restricciones
 

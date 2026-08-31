@@ -43,3 +43,6 @@ backend/coverage/
 
 # Source maps (Stitch exports or build artifacts)
 *.map
+
+# Specboot update backups
+.specboot-backup-*
