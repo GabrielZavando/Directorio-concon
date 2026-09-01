@@ -932,6 +932,28 @@ components:
           type: string
           maxLength: 500
 
+    SolicitudDto:
+      type: object
+      required: [placeId, solicitanteUid, tipo, status, usuarioId]
+      properties:
+        placeId:
+          type: string
+          description: Reference to a places document; REQUIRED
+        solicitanteUid:
+          type: string
+          description: Firebase Auth UID of the caller; REQUIRED
+        tipo:
+          type: string
+          enum: [reclamo-place]
+          description: Solicitud type; only 'reclamo-place' is valid
+        status:
+          type: string
+          enum: [pendiente, aprobado, rechazado]
+          description: Solicitud status; default 'pendiente' on create
+        usuarioId:
+          type: string
+          description: Firebase Auth UID of the publisher; REQUIRED
+
     Subcategoria:
       type: object
       required: [slug, nombre]
@@ -2308,7 +2330,63 @@ paths:
         "404":
           $ref: '#/components/schemas/Error'
 
-  # — solicitudes approve/reject paths (change auth-usuarios) —
+  # — solicitudes admin queue (change solicitudes-refactor CH-05) —
+
+  /solicitudes:
+    get:
+      summary: Listar cola de solicitudes (admin-only)
+      security:
+        - bearerAuth: []
+      description: |
+        Admin-only (`@Roles('admin')` enforced by `RolesGuard`, inherited at
+        controller class level). Returns only solicitudes with
+        `tipo === 'reclamo-place'`, filtered by `status`, paginated by
+        `page`/`limit`, in the         `{ data, meta }` envelope. Backed by
+        `SolicitudesService.listarSolicitudes` → `findPendingQueue` on the
+        repository (composite index `solicitudes: tipo + status + createdAt`).
+        Replaces the legacy `GET /solicitudes` listing removed in earlier
+        changes; approves/rejects are the `/approve`/`/reject` endpoints below.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pendiente, aprobado, rechazado]
+          description: Filter by status. Defaults to `pendiente`.
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Cola de solicitudes paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SolicitudDto'
+                  meta:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      limit: { type: integer }
+                      total: { type: integer }
+        "401":
+          $ref: '#/components/schemas/Error'
+        "403":
+          description: Caller's `rol` is not `'admin'`.
+          $ref: '#/components/schemas/Error'
+
+  # — solicitudes approve/reject paths (change auth-usuarios) -
 
   /solicitudes/{id}/approve:
     post:

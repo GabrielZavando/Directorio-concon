@@ -156,8 +156,9 @@
       "collectionGroup": "solicitudes",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "eventoId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {

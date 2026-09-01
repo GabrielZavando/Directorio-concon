@@ -138,13 +138,12 @@
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
 | id | string (PK) | ID documento |
-| placeId | string? (ref) | Place asociado (nullable para solicitudes de eventos; XOR con `eventoId`) |
-| eventoId | string? (ref) | Evento asociado (nullable para solicitudes de places; XOR con `placeId`) |
-| usuarioId | string (ref) | Usuario creador |
-| tipo | enum | `registro` \| `actualizacion` \| `registro-evento` \| `actualizacion-evento` \| `reclamo-place` |
+| placeId | string (ref) | Place asociado. **REQUERIDO** (único campo de referencia; `eventoId` fue removido en CH-05). |
+| usuarioId | string (ref) | Usuario creador. Para solicitudes `reclamo-place` creadas vía `POST /places/:id/reclamar`, espeja `place.usuarioId` al momento del reclamo. |
+| tipo | enum | `reclamo-place` — único tipo válido tras el change `solicitudes-refactor` (CH-05). Los tipos `registro`, `actualizacion`, `registro-evento`, `actualizacion-evento` fueron removidos físicamente. |
 | status | enum | `pendiente` \| `aprobado` \| `rechazado` |
-| proposal | object? | Staging de updates para `tipo: 'actualizacion-evento'` (JSON con los campos a aplicar al aprobar). Null para los demás `tipo`. |
-| solicitanteUid | string? | UID del caller que reclama el place. **REQUERIDO** cuando `tipo === 'reclamo-place'`. |
+| solicitanteUid | string | UID del caller que reclama el place. **REQUERIDO** para todos los tipos. |
+| comentarios | string? | Comentarios |
 | comentarios | string? | Comentarios |
 | revisadoPor | string? | UID del admin que aprobó/rechazó. MUST resolver a un `usuarios.id` con `rol === 'admin'`. Tras el change `auth-usuarios`, la validación runtime está garantizada por el `RolesGuard` con `@Roles('admin')` en los endpoints `POST /solicitudes/:id/approve|reject` del nuevo `SolicitudesController` (ver "Authentication debt — [CLOSED]" en §usuarios). |
 | createdAt | Timestamp | Creación |
@@ -154,7 +153,9 @@
 >
 > **Nota (módulo eventos — cambio por `eventos-refactor`):** la auto-creación de solicitudes al crear/actualizar eventos fue **eliminada**. El evento se crea con `activo: true` y `estadoVerificacion: 'pendiente'`, y es visible públicamente inmediatamente. El owner edita su evento en cualquier momento (edición in-place); si el evento estaba `verificado`, la edición lo revierte a `pendiente` (mismo write) y registra el diff en `cambios[]`. La verificación admin se hace vía `POST /eventos/:id/verificar` (sin generar `solicitudes` — el tipo `registro-evento`/`actualizacion-evento` quedó deprecado; su eliminación física ocurre en el change `solicitudes-refactor`).
 >
-> **Constraint XOR (solicitudes):** una `solicitud` referencia `placeId` **O** `eventoId`, nunca ambos (validado en `SolicitudesService`). Los tipos `registro-evento`/`actualizacion-evento` (que usaban `eventoId`) quedan deprecated y ya no se crean desde `eventos`; `eventoId` se mantiene solo para lectura de documentos legacy hasta CH-05.
+> **Constraint referencia (solicitudes):** tras CH-05 `solicitudes-refactor`, una `solicitud` referencia **solo** `placeId` (único campo de referencia; `eventoId` y `proposal` fueron removidos físicamente). `SolicitudesService` valida que `placeId` esté presente y rechaza `eventoId` con `400` (campo removido). Los documentos legacy con tipos deprecated/sin `solicitanteUid` fueron migrados por `backend/scripts/migrate-solicitudes.ts` (política DELETE + backfill).
+>
+> **Cola admin:** `GET /api/v1/solicitudes?status=pendiente` (admin-only) lista solo solicitudes `tipo === 'reclamo-place'`, paginada (`page`/`limit`), en envelope `{ data, meta }`. Requiere índice compuesto `solicitudes: tipo + status + createdAt`.
 
 ### eventos
 | Campo | Tipo | Descripción |
@@ -261,7 +262,7 @@
 - `placeId` (si presente) debe referenciar un `places` existente con `activo: true`.
 - `usuarioId` es REQUIRED; se setea desde el token Firebase Auth verificado (no se acepta en el DTO).
 - Todo evento nuevo se crea con `status: 'pendiente'`, `estado: 'borrador'` y genera automáticamente una `solicitud` con `tipo: 'registro-evento'`, `status: 'pendiente'`, `eventoId` apuntando al nuevo evento.
-- Editar un evento con `status: 'aprobado'` NO aplica cambios in-place: genera una `solicitud` con `tipo: 'actualizacion-evento'`, `status: 'pendiente'`, `eventoId`, `usuarioId`, `proposal` (objeto JSON con los campos staging). El evento visible al público permanece sin cambios hasta que el admin aprueba la solicitud.
+> **Nota de actualización (CH-04/CH-05):** El ciclo de aprobación de eventos vía `solicitudes` (`registro-evento`, `actualizacion-evento`, `eventoId`, `proposal`) fue **removido**. Los eventos se gestionan in-place con `estadoVerificacion: 'pendiente'|'verificado'|'rechazado'` (ver §eventos). La sección a continuación se conserva como registro histórico pre-CH-05.
 - Editar un evento con `status !== 'aprobado'` (`pendiente` o `rechazado`) aplica in-place sin generar nueva `solicitud`.
 - Rol `owner` solo gestiona sus propios eventos (`evento.usuarioId === uid token`); caso contrario → `403`.
 - Rol `admin` gestiona cualquier evento.
@@ -320,12 +321,11 @@ eventos: slug (ASC) — único
 eventos: usuarioId (ASC) + createdAt (DESC)
 eventos: fechaInicio (ASC) + estado (ASC)
 
-# solicitudes (existentes)
-solicitudes: eventoId (ASC) + status (ASC) — pendientes por evento, `DELETE /eventos/{id}`
-
-# solicitudes [+] — declarados por places-auth-fix
+# solicitudes (CH-05 — post-solicitudes-refactor)
 solicitudes: placeId (ASC) + status (ASC) — pendientes por place, `DELETE /places/{id}`
-solicitudes: status (ASC) + createdAt (DESC) — futura cola de revisión admin
+solicitudes: status (ASC) + createdAt (DESC)
+solicitudes: tipo (ASC) + status (ASC) + createdAt (DESC) — cola admin `GET /solicitudes?status=pendiente`
+# [REMOVED en CH-05] solicitudes: eventoId (ASC) + status (ASC) — campo `eventoId` eliminado
 
 # eventos [+] — declarados por places-auth-fix
 eventos: status (ASC) + estado (ASC) + fechaInicio (ASC) — público `findAllPublic`

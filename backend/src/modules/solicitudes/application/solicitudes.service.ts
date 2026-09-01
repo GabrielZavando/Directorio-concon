@@ -1,8 +1,11 @@
 /**
  * Application service for the Solicitud aggregate.
  *
- * Handles solicitud lifecycle: creation, approval, rejection.
- * Uses injected approval handlers (DIP) for updating associated entities.
+ * Handles solicitud lifecycle: creation, approval, rejection, and the admin
+ * queue listing. CH-05 (solicitudes-refactor): only `reclamo-place` remains.
+ *
+ * Depends (DIP) on `SolicitudesRepositoryInterface` and `PlaceApprovalHandler`
+ * (concrete impl provided by the places module).
  */
 import {
   BadRequestException,
@@ -15,25 +18,25 @@ import {
 } from "@nestjs/common";
 import type { SolicitudesRepositoryInterface } from "../domain/solicitudes-repository.interface";
 import { SOLICITUDES_REPOSITORY } from "../domain/solicitudes-repository.token";
-import type { Solicitud } from "../domain/solicitud.entity";
+import {
+  SOLICITUD_TIPO_RECLAMO_PLACE,
+  type Solicitud,
+} from "../domain/solicitud.entity";
 import type {
   SolicitudesServiceInterface,
-  CreateEventoSolicitudInput,
+  ListarSolicitudesFiltros,
+  ListaSolicitudesResult,
 } from "./solicitudes-service.interface";
-import type {
-  EventoApprovalHandler,
-  PlaceApprovalHandler,
-} from "./approval-handlers";
-import {
-  EVENTO_APPROVAL_HANDLER,
-  PLACE_APPROVAL_HANDLER,
-} from "./approval-handlers";
+import type { PlaceApprovalHandler } from "./approval-handlers";
+import { PLACE_APPROVAL_HANDLER } from "./approval-handlers";
 
-/** Domain message for the XOR invariant (placeId ⊕ eventoId, exactly one). */
-const XOR_REFERENCE_MESSAGE =
-  "Una solicitud debe referenciar exactamente un placeId o eventoId (XOR)";
+/** Message when a create input still carries the removed `eventoId` field. */
+const CAMPO_REMOVIDO_CH05 =
+  "El campo 'eventoId' ha sido removido en CH-05 solicitudes-refactor. Use placeId para solicitudes de tipo 'reclamo-place'.";
 
-const EVENTO_HANDLER_MISSING = "EventoApprovalHandler no está configurado";
+/** Message for invalid tipo in this phase. */
+const TIPO_NO_PERMITIDO_MSG =
+  "Tipo de solicitud no permitido en esta fase. Solo 'reclamo-place' es válido.";
 
 @Injectable()
 export class SolicitudesService implements SolicitudesServiceInterface {
@@ -42,67 +45,73 @@ export class SolicitudesService implements SolicitudesServiceInterface {
   constructor(
     @Inject(SOLICITUDES_REPOSITORY)
     private readonly repo: SolicitudesRepositoryInterface,
-    @Optional()
-    @Inject(EVENTO_APPROVAL_HANDLER)
-    private readonly eventoHandler?: EventoApprovalHandler,
+    // Optional: the places module provides the concrete handler (places
+    // imports solicitudes, but solicitudes does NOT import places — so the
+    // handler may be absent in the solicitudes module's own DI context).
     @Optional()
     @Inject(PLACE_APPROVAL_HANDLER)
     private readonly placeHandler?: PlaceApprovalHandler,
   ) {}
 
-  private assertXorConstraint(input: {
+  private requirePlaceHandler(): PlaceApprovalHandler {
+    if (!this.placeHandler) {
+      throw new Error("PlaceApprovalHandler no está configurado");
+    }
+    return this.placeHandler;
+  }
+
+  private assertOnlyReclamoPlace(input: {
     placeId?: string;
     eventoId?: string;
-    tipo: Solicitud["tipo"];
-  }): void {
-    const hasPlaceId = input.placeId !== undefined;
-    const hasEventoId = input.eventoId !== undefined;
-    const isEventoTipo = input.tipo.endsWith("-evento");
-    const exactlyOneReference = hasPlaceId !== hasEventoId;
-    const referenceMatchesTipo = hasPlaceId === !isEventoTipo;
-    if (!exactlyOneReference || !referenceMatchesTipo) {
-      throw new BadRequestException(XOR_REFERENCE_MESSAGE);
+    tipo?: Solicitud["tipo"];
+  }): asserts input is {
+    placeId: string;
+    tipo: typeof SOLICITUD_TIPO_RECLAMO_PLACE;
+  } {
+    if (input.eventoId !== undefined) {
+      throw new BadRequestException(CAMPO_REMOVIDO_CH05);
+    }
+    if (input.tipo !== SOLICITUD_TIPO_RECLAMO_PLACE) {
+      throw new BadRequestException(TIPO_NO_PERMITIDO_MSG);
+    }
+    if (input.placeId === undefined) {
+      throw new BadRequestException(TIPO_NO_PERMITIDO_MSG);
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Create (used by places service — via SolicitudesRepositoryInterface)
-  // -------------------------------------------------------------------------
-
-  /** Create a solicitud for a place (tipo: 'registro' | 'actualizacion'). */
+  /**
+   * Create a `reclamo-place` solicitud. Validates the CH-05 single-reference
+   * invariant: `eventoId` is rejected as removed, `placeId` is required, and
+   * only the `reclamo-place` tipo is accepted.
+   */
   async create(input: {
-    placeId?: string;
+    placeId: string;
     eventoId?: string;
     usuarioId: string;
     tipo: Solicitud["tipo"];
     status: "pendiente";
+    solicitanteUid: string;
     createdAt: Date;
   }): Promise<Solicitud> {
-    this.assertXorConstraint(input);
+    this.assertOnlyReclamoPlace(input);
     return this.repo.create(input);
   }
 
-  /** Check if a place has pending solicitudes. */
-  async existsByPlaceId(placeId: string): Promise<boolean> {
-    return this.repo.existsByPlaceId(placeId);
-  }
+  /** Admin queue listing (GET /solicitudes) — only `reclamo-place`, paginated. */
+  async listarSolicitudes(
+    filtros: ListarSolicitudesFiltros,
+  ): Promise<ListaSolicitudesResult> {
+    const status = filtros.status ?? "pendiente";
+    const page = filtros.page ?? 1;
+    const limit = filtros.limit ?? 20;
 
-  // -------------------------------------------------------------------------
-  // Create (used by eventos service — via SolicitudesServiceInterface)
-  // -------------------------------------------------------------------------
+    const { items, total } = await this.repo.findPendingQueue(
+      status,
+      page,
+      limit,
+    );
 
-  /** Create a solicitud for an evento (tipo: 'registro-evento' | 'actualizacion-evento'). */
-  async createEventoSolicitud(
-    input: CreateEventoSolicitudInput,
-  ): Promise<{ id: string }> {
-    this.assertXorConstraint(input);
-    const solicitud = await this.repo.create(input);
-    return { id: solicitud.id };
-  }
-
-  /** Check if an evento has pending solicitudes. */
-  async existsPendingByEventoId(eventoId: string): Promise<boolean> {
-    return this.repo.existsPendingByEventoId(eventoId);
+    return { data: items, meta: { page, limit, total } };
   }
 
   // -------------------------------------------------------------------------
@@ -111,10 +120,7 @@ export class SolicitudesService implements SolicitudesServiceInterface {
 
   /**
    * Approve a solicitud.
-   * - 'registro-evento': approves the associated evento
-   * - 'actualizacion-evento': applies the proposal to the evento
-   * - 'registro': approves the associated place
-   * - 'actualizacion': (future) applies changes to the place — not yet implemented
+   * - 'reclamo-place': assigns place.usuarioId = solicitanteUid and auto-rejects other pending reclamos same placeId.
    */
   async aprobarSolicitud(id: string, adminUid: string): Promise<Solicitud> {
     const solicitud = await this.repo.findById(id);
@@ -142,53 +148,22 @@ export class SolicitudesService implements SolicitudesServiceInterface {
     solicitud: Solicitud,
     adminUid: string,
   ): Promise<void> {
-    switch (solicitud.tipo) {
-      case "registro-evento":
-        if (!this.eventoHandler) {
-          throw new Error(EVENTO_HANDLER_MISSING);
-        }
-        await this.eventoHandler.approveRegistro(solicitud.eventoId!, adminUid);
-        break;
-      case "actualizacion-evento":
-        if (!this.eventoHandler) {
-          throw new Error(EVENTO_HANDLER_MISSING);
-        }
-        await this.eventoHandler.applyProposal(
-          solicitud.eventoId!,
-          solicitud.proposal ?? {},
-        );
-        break;
-      case "registro":
-        if (!this.placeHandler) {
-          throw new Error("PlaceApprovalHandler no está configurado");
-        }
-        await this.placeHandler.approveRegistro(solicitud.placeId!, adminUid);
-        break;
-      case "reclamo-place":
-        if (!this.placeHandler) {
-          throw new Error("PlaceApprovalHandler no está configurado");
-        }
-        await this.placeHandler.approveReclamo(
-          solicitud.placeId!,
-          solicitud.solicitanteUid!,
-          adminUid,
-        );
-        break;
-      case "actualizacion":
-        // Place update approval — not yet implemented
-        this.logger.warn(
-          `Aprobación de actualización de place no implementada (solicitud ${solicitud.id})`,
-        );
-        break;
+    if (solicitud.tipo === SOLICITUD_TIPO_RECLAMO_PLACE) {
+      await this.requirePlaceHandler().approveReclamo(
+        solicitud.placeId,
+        solicitud.solicitanteUid,
+        adminUid,
+      );
+    } else {
+      this.logger.warn(
+        `Aprobación de tipo ${solicitud.tipo} no implementada (solicitud ${solicitud.id})`,
+      );
     }
   }
 
   /**
    * Reject a solicitud.
-   * - 'registro-evento': rejects the associated evento
-   * - 'actualizacion-evento': no-op (evento stays unchanged)
-   * - 'registro': (future) rejects the associated place — not yet implemented
-   * - 'actualizacion': no-op (place stays unchanged)
+   * - 'reclamo-place': no-op on place, just marks solicitud as rejected.
    */
   async rechazarSolicitud(
     id: string,
@@ -205,39 +180,16 @@ export class SolicitudesService implements SolicitudesServiceInterface {
 
     const now = new Date();
 
-    switch (solicitud.tipo) {
-      case "registro-evento":
-        if (!this.eventoHandler) {
-          throw new Error(EVENTO_HANDLER_MISSING);
-        }
-        await this.eventoHandler.rejectRegistro(solicitud.eventoId!, adminUid);
-        break;
-      case "actualizacion-evento":
-        // No-op: evento stays unchanged on rejection
-        this.logger.log(
-          `Solicitud ${id} (actualizacion-evento) rechazada — evento sin cambios`,
-        );
-        break;
-      case "registro":
-        // Place rejection — not yet implemented
-        this.logger.warn(`Rechazo de place no implementado (solicitud ${id})`);
-        break;
-      case "reclamo-place":
-        if (!this.placeHandler) {
-          throw new Error("PlaceApprovalHandler no está configurado");
-        }
-        await this.placeHandler.rejectReclamo(
-          solicitud.placeId!,
-          solicitud.id,
-          adminUid,
-        );
-        break;
-      case "actualizacion":
-        // No-op: place stays unchanged on rejection
-        this.logger.log(
-          `Solicitud ${id} (actualizacion) rechazada — place sin cambios`,
-        );
-        break;
+    if (solicitud.tipo === SOLICITUD_TIPO_RECLAMO_PLACE) {
+      await this.requirePlaceHandler().rejectReclamo(
+        solicitud.placeId,
+        solicitud.id,
+        adminUid,
+      );
+    } else {
+      this.logger.warn(
+        `Rechazo de tipo ${solicitud.tipo} no implementado (solicitud ${solicitud.id})`,
+      );
     }
 
     const updated = await this.repo.update(id, {

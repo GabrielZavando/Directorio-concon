@@ -64,6 +64,7 @@ jest.mock("@/common/services/firebase.service", () => ({
 const mockSolicitudesService = {
   aprobarSolicitud: jest.fn(),
   rechazarSolicitud: jest.fn(),
+  listarSolicitudes: jest.fn(),
 };
 
 function makeContext(rol: Rol, uid = `uid-${rol}-001`): AuthContext {
@@ -80,8 +81,9 @@ function makeApprovedSolicitud(id: string, adminUid: string) {
     id,
     placeId: "place-001",
     usuarioId: "uid-owner-001",
-    tipo: "registro" as const,
+    tipo: "reclamo-place" as const,
     status: "aprobado" as const,
+    solicitanteUid: "uid-owner-001",
     revisadoPor: adminUid,
     revisadoAt: new Date("2026-07-30T00:00:00Z"),
     createdAt: new Date("2026-07-29T00:00:00Z"),
@@ -97,8 +99,9 @@ function makeRejectedSolicitud(
     id,
     placeId: "place-001",
     usuarioId: "uid-owner-001",
-    tipo: "registro" as const,
+    tipo: "reclamo-place" as const,
     status: "rechazado" as const,
+    solicitanteUid: "uid-owner-001",
     revisadoPor: adminUid,
     revisadoAt: new Date("2026-07-30T00:00:00Z"),
     comentarios,
@@ -155,6 +158,116 @@ describe("SolicitudesController (HTTP)", () => {
   function givenUser(ctx: AuthContext): void {
     mockAuthService.buildContext.mockResolvedValue(ctx);
   }
+
+  // -------------------------------------------------------------------------
+  // GET /solicitudes (CH-05 admin queue)
+  // -------------------------------------------------------------------------
+  describe("GET /solicitudes", () => {
+    it("admin → 200 with { data, meta } envelope; passes status/page/limit to the service", async () => {
+      const ctx = makeContext("admin");
+      givenUser(ctx);
+      const payload = {
+        data: [
+          makeApprovedSolicitud("sol-001", ctx.uid),
+          makeApprovedSolicitud("sol-002", ctx.uid),
+        ],
+        meta: { page: 1, limit: 20, total: 2 },
+      };
+      mockSolicitudesService.listarSolicitudes.mockResolvedValue(payload);
+
+      const res = await request(app.getHttpServer())
+        .get("/solicitudes?status=pendiente&page=1&limit=20")
+        .set("Authorization", "Bearer fake-token");
+
+      expect(res.status).toBe(200);
+      // Envelope shape (dates serialize to ISO strings over HTTP)
+      expect(res.body.meta).toEqual({ page: 1, limit: 20, total: 2 });
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.data[0].id).toBe("sol-001");
+      expect(res.body.data[0].tipo).toBe("reclamo-place");
+      expect(mockSolicitudesService.listarSolicitudes).toHaveBeenCalledWith({
+        status: "pendiente",
+        page: 1,
+        limit: 20,
+      });
+    });
+
+    it("empty queue → 200 with data: [] and meta.total: 0", async () => {
+      const ctx = makeContext("admin");
+      givenUser(ctx);
+      const payload = { data: [], meta: { page: 1, limit: 20, total: 0 } };
+      mockSolicitudesService.listarSolicitudes.mockResolvedValue(payload);
+
+      const res = await request(app.getHttpServer())
+        .get("/solicitudes?status=pendiente")
+        .set("Authorization", "Bearer fake-token");
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual([]);
+      expect(res.body.meta.total).toBe(0);
+    });
+
+    it("without query params → defaults are applied by the service (undefined passed)", async () => {
+      const ctx = makeContext("admin");
+      givenUser(ctx);
+      mockSolicitudesService.listarSolicitudes.mockResolvedValue({
+        data: [],
+        meta: { page: 1, limit: 20, total: 0 },
+      });
+
+      const res = await request(app.getHttpServer())
+        .get("/solicitudes")
+        .set("Authorization", "Bearer fake-token");
+
+      expect(res.status).toBe(200);
+      expect(mockSolicitudesService.listarSolicitudes).toHaveBeenCalledWith({
+        status: undefined,
+        page: undefined,
+        limit: undefined,
+      });
+    });
+
+    it("owner → 403 RolesGuard short-circuit (service not called)", async () => {
+      givenUser(makeContext("owner"));
+
+      const res = await request(app.getHttpServer())
+        .get("/solicitudes")
+        .set("Authorization", "Bearer fake-token");
+
+      expect(res.status).toBe(403);
+      expect(mockSolicitudesService.listarSolicitudes).not.toHaveBeenCalled();
+    });
+
+    it("member → 403 (admin-only endpoint)", async () => {
+      givenUser(makeContext("member"));
+
+      const res = await request(app.getHttpServer())
+        .get("/solicitudes")
+        .set("Authorization", "Bearer fake-token");
+
+      expect(res.status).toBe(403);
+      expect(mockSolicitudesService.listarSolicitudes).not.toHaveBeenCalled();
+    });
+
+    it("anónimo (no Authorization header) → 401 JwtAuthGuard short-circuit", async () => {
+      const res = await request(app.getHttpServer()).get("/solicitudes");
+
+      expect(res.status).toBe(401);
+      expect(mockSolicitudesService.listarSolicitudes).not.toHaveBeenCalled();
+    });
+
+    it("invalid limit (>100) → 400 ValidationPipe", async () => {
+      const ctx = makeContext("admin");
+      givenUser(ctx);
+
+      const res = await request(app.getHttpServer())
+        .get("/solicitudes?limit=1000")
+        .set("Authorization", "Bearer fake-token");
+
+      expect(res.status).toBe(400);
+      expect(mockSolicitudesService.listarSolicitudes).not.toHaveBeenCalled();
+    });
+  });
 
   // -------------------------------------------------------------------------
   // POST /solicitudes/:id/approve

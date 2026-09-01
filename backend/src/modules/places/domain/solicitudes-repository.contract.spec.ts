@@ -30,7 +30,9 @@ class DummySolicitudesRepository implements SolicitudesRepositoryInterface {
 
   async update(
     _id: string,
-    _patch: Partial<Pick<Solicitud, "status" | "comentarios" | "revisadoPor" | "revisadoAt">>,
+    _patch: Partial<
+      Pick<Solicitud, "status" | "comentarios" | "revisadoPor" | "revisadoAt">
+    >,
   ): Promise<Solicitud> {
     return {
       id: "sol-1",
