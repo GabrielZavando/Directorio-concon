@@ -17,7 +17,6 @@ import {
   IsIn,
   MinLength,
   MaxLength,
-  ValidateIf,
 } from "class-validator";
 
 export class RegisterDto {

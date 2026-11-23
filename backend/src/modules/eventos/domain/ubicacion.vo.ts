@@ -17,6 +17,7 @@ export interface Ubicacion {
 }
 
 /** Runtime guard: ensures an `Ubicacion` has the required fields. */
+/* eslint-disable sonarjs/prefer-single-boolean-return -- TODO(fase-2): refactor junto con complexity en PR #23 */
 export function isValidUbicacion(value: unknown): value is Ubicacion {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -49,3 +50,4 @@ export function isValidUbicacion(value: unknown): value is Ubicacion {
   }
   return true;
 }
+/* eslint-enable sonarjs/prefer-single-boolean-return */
