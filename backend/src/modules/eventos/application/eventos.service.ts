@@ -92,7 +92,6 @@ export class EventosService {
       await this.catalogValidator.assertBarrioActivo(dto.barrioId);
     }
 
-    const now = new Date();
     const defaultCurrency = "CLP";
 
     // Persist evento — visible immediately, no auto solicitud.

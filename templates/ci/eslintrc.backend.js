@@ -58,6 +58,16 @@ module.exports = {
     // SOLID: DIP — auxiliary check (the authoritative DIP rule lives in .dependency-cruiser.js)
     'import/no-cycle': ['error', { maxDepth: 10 }],
     'import/no-default-export': 'off',
+
+    // ---- Unused vars — allow underscore-prefixed identifiers ----
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      },
+    ],
   },
   ignorePatterns: ['dist/', 'node_modules/', '*.spec.ts', '*.contract.spec.ts'],
 };

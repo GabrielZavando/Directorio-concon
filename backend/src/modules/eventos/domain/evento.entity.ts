@@ -11,7 +11,6 @@ import type { PrecioMoneda } from "./precio-moneda.enum";
 import type { PublicoObjetivoEnum } from "./publico-objetivo.enum";
 import type { AccesibilidadEnum } from "./accesibilidad.enum";
 import type { NivelRuido } from "./nivel-ruido.enum";
-import type { Coordenadas } from "./coordenadas.vo";
 import type { Ubicacion } from "./ubicacion.vo";
 import type { CambioEvento } from "./cambio-evento.interface";
 import type { Modalidad } from "./modalidad.enum";
