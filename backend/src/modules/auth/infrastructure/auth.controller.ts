@@ -7,18 +7,15 @@ import {
   Res,
   HttpException,
   UseGuards,
-  SetMetadata,
 } from "@nestjs/common";
 import { Response } from "express";
+import { FirebaseError } from "firebase-admin";
 import { RegisterDto } from "./dto/register.dto";
 import { AuthService } from "../application/auth.service";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import {
-  IS_PUBLIC_KEY,
   Public,
 } from "@/modules/auth/application/public.decorator";
-import { ConflictException } from "@nestjs/common";
-
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
@@ -50,14 +47,23 @@ export class AuthController {
         rol: result.rol,
         nombre: result.nombre,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof HttpException) {
         throw error;
       }
       if (
-        error.message?.includes("email-already") ||
+        error instanceof FirebaseError &&
         error.code === "auth/email-already-exists"
       ) {
+        throw new HttpException(
+          {
+            status: HttpStatus.CONFLICT,
+            message: "El email ya está registrado",
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+      if (error instanceof Error && error.message?.includes("email-already")) {
         throw new HttpException(
           {
             status: HttpStatus.CONFLICT,
