@@ -47,7 +47,7 @@ representado y no hay forma de decir "este evento ocurre en un place del directo
 - [ ] Tests: create online sin ubicacion; create presencial con ubicacion; validación de obligatoriedad.
 
 **Cómo arrancar:** `npx openspec propose eventos-location-model` (o `/plan-change`) y seguir SDD (specs → TDD). |
-| CH-05 | solicitudes-refactor | ⬜ PENDING | — |
+| CH-05 | solicitudes-refactor | ✅ DONE | `archive/2026-09-01-solicitudes-refactor` (backend completo; refactor a `reclamo-place`; campos `eventoId`/`proposal` removidos; `GET /solicitudes` paginado; migración DELETE policy; cobertura módulo solicitudes ≥90%; 100% tests verdes) |
 | CH-06 | notificaciones | ⬜ PENDING | — |
 | CH-07 | favoritos | ⬜ PENDING | — |
 | CH-08 | frontend-mvp-v2 | ⬜ PENDING | — |

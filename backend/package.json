@@ -20,11 +20,13 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "ts-node -r tsconfig-paths/register scripts/seed.ts && ts-node -r tsconfig-paths/register scripts/seed-places.ts",
     "seed:cat": "ts-node -r tsconfig-paths/register scripts/seed.ts",
-  "seed:places": "ts-node -r tsconfig-paths/register scripts/seed-places.ts",
-  "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
-  "audit-refs": "ts-node -r tsconfig-paths/register scripts/audit-refs.ts",
+    "seed:places": "ts-node -r tsconfig-paths/register scripts/seed-places.ts",
+    "seed:admin": "ts-node -r tsconfig-paths/register scripts/seed-admin.ts",
+    "audit-refs": "ts-node -r tsconfig-paths/register scripts/audit-refs.ts",
     "migrate:places": "ts-node -r tsconfig-paths/register scripts/migrate-places-verificacion.ts",
-    "migrate:eventos": "ts-node -r tsconfig-paths/register scripts/migrate-eventos-verificacion.ts"
+    "migrate:eventos": "ts-node -r tsconfig-paths/register scripts/migrate-eventos-verificacion.ts",
+    "migrate:solicitudes": "ts-node -r tsconfig-paths/register scripts/migrate-solicitudes.ts",
+    "test:migrate": "jest scripts/migrate-solicitudes.spec.ts --rootDir . --moduleNameMapper \"{\\\"^@/(.*)$\\\":\\\"<rootDir>/src/$1\\\"}\""
   },
   "dependencies": {
     "@nestjs/cache-manager": "^3.1.3",

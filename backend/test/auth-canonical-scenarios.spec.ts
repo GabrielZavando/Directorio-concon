@@ -79,8 +79,11 @@ const validCreateEventoBody = {
   subcategoriaId: "ferias-gastronomicas",
   barrioId: "centro",
   organizador: "Municipalidad de Concón",
-  ubicacionDireccion: "Av. Concón 123",
-  coordenadas: { lat: -32.92, lng: -71.51 },
+  modalidad: "presencial",
+  ubicacion: {
+    direccion: "Av. Concón 123",
+    coordenadas: { lat: -32.92, lng: -71.51 },
+  },
   fechaInicio: "2026-08-15T10:00:00.000Z",
   fechaFin: "2026-08-17T22:00:00.000Z",
   precioTipo: "gratis",
@@ -154,10 +157,10 @@ describe("Auth canonical scenarios (e2e, real AppModule)", () => {
         (collection: string, id: string) =>
           Promise.resolve({ exists: false, id, data: () => null }),
       );
-      // Persist evento, then its auto-generated solicitud.
-      firebase.createDocument
-        .mockResolvedValueOnce({ id: "evento-e2e-1" } as never)
-        .mockResolvedValueOnce({ id: "sol-e2e-1" } as never);
+      // Persist the evento only — visible immediately, no auto solicitud.
+      firebase.createDocument.mockResolvedValueOnce({
+        id: "evento-e2e-1",
+      } as never);
 
       const response = await request(app.getHttpServer())
         .post("/eventos")
@@ -218,6 +221,9 @@ describe("Auth canonical scenarios (e2e, real AppModule)", () => {
 
       // Stateful solicitud read: pendiente until the approval update is
       // written, then aprobado + revisadoPor (mirrors the real adapter).
+      // CH-05: solicitudes are `reclamo-place` only (the adapter forces the
+      // tipo on read, so a legacy `actualizacion` doc is read back as
+      // `reclamo-place`).
       firebase.getDocument.mockImplementation(
         (collection: string, id: string) => {
           if (collection === "solicitudes" && id === "sol-e2e-1") {
@@ -232,8 +238,9 @@ describe("Auth canonical scenarios (e2e, real AppModule)", () => {
                   ? {
                       placeId: "place-1",
                       usuarioId: "owner-uid-e2e",
-                      tipo: "actualizacion",
+                      tipo: "reclamo-place",
                       status: "aprobado",
+                      solicitanteUid: "owner-uid-e2e",
                       revisadoPor: "admin-uid-e2e",
                       createdAt: { toDate: () => new Date("2026-06-01") },
                       revisadoAt: { toDate: () => new Date("2026-06-01") },
@@ -241,16 +248,57 @@ describe("Auth canonical scenarios (e2e, real AppModule)", () => {
                   : {
                       placeId: "place-1",
                       usuarioId: "owner-uid-e2e",
-                      tipo: "actualizacion",
+                      tipo: "reclamo-place",
                       status: "pendiente",
+                      solicitanteUid: "owner-uid-e2e",
                       createdAt: { toDate: () => new Date("2026-06-01") },
                     },
+            });
+          }
+          // Place read(s) for `placeRepo.update`'s findById (ownership transfer).
+          if (collection === "places" && id === "place-1") {
+            return Promise.resolve({
+              exists: true,
+              id: "place-1",
+              data: () => ({
+                nombre: "Restaurante El Marino",
+                slug: "restaurante-el-marino",
+                descripcionCorta: "Mariscos frescos",
+                descripcion: "Restaurante familiar especializado en mariscos",
+                categoriaId: "gastronomia",
+                barrioId: "centro",
+                direccion: "Av. Borgoño 123",
+                planId: "gratuito",
+                abierto24x7: false,
+                estadoVerificacion: "pendiente",
+                gestionadoPorAdmin: true,
+                destacado: false,
+                usuarioId: null,
+                activo: true,
+                createdAt: { toDate: () => new Date("2026-06-01") },
+                updatedAt: { toDate: () => new Date("2026-06-01") },
+              }),
             });
           }
           return Promise.resolve({ exists: false, id, data: () => null });
         },
       );
       firebase.updateDocument.mockResolvedValue(undefined);
+      // findPendingReclamosByPlaceId → no other pending reclamos for the place
+      // (the handler auto-rejects only the siblings, not the one approved).
+      firebase.getFirestore.mockReturnValue({
+        collection: jest.fn().mockReturnValue({
+          where: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnValue({
+              where: jest.fn().mockReturnValue({
+                get: jest
+                  .fn()
+                  .mockResolvedValue({ empty: true, docs: [] } as never),
+              }),
+            }),
+          }),
+        }),
+      } as never);
 
       const response = await request(app.getHttpServer())
         .post("/solicitudes/sol-e2e-1/approve")
@@ -265,6 +313,16 @@ describe("Auth canonical scenarios (e2e, real AppModule)", () => {
         expect.objectContaining({
           revisadoPor: "admin-uid-e2e",
           status: "aprobado",
+        }),
+      );
+      // The handler transferred ownership (place.usuarioId = solicitud.solicitanteUid)
+      // and disabled admin management on the place.
+      expect(firebase.updateDocument).toHaveBeenCalledWith(
+        "places",
+        "place-1",
+        expect.objectContaining({
+          usuarioId: "owner-uid-e2e",
+          gestionadoPorAdmin: false,
         }),
       );
     });
@@ -362,50 +420,83 @@ describe("Auth canonical scenarios (e2e, real AppModule)", () => {
   });
 
   // =========================================================================
-  // Scenario G — F-02: place solicitud persisted via the real repo (not stub)
+  // Scenario G — F-02: owner claims a place → reclamo-place solicitud
+  // persisted via the real repo (not stub). CH-05: claiming (not place
+  // creation) is what creates a solicitud, and it is always `reclamo-place`.
   // =========================================================================
-  describe("G. F-02 — owner creates place → solicitud persisted (real repo)", () => {
-    it("POST /places with owner Bearer → 201, solicitud document created with real id", async () => {
+  describe("G. F-02 — owner claims place → reclamo-place solicitud persisted", () => {
+    it("POST /places/:id/reclamar with owner Bearer → 201, reclamo-place solicitud created with real id", async () => {
       firebase.verifyIdToken.mockResolvedValue({
         uid: "owner-uid-e2e",
         email: "owner@example.com",
         rol: "owner",
       } as never);
 
-      // Slug uniqueness check: no existing place with that slug.
-      firebase.getDocuments.mockResolvedValue({
-        empty: true,
-        docs: [],
-      } as never);
-      // Default document reads → not found (falls back to created payloads).
+      // The target place exists and is currently unclaimed (admin-managed).
       firebase.getDocument.mockImplementation(
-        (collection: string, id: string) =>
-          Promise.resolve({ exists: false, id, data: () => null }),
+        (collection: string, id: string) => {
+          if (collection === "places" && id === "place-e2e-1") {
+            return Promise.resolve({
+              exists: true,
+              id,
+              data: () => ({
+                nombre: "Restaurante El Marino",
+                slug: "restaurante-el-marino",
+                descripcionCorta: "Mariscos frescos",
+                descripcion: "Restaurante familiar especializado en mariscos",
+                categoriaId: "gastronomia",
+                barrioId: "higuerillas",
+                direccion: "Av. Borgoño 123",
+                planId: "gratuito",
+                abierto24x7: false,
+                estadoVerificacion: "pendiente",
+                gestionadoPorAdmin: true,
+                destacado: false,
+                usuarioId: null,
+                activo: true,
+                createdAt: { toDate: () => new Date("2026-01-01") },
+                updatedAt: { toDate: () => new Date("2026-01-01") },
+              }),
+            });
+          }
+          // Solicitud read-back after creation.
+          if (collection === "solicitudes") {
+            return Promise.resolve({
+              exists: true,
+              id,
+              data: () => ({
+                placeId: "place-e2e-1",
+                usuarioId: null,
+                tipo: "reclamo-place",
+                status: "pendiente",
+                solicitanteUid: "owner-uid-e2e",
+                createdAt: { toDate: () => new Date("2026-06-01") },
+              }),
+            });
+          }
+          return Promise.resolve({ exists: false, id, data: () => null });
+        },
       );
-      // 1st createDocument → the place, 2nd → the auto-generated solicitud.
-      firebase.createDocument
-        .mockResolvedValueOnce({ id: "place-e2e-1" } as never)
-        .mockResolvedValueOnce({ id: "sol-e2e-1" } as never);
+      // createDocument → the created solicitud (real repo, not stub).
+      firebase.createDocument.mockResolvedValueOnce({
+        id: "sol-e2e-1",
+      } as never);
 
       const response = await request(app.getHttpServer())
-        .post("/places")
+        .post("/places/place-e2e-1/reclamar")
         .set("Authorization", "Bearer fake-idToken-owner")
-        .send(validCreatePlaceBody)
         .expect(201);
 
-      // The place persisted with the verified token uid (no "anonymous" stub).
-      expect(response.body.id).toBe("place-e2e-1");
-      expect(response.body.usuarioId).toBe("owner-uid-e2e");
-      // The solicitud is persisted via the real repo on the 'solicitudes'
-      // collection, linked to the new place (no StubSolicitudesRepository).
-      expect(firebase.createDocument).toHaveBeenNthCalledWith(
-        2,
+      expect(response.body).toEqual({ claimed: true, placeId: "place-e2e-1" });
+      // The solicitud is persisted via the real repo on 'solicitudes' with
+      // solicitanteUid = the verified owner uid (no StubSolicitudesRepository).
+      expect(firebase.createDocument).toHaveBeenCalledWith(
         "solicitudes",
         expect.objectContaining({
           placeId: "place-e2e-1",
-          usuarioId: "owner-uid-e2e",
-          tipo: "registro",
+          tipo: "reclamo-place",
           status: "pendiente",
+          solicitanteUid: "owner-uid-e2e",
         }),
       );
     });

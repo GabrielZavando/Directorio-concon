@@ -92,7 +92,10 @@ describe("places-service.helpers", () => {
         horarios: undefined,
         horariosEspeciales: undefined,
       } as unknown as Place;
-      const result = resolveAbiertoAhora(place, new Date("2026-08-25T12:00:00Z"));
+      const result = resolveAbiertoAhora(
+        place,
+        new Date("2026-08-25T12:00:00Z"),
+      );
       expect(result.abierto).toBe(false);
     });
   });

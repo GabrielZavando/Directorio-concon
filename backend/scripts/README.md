@@ -12,6 +12,8 @@ Scripts TypeScript ejecutables con `ts-node` (o `npx ts-node`). Requieren creden
 | `npm run audit-refs` | Escanea `places` y `eventos`, valida que cada `categoriaId`/`subcategoriaId`/`barrioId` resuelva a un doc existente en los catálogos. Imprime `{ validos, huerfanos }`. Exit code `0` si no hay huérfanos, `1` si los hay. Usar antes de activar `CATALOG_VALIDATION_ENABLED=true` en staging/prod. |
 | `npm run migrate:places` | Migración idempotente de `places` al modelo de verificación (CH-03): reemplaza `status`+`verificado` por `activo`+`estadoVerificacion`+`gestionadoPorAdmin`. Puede ejecutarse varias veces de forma segura (salta docs ya migrados). |
 | `npm run migrate:eventos` | Migración idempotente de `eventos` al modelo de verificación (CH-04): reemplaza `status`+`verificado`+`placeId`+`ubicacionNombre`/`ubicacionDireccion`/`coordenadas` planas por `activo`+`estadoVerificacion`+`motivoRechazoVerificacion`+`ubicacion.{nombreLugar,direccion,coordenadas}`+`cambios[]`. Salta docs que ya tienen `estadoVerificacion`. Sintetiza `ubicacion` desde los campos planos cuando existan. |
+| `npm run migrate:solicitudes` | Migración idempotente de `solicitudes` al modelo CH-05 (`solicitudes-refactor`), política **DELETE**. Resumen: elimina docs con `tipo` legacy (`registro`/`actualizacion`/`registro-evento`/`actualizacion-evento`) o que aún cargan los campos removidos `eventoId`/`proposal`; hace backfill de `solicitanteUid = usuarioId` en `reclamo-place` donde falta; reporta huérfanos (sin ambos UIDs) sin destruirlos. Imprime reporte `{ scanned, deleted, backfilled, orphans }` y es re-ejecutable como no-op. |
+| `npm run test:migrate` | Corre los unit tests de la lógica pura de migración de `solicitudes` (`scripts/migrate-solicitudes.spec.ts`, vía `lib/solicitudes-migration.ts`) **sin** requerir emulador ni credenciales. |
 
 ## Uso en local
 
@@ -40,6 +42,26 @@ npm run audit-refs   # debe mostrar 0 huérfanos
 # Seed (solo categorías nuevas; los places/eventos reales no se sobrescriben por slug-key)
 npm run seed:cat
 ```
+
+## Migración de `solicitudes` (CH-05, one-time)
+
+`npm run migrate:solicitudes` alinea la colección `solicitudes` con el modelo CH-05, donde solo queda el tipo `reclamo-place` y se eliminaron los campos `eventoId`/`proposal`.
+
+**Política de acción por documento:**
+
+| Caso | Acción |
+|------|--------|
+| `tipo` legacy (`registro`, `actualizacion`, `registro-evento`, `actualizacion-evento`) | **DELETE** (por lotes, `WriteBatch` ≤ 400 ops). No se convierte a `reclamo-place`. |
+| Tiene `eventoId` o `proposal` (campos removidos) | **DELETE**. |
+| `reclamo-place` sin `solicitanteUid` con `usuarioId` presente | **Backfill** `solicitanteUid = usuarioId` (`set(merge:true)`). |
+| `reclamo-place` sin ambos UIDs | **Huérfano** → log warning con doc ID, **no** se destruye (contado en `orphans`). |
+| `reclamo-place` completo | **Skip** (idempotente). |
+
+**Advertencias:**
+
+- **Es una migración destructiva one-time** (borra docs legacy). Antes de ejecutarla contra producción, respaldar la colección `solicitudes` (export de Firestore o snapshot).
+- Re-ejecutar es un **no-op**: los contadores `deleted`/`backfilled`/`orphans` quedan en cero (solo `scanned` avanza).
+- La lógica de clasificación pura está en `scripts/lib/solicitudes-migration.ts` y se verifica con `npm run test:migrate` (sin emulador). Para una verificación end-to-end adicional con el emulador local, seedear docs del modelo viejo y re-ejecutar el mismo binario.
 
 ## Conflictos de slugs en producción
 

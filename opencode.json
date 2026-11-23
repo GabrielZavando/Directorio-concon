@@ -10,19 +10,36 @@
         "apiKey": "sk-aad2f9f3f277f6d8-ce79b3-b14add23"
       },
       "models": {
-        "gemini/gemini-3.5-flash": {
-          "name": "Gemini 3.5 Flash Free"
+        "auto/best-free": {
+          "name": "Auto Best Free",
+          "tool_call": true
         },
-        "groq/qwen/qwen3.6-27b": {
-          "name": "Qwen 3.6 27B"
+        "auto/pro-coding": {
+          "name": "Auto Pro Coding",
+          "tool_call": true
+        },
+        "auto/best-coding": {
+          "name": "Auto Best Coding",
+          "tool_call": true
+        },
+        "auto/best-coding-fast": {
+          "name": "Auto Best Coding Fast",
+          "tool_call": true
+        },
+        "auto/best-reasoning": {
+          "name": "Auto Best Reasoning",
+          "reasoning": true,
+          "tool_call": true
+        },
+        "auto/best-vision": {
+          "name": "Auto Best Vision",
+          "attachment": true,
+          "tool_call": true
         }
       }
     }
   },
-  "instructions": [
-    "docs/base-standards.md",
-    "AGENTS.md"
-  ],
+  "instructions": ["docs/base-standards.md", "AGENTS.md"],
   "permission": {
     "edit": "allow",
     "bash": {

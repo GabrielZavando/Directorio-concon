@@ -1,18 +1,34 @@
 /**
- * Unit tests for SolicitudesService.
+ * Unit tests for SolicitudesService (CH-05 solicitudes-refactor).
+ *
+ * Only `reclamo-place` remains. Covers:
+ *  - `create`: rejects removed `eventoId` (400, exact message), rejects
+ *    non-`reclamo-place`/missing `placeId` (400, exact message), delegates
+ *    valid creates to the repository.
+ *  - `listarSolicitudes`: admin queue envelope `{ data, meta }` with default
+ *    filters and pagination.
+ *  - `aprobarSolicitud` / `rechazarSolicitud`: 404 / 409 invariants and
+ *    delegation to `PlaceApprovalHandler.approveReclamo` / `rejectReclamo`.
  */
 import { Test, TestingModule } from "@nestjs/testing";
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { SolicitudesService } from "./solicitudes.service";
 import { SOLICITUDES_REPOSITORY } from "../domain/solicitudes-repository.token";
 import type { SolicitudesRepositoryInterface } from "../domain/solicitudes-repository.interface";
 import type { Solicitud } from "../domain/solicitud.entity";
 import {
-  EVENTO_APPROVAL_HANDLER,
   PLACE_APPROVAL_HANDLER,
-  type EventoApprovalHandler,
   type PlaceApprovalHandler,
 } from "./approval-handlers";
+
+const CAMPO_REMOVIDO_MSG =
+  "El campo 'eventoId' ha sido removido en CH-05 solicitudes-refactor. Use placeId para solicitudes de tipo 'reclamo-place'.";
+const TIPO_NO_PERMITIDO_MSG =
+  "Tipo de solicitud no permitido en esta fase. Solo 'reclamo-place' es válido.";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -20,20 +36,12 @@ import {
 const mockRepo: jest.Mocked<SolicitudesRepositoryInterface> = {
   create: jest.fn(),
   findById: jest.fn(),
-  existsByPlaceId: jest.fn(),
-  existsPendingByEventoId: jest.fn(),
   findPendingReclamosByPlaceId: jest.fn(),
+  findPendingQueue: jest.fn(),
   update: jest.fn(),
 };
 
-const mockEventoHandler: jest.Mocked<EventoApprovalHandler> = {
-  approveRegistro: jest.fn(),
-  applyProposal: jest.fn(),
-  rejectRegistro: jest.fn(),
-};
-
 const mockPlaceHandler: jest.Mocked<PlaceApprovalHandler> = {
-  approveRegistro: jest.fn(),
   approveReclamo: jest.fn(),
   rejectReclamo: jest.fn(),
 };
@@ -45,11 +53,10 @@ function makeSolicitud(overrides: Partial<Solicitud> = {}): Solicitud {
   return {
     id: "sol-1",
     placeId: "place-1",
-    eventoId: undefined,
     usuarioId: "user-abc",
-    tipo: "registro",
+    tipo: "reclamo-place",
     status: "pendiente",
-    proposal: undefined,
+    solicitanteUid: "claim-1",
     comentarios: undefined,
     revisadoPor: undefined,
     createdAt: new Date("2026-01-01"),
@@ -57,6 +64,12 @@ function makeSolicitud(overrides: Partial<Solicitud> = {}): Solicitud {
     ...overrides,
   };
 }
+
+const baseInput = {
+  usuarioId: "user-abc",
+  status: "pendiente" as const,
+  createdAt: new Date("2026-01-01"),
+};
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -69,7 +82,6 @@ describe("SolicitudesService", () => {
       providers: [
         SolicitudesService,
         { provide: SOLICITUDES_REPOSITORY, useValue: mockRepo },
-        { provide: EVENTO_APPROVAL_HANDLER, useValue: mockEventoHandler },
         { provide: PLACE_APPROVAL_HANDLER, useValue: mockPlaceHandler },
       ],
     }).compile();
@@ -81,133 +93,106 @@ describe("SolicitudesService", () => {
     jest.clearAllMocks();
   });
 
-  // =========================================================================
-  // create (places interface)
-  // =========================================================================
   describe("create", () => {
-    it("creates a solicitud via the repository", async () => {
+    it("rejects a create input carrying the removed eventoId field (400, exact message)", async () => {
+      const call = service.create({
+        ...baseInput,
+        placeId: "p1",
+        eventoId: "e1",
+        tipo: "reclamo-place",
+        solicitanteUid: "claim-1",
+      });
+
+      await expect(call).rejects.toThrow(BadRequestException);
+      await expect(call).rejects.toThrow(CAMPO_REMOVIDO_MSG);
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects a non-'reclamo-place' tipo (400, exact message)", async () => {
+      const call = service.create({
+        ...baseInput,
+        placeId: "p1",
+        tipo: "registro" as "reclamo-place",
+        solicitanteUid: "claim-1",
+      });
+
+      await expect(call).rejects.toThrow(BadRequestException);
+      await expect(call).rejects.toThrow(TIPO_NO_PERMITIDO_MSG);
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects a missing placeId (400, exact message)", async () => {
+      const call = service.create({
+        ...baseInput,
+        placeId: undefined as unknown as string,
+        tipo: "reclamo-place",
+        solicitanteUid: "claim-1",
+      });
+
+      await expect(call).rejects.toThrow(BadRequestException);
+      await expect(call).rejects.toThrow(TIPO_NO_PERMITIDO_MSG);
+      expect(mockRepo.create).not.toHaveBeenCalled();
+    });
+
+    it("delegates a valid reclamo-place create to the repository", async () => {
       const expected = makeSolicitud();
       mockRepo.create.mockResolvedValue(expected);
 
       const result = await service.create({
+        ...baseInput,
         placeId: "place-1",
-        usuarioId: "user-abc",
-        tipo: "registro",
-        status: "pendiente",
-        createdAt: new Date("2026-01-01"),
+        tipo: "reclamo-place",
+        solicitanteUid: "claim-1",
       });
 
       expect(result).toEqual(expected);
       expect(mockRepo.create).toHaveBeenCalledWith({
+        ...baseInput,
         placeId: "place-1",
-        usuarioId: "user-abc",
-        tipo: "registro",
-        status: "pendiente",
+        tipo: "reclamo-place",
+        solicitanteUid: "claim-1",
         createdAt: expect.any(Date),
       });
     });
   });
 
-  // =========================================================================
-  // existsByPlaceId
-  // =========================================================================
-  describe("existsByPlaceId", () => {
-    it("delegates to repository", async () => {
-      mockRepo.existsByPlaceId.mockResolvedValue(true);
+  describe("listarSolicitudes", () => {
+    it("returns the { data, meta } envelope from the repository queue (defaults to pendiente)", async () => {
+      mockRepo.findPendingQueue.mockResolvedValue({
+        items: [makeSolicitud()],
+        total: 1,
+      });
 
-      const result = await service.existsByPlaceId("place-1");
+      const result = await service.listarSolicitudes({});
 
-      expect(result).toBe(true);
-      expect(mockRepo.existsByPlaceId).toHaveBeenCalledWith("place-1");
-    });
-  });
-
-  // =========================================================================
-  // createEventoSolicitud (eventos interface)
-  // =========================================================================
-  describe("createEventoSolicitud", () => {
-    it("creates a solicitud and returns id", async () => {
-      mockRepo.create.mockResolvedValue(
-        makeSolicitud({
-          id: "sol-e1",
-          eventoId: "evento-1",
-          tipo: "registro-evento",
-        }),
+      expect(result).toEqual({
+        data: [makeSolicitud()],
+        meta: { page: 1, limit: 20, total: 1 },
+      });
+      expect(mockRepo.findPendingQueue).toHaveBeenCalledWith(
+        "pendiente",
+        1,
+        20,
       );
+    });
 
-      const result = await service.createEventoSolicitud({
-        eventoId: "evento-1",
-        usuarioId: "user-abc",
-        tipo: "registro-evento",
-        status: "pendiente",
-        createdAt: new Date("2026-01-01"),
+    it("passes through explicit status/page/limit filters", async () => {
+      mockRepo.findPendingQueue.mockResolvedValue({ items: [], total: 0 });
+
+      await service.listarSolicitudes({
+        status: "rechazado",
+        page: 3,
+        limit: 10,
       });
 
-      expect(result.id).toBe("sol-e1");
-      expect(mockRepo.create).toHaveBeenCalledWith({
-        eventoId: "evento-1",
-        usuarioId: "user-abc",
-        tipo: "registro-evento",
-        status: "pendiente",
-        createdAt: expect.any(Date),
-      });
+      expect(mockRepo.findPendingQueue).toHaveBeenCalledWith(
+        "rechazado",
+        3,
+        10,
+      );
     });
   });
 
-  // =========================================================================
-  // XOR constraint (placeId ⊕ eventoId) — enforced at the application boundary
-  // =========================================================================
-  const XOR_MSG =
-    "Una solicitud debe referenciar exactamente un placeId o eventoId (XOR)";
-  const baseInput = {
-    usuarioId: "user-abc",
-    status: "pendiente" as const,
-    createdAt: new Date("2026-01-01"),
-  };
-  const bothReg = { placeId: "p1", eventoId: "e1", tipo: "registro" } as const;
-  const bothEv = {
-    placeId: "p1",
-    eventoId: "e1",
-    tipo: "registro-evento",
-  } as const;
-
-  it.each([
-    ["both", bothReg],
-    ["both-evento", bothEv],
-    ["none", { tipo: "registro" }],
-    ["mismatch", { placeId: "p1", tipo: "registro-evento" }],
-  ] as const)("create %s (400)", async (_label, refs) => {
-    const call = service.create({ ...baseInput, ...refs });
-    await expect(call).rejects.toThrow(XOR_MSG);
-    expect(mockRepo.create).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ["both", bothEv],
-    ["none", { tipo: "registro-evento" }],
-  ] as const)("createEvento %s (400)", async (_label, refs) => {
-    const call = service.createEventoSolicitud({ ...baseInput, ...refs });
-    await expect(call).rejects.toThrow(XOR_MSG);
-    expect(mockRepo.create).not.toHaveBeenCalled();
-  });
-
-  // =========================================================================
-  // existsPendingByEventoId
-  // =========================================================================
-  describe("existsPendingByEventoId", () => {
-    it("delegates to repository", async () => {
-      mockRepo.existsPendingByEventoId.mockResolvedValue(true);
-
-      const result = await service.existsPendingByEventoId("evento-1");
-
-      expect(result).toBe(true);
-      expect(mockRepo.existsPendingByEventoId).toHaveBeenCalledWith("evento-1");
-    });
-  });
-
-  // =========================================================================
-  // aprobarSolicitud
-  // =========================================================================
   describe("aprobarSolicitud", () => {
     it("throws NotFoundException when solicitud does not exist", async () => {
       mockRepo.findById.mockResolvedValue(null);
@@ -227,87 +212,10 @@ describe("SolicitudesService", () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it("approves registro-evento and calls evento handler", async () => {
-      const sol = makeSolicitud({
-        id: "sol-e1",
-        eventoId: "evento-1",
-        tipo: "registro-evento",
-        placeId: undefined,
-      });
-      mockRepo.findById.mockResolvedValue(sol);
-      mockRepo.update.mockResolvedValue(
-        makeSolicitud({
-          ...sol,
-          status: "aprobado",
-          revisadoPor: "admin-1",
-          revisadoAt: new Date(),
-        }),
-      );
-
-      const result = await service.aprobarSolicitud("sol-e1", "admin-1");
-
-      expect(mockEventoHandler.approveRegistro).toHaveBeenCalledWith(
-        "evento-1",
-        "admin-1",
-      );
-      expect(result.status).toBe("aprobado");
-      expect(result.revisadoPor).toBe("admin-1");
-    });
-
-    it("approves actualizacion-evento and applies proposal", async () => {
-      const sol = makeSolicitud({
-        id: "sol-e2",
-        eventoId: "evento-1",
-        tipo: "actualizacion-evento",
-        proposal: { nombre: "Evento Actualizado" },
-        placeId: undefined,
-      });
-      mockRepo.findById.mockResolvedValue(sol);
-      mockRepo.update.mockResolvedValue(
-        makeSolicitud({
-          ...sol,
-          status: "aprobado",
-          revisadoPor: "admin-1",
-        }),
-      );
-
-      await service.aprobarSolicitud("sol-e2", "admin-1");
-
-      expect(mockEventoHandler.applyProposal).toHaveBeenCalledWith("evento-1", {
-        nombre: "Evento Actualizado",
-      });
-    });
-
-    it("approves registro and calls place handler", async () => {
-      const sol = makeSolicitud({
-        id: "sol-p1",
-        placeId: "place-1",
-        tipo: "registro",
-        eventoId: undefined,
-      });
-      mockRepo.findById.mockResolvedValue(sol);
-      mockRepo.update.mockResolvedValue(
-        makeSolicitud({
-          ...sol,
-          status: "aprobado",
-          revisadoPor: "admin-1",
-        }),
-      );
-
-      await service.aprobarSolicitud("sol-p1", "admin-1");
-
-      expect(mockPlaceHandler.approveRegistro).toHaveBeenCalledWith(
-        "place-1",
-        "admin-1",
-      );
-    });
-
     it("approves reclamo-place and calls place handler approveReclamo", async () => {
       const sol = makeSolicitud({
         id: "sol-rc1",
         placeId: "place-1",
-        tipo: "reclamo-place",
-        eventoId: undefined,
         solicitanteUid: "claimant-uid",
       });
       mockRepo.findById.mockResolvedValue(sol);
@@ -319,19 +227,22 @@ describe("SolicitudesService", () => {
         }),
       );
 
-      await service.aprobarSolicitud("sol-rc1", "admin-1");
+      const result = await service.aprobarSolicitud("sol-rc1", "admin-1");
 
       expect(mockPlaceHandler.approveReclamo).toHaveBeenCalledWith(
         "place-1",
         "claimant-uid",
         "admin-1",
       );
+      expect(result.status).toBe("aprobado");
+      expect(result.revisadoPor).toBe("admin-1");
+      expect(mockRepo.update).toHaveBeenCalledWith(
+        "sol-rc1",
+        expect.objectContaining({ status: "aprobado", revisadoPor: "admin-1" }),
+      );
     });
   });
 
-  // =========================================================================
-  // rechazarSolicitud
-  // =========================================================================
   describe("rechazarSolicitud", () => {
     it("throws NotFoundException when solicitud does not exist", async () => {
       mockRepo.findById.mockResolvedValue(null);
@@ -351,62 +262,10 @@ describe("SolicitudesService", () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it("rejects registro-evento and calls evento handler", async () => {
-      const sol = makeSolicitud({
-        id: "sol-e1",
-        eventoId: "evento-1",
-        tipo: "registro-evento",
-        placeId: undefined,
-      });
-      mockRepo.findById.mockResolvedValue(sol);
-      mockRepo.update.mockResolvedValue(
-        makeSolicitud({
-          ...sol,
-          status: "rechazado",
-          revisadoPor: "admin-1",
-        }),
-      );
-
-      const result = await service.rechazarSolicitud(
-        "sol-e1",
-        "admin-1",
-        "Documentación incompleta",
-      );
-
-      expect(mockEventoHandler.rejectRegistro).toHaveBeenCalledWith(
-        "evento-1",
-        "admin-1",
-      );
-      expect(result.status).toBe("rechazado");
-      expect(mockRepo.update).toHaveBeenCalledWith(
-        "sol-e1",
-        expect.objectContaining({ comentarios: "Documentación incompleta" }),
-      );
-    });
-
-    it("rejects actualizacion-evento without calling evento handler", async () => {
-      const sol = makeSolicitud({
-        id: "sol-e2",
-        eventoId: "evento-1",
-        tipo: "actualizacion-evento",
-        placeId: undefined,
-      });
-      mockRepo.findById.mockResolvedValue(sol);
-      mockRepo.update.mockResolvedValue(
-        makeSolicitud({ ...sol, status: "rechazado" }),
-      );
-
-      await service.rechazarSolicitud("sol-e2", "admin-1");
-
-      expect(mockEventoHandler.rejectRegistro).not.toHaveBeenCalled();
-    });
-
     it("rejects reclamo-place and calls place handler rejectReclamo", async () => {
       const sol = makeSolicitud({
         id: "sol-rc1",
         placeId: "place-1",
-        tipo: "reclamo-place",
-        eventoId: undefined,
         solicitanteUid: "claimant-uid",
       });
       mockRepo.findById.mockResolvedValue(sol);
@@ -414,7 +273,7 @@ describe("SolicitudesService", () => {
         makeSolicitud({ ...sol, status: "rechazado" }),
       );
 
-      await service.rechazarSolicitud(
+      const result = await service.rechazarSolicitud(
         "sol-rc1",
         "admin-1",
         "Reclamo no válido",
@@ -425,6 +284,7 @@ describe("SolicitudesService", () => {
         "sol-rc1",
         "admin-1",
       );
+      expect(result.status).toBe("rechazado");
       expect(mockRepo.update).toHaveBeenCalledWith(
         "sol-rc1",
         expect.objectContaining({ comentarios: "Reclamo no válido" }),

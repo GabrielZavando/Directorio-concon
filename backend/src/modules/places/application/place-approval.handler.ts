@@ -2,10 +2,11 @@
  * Implements PlaceApprovalHandler for the solicitudes module.
  * Updates place status during solicitud approval.
  *
- * Updated by places-refactor (CH-03): approval now sets `activo=true`
- * + `estadoVerificacion='verificado'` instead of old `status='aprobado'`.
- * Added `approveReclamo` (transfer ownership + auto-reject other reclamos)
- * and `rejectReclamo` (no-op on place).
+ * Updated by places-refactor (CH-03): approvals set `activo=true` +
+ * `estadoVerificacion='verificado'`, and `approveReclamo`/`rejectReclamo`
+ * were added for the `reclamo-place` flow.
+ * CH-05 (solicitudes-refactor): removed `approveRegistro` (legacy `registro`
+ * solicitud tipo is gone — only `reclamo-place` remains).
  */
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import type { PlaceApprovalHandler } from "../../solicitudes/application/approval-handlers";
@@ -24,16 +25,6 @@ export class PlaceApprovalHandlerImpl implements PlaceApprovalHandler {
     @Inject(SOLICITUDES_REPOSITORY)
     private readonly solicitudRepo: SolicitudesRepositoryInterface,
   ) {}
-
-  async approveRegistro(placeId: string, adminUid: string): Promise<void> {
-    await this.placeRepo.update(placeId, {
-      activo: true,
-      estadoVerificacion: "verificado",
-      gestionadoPorAdmin: false,
-      updatedAt: new Date(),
-    });
-    this.logger.log(`Place ${placeId} approved via solicitud by ${adminUid}`);
-  }
 
   async approveReclamo(
     placeId: string,

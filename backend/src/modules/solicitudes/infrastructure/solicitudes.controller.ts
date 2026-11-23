@@ -34,7 +34,15 @@
  * param, the verified user, and (for reject) the optional `comentarios`
  * from the body; delegates everything else to the service.
  */
-import { Body, Controller, Param, Post, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 import { SolicitudesService } from "../application/solicitudes.service";
 import { Solicitud } from "../domain/solicitud.entity";
 import { JwtAuthGuard } from "../../auth/application/jwt-auth.guard";
@@ -43,12 +51,32 @@ import { Roles } from "../../auth/application/roles.decorator";
 import { CurrentUser } from "../../auth/application/current-user.decorator";
 import type { AuthContext } from "../../auth/domain/auth-context.interface";
 import { RejectSolicitudDto } from "./dto/reject-solicitud.dto";
+import { QuerySolicitudesDto } from "./dto/query-solicitudes.dto";
 
 @Controller("solicitudes")
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles("admin")
 export class SolicitudesController {
   constructor(private readonly solicitudesService: SolicitudesService) {}
+
+  // -------------------------------------------------------------------------
+  // GET /solicitudes (CH-05 admin queue)
+  // -------------------------------------------------------------------------
+  /**
+   * Admin-only queue listing. Returns only `reclamo-place` solicitudes,
+   * filtered by `status` (default `'pendiente'`), paginated, in the
+   * `{ data, meta }` envelope. Guarded by the class-level `@Roles('admin')`.
+   */
+  @Get()
+  async listar(
+    @Query() query: QuerySolicitudesDto,
+  ): Promise<{ data: Solicitud[]; meta: unknown }> {
+    return this.solicitudesService.listarSolicitudes({
+      status: query.status,
+      page: query.page,
+      limit: query.limit,
+    });
+  }
 
   // -------------------------------------------------------------------------
   // POST /solicitudes/:id/approve
