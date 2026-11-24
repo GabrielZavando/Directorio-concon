@@ -18,6 +18,15 @@ module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
   parserOptions: { project: './tsconfig.json' },
+  settings: {
+    'import/resolver': {
+      node: {},
+      typescript: {
+        project: ['./tsconfig.json', './tsconfig.test.json'],
+        alwaysTryTypes: true,
+      },
+    },
+  },
   plugins: ['@typescript-eslint', 'sonarjs', 'import'],
   extends: [
     'eslint:recommended',
