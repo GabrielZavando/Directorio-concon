@@ -142,7 +142,15 @@ solid-lint:
 	    if [ -f "$$d/package.json" ] || [ -d "$$d/src" ] || [ -d "$$d/app" ]; then \
 	      ran_any=1; \
 	      echo "  → $$d: ESLint (NestJS)"; \
-	      [ -f templates/ci/eslintrc.backend.js ] && npx eslint@8 -c templates/ci/eslintrc.backend.js "$$d/**/*.{ts,tsx}"; \
+	      (cd "$$d" && NODE_PATH=$$(pwd)/node_modules ./node_modules/.bin/eslint \
+	      -c ../templates/ci/eslintrc.backend.js \
+	      --resolve-plugins-relative-to . \
+	      'src/**/*.{ts,tsx}'); \
+	      exit_code=$$?; \
+	      if [ $$exit_code -ne 0 ]; then \
+	        echo "    ✗ $${d} ESLint (NestJS) failed with exit $$exit_code"; \
+	        exit $$exit_code; \
+	      fi; \
 	      if [ -f "$$d/angular.json" ]; then \
 	        echo "  → $$d: ESLint (Angular)"; \
 	        [ -f templates/ci/eslintrc.frontend.js ] && npx eslint@8 -c templates/ci/eslintrc.frontend.js "$$d/**/*.{ts,tsx}"; \
